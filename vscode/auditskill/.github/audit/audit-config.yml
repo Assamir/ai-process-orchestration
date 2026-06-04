@@ -1,0 +1,30 @@
+thresholds:
+  agent_instructions_tokens_warn: 2000
+  agent_instructions_tokens_crit: 4000
+  toolset_size_warn: 15
+  doc_duplication_jaccard: 0.6
+  mcp_tools_unused_pct: 30
+  handoff_prompt_tokens_warn: 500
+  description_similarity_warn: 0.85
+
+token_estimator: tiktoken-cl100k
+
+glob_patterns:
+  instructions:
+    - .github/copilot-instructions.md
+    - .github/instructions/**/*.instructions.md
+  prompts:
+    - .github/prompts/**/*.prompt.md
+  agents:
+    - .github/agents/**/*.agent.md
+    - .github/chatmodes/**/*.chatmode.md
+  mcp:
+    - .vscode/mcp.json
+    - .vscode/settings.json
+
+metrics_input:
+  copilot_metrics_snapshot: .github/audit/audit-input/metrics.json
+
+report:
+  language: pl
+  max_findings_in_deep: 12
