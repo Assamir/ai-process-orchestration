@@ -8,7 +8,8 @@
     "claude-agent-scaffold": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "INSTALL.md"
   ],
   "engines": {
     "node": ">=20"
@@ -18,7 +19,12 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build",
+    "pack:tarball": "npm pack",
+    "pack:check": "npm run build && npm pack --dry-run",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build",
+    "release": "npm publish"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0"
