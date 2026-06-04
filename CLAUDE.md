@@ -6,11 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a multi-purpose workspace for AI-process tooling and notes. It is not a single application.
 
-- `vscode/auditskill/` — the only shipped artifact: a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies.
+- `vscode/auditskill/` — a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies.
+- `cli/` — **claude-agent-scaffold**, an npm/npx TypeScript CLI that scaffolds multi-agent AI setups into a target repo (the repo's first real npm package). See its own section below.
 - `knowledge-markdowns/` — Polish-language course transcripts from **AI Devs 4** (`s01e01`…`s05e05`) and **10xDevs 3** (lekcje o agentach, MCP, Playwright, PRD, etc.). Reference material only — do not treat as source.
 - `claude/`, `mcp/` — currently empty placeholders.
 
-There is no top-level build, test, or lint. There is no root `package.json`, `.gitignore`, `README.md`, `.cursorrules`, or `copilot-instructions.md`. All build/lint/test surface lives inside `vscode/auditskill/`.
+There is no top-level build, test, or lint, and no root `package.json`/`.gitignore`/`README.md`. Each shipped artifact owns its own surface: `vscode/auditskill/` is zero-dep ESM scripts, `cli/` is a normal npm package with its own build/test.
 
 ## vscode/auditskill — the audit-agents skill
 
@@ -56,7 +57,40 @@ The first word of the user's message routes to a procedure: `scan` | `deep` | `r
 
 ### Configuration
 
-`audit-config.yml` holds thresholds (`agent_instructions_tokens_warn/crit`, `toolset_size_warn`, `doc_duplication_jaccard`, `handoff_prompt_tokens_warn`, `description_similarity_warn`), glob groups, and `report.language: pl`. The vendored YAML parser supports scalars, `- item` arrays, nested 2-space mappings, and inline `[a, b]` — do not introduce YAML features beyond this without extending `_shared.mjs:parseYaml`.
+`audit-config.yml` holds thresholds (`agent_instructions_tokens_warn/crit`, `toolset_size_warn`, `doc_duplication_jaccard`, `mcp_tools_unused_pct`, `handoff_prompt_tokens_warn`, `description_similarity_warn`), glob groups, and `report.language: pl` / `report.max_findings_in_deep`. It also declares `metrics_input.copilot_metrics_snapshot` (`.github/audit/audit-input/metrics.json`) — an optional real Copilot usage snapshot the agent reads to ground unused-tool findings. The vendored YAML parser supports scalars, `- item` arrays, nested 2-space mappings, and inline `[a, b]` — do not introduce YAML features beyond this without extending `_shared.mjs:parseYaml`.
+
+## cli/ — the claude-agent-scaffold package
+
+A TypeScript CLI (ESM, Node ≥ 20) published for `npx`. **Unlike the rest of the repo, this package and the files it generates are in English** — a deliberate exception to the Polish user-facing convention. It is a normal npm package (it *may* have dependencies), in contrast to the zero-dep `auditskill`.
+
+### Two-phase architecture (load-bearing)
+
+The tool is deliberately split into a static phase and an LLM phase; keep them separate.
+
+- **Phase 1 — installer (`npx claude-agent-scaffold init`), 100% deterministic, NO LLM.** Detects the stack from build manifests, runs an interactive `@clack/prompts` wizard (or `--yes` to accept detected defaults), and writes a `/.ai/` guideline structure from templates plus the phase-2 skill. The CLI does **not** call the Anthropic API and does **not** read `ANTHROPIC_API_KEY` — all LLM work happens in phase 2 inside Claude Code.
+- **Phase 2 — the installed skill (`.claude/skills/<name>/SKILL.md`), LLM, runs in Claude Code.** Interviews the developer per agent (seed questions: name, responsibility, external tools) and fills the remaining `{{PLACEHOLDER}}` markers into finished `/.ai/agents/<name>.md` files.
+
+### What phase 1 writes (idempotent — never overwrites; delete `/.ai` to regenerate)
+
+`/.ai/AGENTS.md`, `/.ai/guidelines/{coding-standards,naming-conventions}.md`, `/.ai/agents/example-agent.md`, `/.ai/.scaffold/manifest.json` (handoff state for phase 2), and `.claude/skills/<name>/SKILL.md`.
+
+### Module layout & contracts
+
+- `src/detect/` — one detector per stack (`node.ts`/`java.ts`/`python.ts`) + `index.ts` orchestrator. MVP parsing is intentionally light: `JSON.parse` for `package.json`, substring/regex for `pom.xml`/`build.gradle`/`pyproject.toml`. Polyglot repos collect all manifests but pick one primary by priority **node > java > python**.
+- `src/wizard/` — `runWizard` (interactive) and `defaultAnswers` (the `--yes`/CI path); both seed from the same `labels.ts` defaults.
+- `src/scaffold/` — `scaffold()` renders templates via `render.ts` (replaces `{{KEY}}`, **leaves unknown placeholders intact for phase 2**) and writes files skip-if-exists.
+- `src/templates/` — the `.md` templates (incl. `skill/SKILL.md`). They are read at **runtime**, resolved by `templates-path.ts` relative to `import.meta.url`, which works in both `src/` (vitest) and bundled `dist/` layouts. `tsup.config.ts`'s `onSuccess` copies `src/templates` → `dist/templates`; keep that copy step if you change the build.
+- The injected **iron QA rule** in generated guidelines must always require tests in the detected/chosen framework (`{{TEST_FRAMEWORK}}`) — this is the MVP's QA requirement and must not be weakened.
+
+### Commands (run inside `cli/`)
+
+```powershell
+npm install
+npm run build      # tsup -> dist/index.js (shebang bin) + dist/templates
+npm test           # vitest (single run); npm run test:watch for watch
+npm run typecheck  # tsc --noEmit
+node dist/index.js init --root <target> --yes   # non-interactive scaffold (CI / smoke test)
+```
 
 ## Working in this repo
 
