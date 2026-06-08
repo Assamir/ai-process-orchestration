@@ -88,17 +88,23 @@ Keep the static phase and the LLM phase separate.
 
 ### Build & bundling
 
-`core` is **not published**; it is consumed as source (`exports: "./src/index.ts"`) and **bundled** into each leaf by tsup (`noExternal: ["@qa-orch/core"]`). `@clack/prompts` stays external (a real runtime dep of each leaf). No `.md` templates at runtime — all generated content is embedded as TS strings in `core`, so bundling needs no template-copy step. Each leaf tsconfig maps `@qa-orch/core` via `paths` for typecheck.
+- `src/detect/` — one detector per stack (`node.ts`/`java.ts`/`python.ts`) + `index.ts` orchestrator. MVP parsing is intentionally light: `JSON.parse` for `package.json`, substring/regex for `pom.xml`/`build.gradle`/`pyproject.toml`. Polyglot repos collect all manifests but pick one primary by priority **node > java > python**.
+- `src/wizard/` — `runWizard` (interactive) and `defaultAnswers` (the `--yes`/CI path); both seed from the same `labels.ts` defaults.
+- `src/scaffold/` — `scaffold()` renders templates via `render.ts` (replaces `{{KEY}}`, **leaves unknown placeholders intact for phase 2**) and writes files skip-if-exists.
+- `src/install-skill/` — `installSkill()` is a **separate** write step from `scaffold()` (both are invoked from `src/index.ts`, not nested). It renders `templates/skill/SKILL.md` to `.claude/skills/<skill-name>/SKILL.md`, idempotent (skip-if-exists). The skill name comes from `--skill-name` (default `agent-config`).
+- `src/templates/` — the `.md` templates (incl. `skill/SKILL.md`). They are read at **runtime**, resolved by `templates-path.ts` relative to `import.meta.url`, which works in both `src/` (vitest) and bundled `dist/` layouts. `tsup.config.ts`'s `onSuccess` copies `src/templates` → `dist/templates`; keep that copy step if you change the build.
+- The injected **iron QA rule** in generated guidelines must always require tests in the detected/chosen framework (`{{TEST_FRAMEWORK}}`) — this is the MVP's QA requirement and must not be weakened.
 
 ### Commands (run at the repo root)
 
 ```powershell
 npm install
-npm run typecheck   # tsc --noEmit in every package
-npm test            # vitest in core (detect/render/scaffold + parity)
-npm run build       # tsup -> dist/index.js (shebang bin) in each leaf
-node packages/claude-qa-orchestrator/dist/index.js init --root <target> --yes
-node packages/copilot-qa-orchestrator/dist/index.js init --root <target> --yes
+npm run build      # tsup -> dist/index.js (shebang bin) + dist/templates
+npm test           # vitest (single run); npm run test:watch for watch
+npm run typecheck  # tsc --noEmit
+node dist/index.js init --root <target> --yes   # non-interactive scaffold (CI / smoke test)
+node dist/index.js init --root <target> --skill-name my-agents --yes   # custom skill name
+npm run pack:check   # build + npm pack --dry-run, to inspect the published tarball contents
 ```
 
 ## Working in this repo
