@@ -1,0 +1,19 @@
+{
+  "name": "ai-process-orchestration",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo for QA-process orchestration: twin npx scaffolders for Claude Code and GitHub Copilot, plus the audit-agents skill.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

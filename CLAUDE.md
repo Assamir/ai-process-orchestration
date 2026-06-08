@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a multi-purpose workspace for AI-process tooling and notes. It is not a single application.
 
-- `vscode/auditskill/` — a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies.
-- `cli/` — **claude-agent-scaffold**, an npm/npx TypeScript CLI that scaffolds multi-agent AI setups into a target repo (the repo's first real npm package). See its own section below.
+- `packages/` — an **npm-workspaces monorepo** for the QA-process orchestration product: `core` (private shared library), `claude-qa-orchestrator` and `copilot-qa-orchestrator` (the two published npx packages). See its own section below.
+- `vscode/auditskill/` — a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies. Separate from `packages/` (it audits config; it does not scaffold).
 - `knowledge-markdowns/` — Polish-language course transcripts from **AI Devs 4** (`s01e01`…`s05e05`) and **10xDevs 3** (lekcje o agentach, MCP, Playwright, PRD, etc.). Reference material only — do not treat as source.
-- `claude/`, `mcp/` — currently empty placeholders.
+- `PRD.md`, `TECH.md` (root, EN) — product + technical design for the QA-orchestration packages. Read these first when working on `packages/`.
+- `cli/` — **legacy** `claude-agent-scaffold` (app-dev framing), superseded by `packages/claude-qa-orchestrator`. Not a workspace member; kept only until the maintainer removes it. Do not extend it.
 
-There is no top-level build, test, or lint, and no root `package.json`/`.gitignore`/`README.md`. Each shipped artifact owns its own surface: `vscode/auditskill/` is zero-dep ESM scripts, `cli/` is a normal npm package with its own build/test.
+The root `package.json` declares `workspaces: ["packages/*"]` and run-all scripts (`npm run build|test|typecheck`). `vscode/auditskill/` keeps its own zero-dep surface and is not part of the workspaces.
 
 ## vscode/auditskill — the audit-agents skill
 
@@ -59,22 +60,33 @@ The first word of the user's message routes to a procedure: `scan` | `deep` | `r
 
 `audit-config.yml` holds thresholds (`agent_instructions_tokens_warn/crit`, `toolset_size_warn`, `doc_duplication_jaccard`, `mcp_tools_unused_pct`, `handoff_prompt_tokens_warn`, `description_similarity_warn`), glob groups, and `report.language: pl` / `report.max_findings_in_deep`. It also declares `metrics_input.copilot_metrics_snapshot` (`.github/audit/audit-input/metrics.json`) — an optional real Copilot usage snapshot the agent reads to ground unused-tool findings. The vendored YAML parser supports scalars, `- item` arrays, nested 2-space mappings, and inline `[a, b]` — do not introduce YAML features beyond this without extending `_shared.mjs:parseYaml`.
 
-## cli/ — the claude-agent-scaffold package
+## packages/ — the QA-process orchestration monorepo
 
-A TypeScript CLI (ESM, Node ≥ 20) published for `npx`. **Unlike the rest of the repo, this package and the files it generates are in English** — a deliberate exception to the Polish user-facing convention. It is a normal npm package (it *may* have dependencies), in contrast to the zero-dep `auditskill`.
+Two **independent, separately versioned** npx packages scaffold an AI-driven **QA / testing-process**
+orchestration (test planning, ticket review, case design, automation, RCA, test-data generation) into a
+target repo — `claude-qa-orchestrator` for Claude Code, `copilot-qa-orchestrator` for GitHub Copilot in
+VS Code — with **functional parity**. Both are built on the private `@qa-orch/core`. **These packages and
+the files they generate are in English** — a deliberate exception to the Polish user-facing convention.
+
+This is *harness engineering for QA*: scaffold a lean root "map" + a `context/` system of record + a
+single-purpose skill suite, not a smarter model. See `PRD.md` / `TECH.md` (esp. TECH.md §11).
 
 ### Two-phase architecture (load-bearing)
 
-The tool is deliberately split into a static phase and an LLM phase; keep them separate.
+Keep the static phase and the LLM phase separate.
 
-- **Phase 1 — installer (`npx claude-agent-scaffold init`), 100% deterministic, NO LLM.** Detects the stack from build manifests, runs an interactive `@clack/prompts` wizard (or `--yes` to accept detected defaults), and writes a `/.ai/` guideline structure from templates plus the phase-2 skill. The CLI does **not** call the Anthropic API and does **not** read `ANTHROPIC_API_KEY` — all LLM work happens in phase 2 inside Claude Code.
-- **Phase 2 — the installed skill (`.claude/skills/<name>/SKILL.md`), LLM, runs in Claude Code.** Interviews the developer per agent (seed questions: name, responsibility, external tools) and fills the remaining `{{PLACEHOLDER}}` markers into finished `/.ai/agents/<name>.md` files.
+- **Phase 1 — installer (`npx <pkg> init`), 100% deterministic, NO LLM.** Detects the test stack, runs the `@clack/prompts` wizard (or `--yes`), and writes the platform config + `context/` skeleton with `{{PLACEHOLDER}}` markers. Never calls a model API or reads `ANTHROPIC_API_KEY`.
+- **Phase 2 — in the tool (LLM).** Claude: run the `qa-init` skill (`.claude/skills/<name>/SKILL.md`). Copilot: run the `qa-orchestrator` agent / `/qa-init` prompt. Interviews the QA owner and fills the remaining `{{PLACEHOLDER}}` markers.
 
-### What phase 1 writes (idempotent — never overwrites; delete `/.ai` to regenerate)
+### Shared core vs. platform adapters (the crux)
 
-`/.ai/AGENTS.md`, `/.ai/guidelines/{coding-standards,naming-conventions}.md`, `/.ai/agents/example-agent.md`, `/.ai/.scaffold/manifest.json` (handoff state for phase 2), and `.claude/skills/<name>/SKILL.md`.
+- **`packages/core/src/`** holds everything platform-agnostic: `detect/` (Playwright TS/Java, RestAssured/JUnit/TestNG; light parsing; polyglot picks one primary), `wizard/` + `labels.ts` (QA questions/defaults), `render.ts` (`{{KEY}}` substitution, **unknown placeholders left for phase 2**), `model/` (`skills.ts` = the `LogicalSkill` suite; `context.ts` = root-config/guideline/foundation content), `adapters/` (**both** `claudeAdapter` and `copilotAdapter` live here so the parity test can render both), `scaffold/` (orchestrator), and `cli.ts` (`runInit`, the shared CLI shared by both leaves).
+- **A `LogicalSkill`'s procedure is written once** in `model/skills.ts`; an adapter renders it to `.claude/skills/<name>/SKILL.md` (with `allowed-tools`) or `.github/prompts/<name>.prompt.md` (+ the `.github/agents/qa-orchestrator.agent.md` router). Functional parity is enforced by the parity test in `core/tests/scaffold.test.ts`.
+- **The leaf packages are thin:** `src/index.ts` just calls `runInit(<adapter>, meta)`. Add capability in `core`, not in the leaves.
+- **Read-only vs write skills:** `LogicalSkill.readOnly` controls the rendered tool allowlist (Claude `Read,Grep,Glob` vs `+Write,Edit,Bash`; Copilot `codebase,search` vs `+editFiles,runCommands`). Keep this distinction.
+- **The iron QA rule** (tests in the chosen `{{AUTOMATION_FRAMEWORK}}`, every case traces to an acceptance criterion) lives in the lean root config so it survives compaction — must not be weakened.
 
-### Module layout & contracts
+### Build & bundling
 
 - `src/detect/` — one detector per stack (`node.ts`/`java.ts`/`python.ts`) + `index.ts` orchestrator. MVP parsing is intentionally light: `JSON.parse` for `package.json`, substring/regex for `pom.xml`/`build.gradle`/`pyproject.toml`. Polyglot repos collect all manifests but pick one primary by priority **node > java > python**.
 - `src/wizard/` — `runWizard` (interactive) and `defaultAnswers` (the `--yes`/CI path); both seed from the same `labels.ts` defaults.
@@ -83,7 +95,7 @@ The tool is deliberately split into a static phase and an LLM phase; keep them s
 - `src/templates/` — the `.md` templates (incl. `skill/SKILL.md`). They are read at **runtime**, resolved by `templates-path.ts` relative to `import.meta.url`, which works in both `src/` (vitest) and bundled `dist/` layouts. `tsup.config.ts`'s `onSuccess` copies `src/templates` → `dist/templates`; keep that copy step if you change the build.
 - The injected **iron QA rule** in generated guidelines must always require tests in the detected/chosen framework (`{{TEST_FRAMEWORK}}`) — this is the MVP's QA requirement and must not be weakened.
 
-### Commands (run inside `cli/`)
+### Commands (run at the repo root)
 
 ```powershell
 npm install
@@ -97,6 +109,7 @@ npm run pack:check   # build + npm pack --dry-run, to inspect the published tarb
 
 ## Working in this repo
 
-- When asked to modify the skill, edit files under `vscode/auditskill/` directly; there is no build step.
+- When asked to change the QA-orchestration behavior or the generated output, edit `packages/core` (skills, content, adapters) — **not** the leaf packages, which are thin wrappers. Run `npm test` (parity test included) after.
+- When asked to modify the audit skill, edit files under `vscode/auditskill/` directly; there is no build step.
 - When asked about course content, the answer is in `knowledge-markdowns/` (Polish). These files are large (~30–70 KB each) — search with Grep before reading whole files.
-- `INSTALL.md`, `vscode/auditskill/.github/audit/README.md`, and the agent prompt itself are all written in Polish. Match that language when editing user-facing strings; keep code, identifiers, and JSON keys in English.
+- **Language split:** `vscode/auditskill/` and its docs, plus course notes, are Polish — match that when editing those user-facing strings. The `packages/` product (code, identifiers, JSON keys, generated files) and `PRD.md`/`TECH.md` are English.
