@@ -113,6 +113,8 @@ Roadmap stacks (post-MVP): pytest, Cypress, k6, and others.
 
 ## 8. Milestones & roadmap
 
+> Live status, item IDs (`R-###`), and the files each change lands in are tracked in **[`ROADMAP.md`](ROADMAP.md)**.
+
 - **M0 — Monorepo & core extraction.** npm workspaces; move `cli/` → `packages/`, extract agnostic modules to `packages/core`; existing tests stay green; remove empty `claude/`, `mcp/`.
 - **M1 — Core for the QA domain.** Extend detection (Playwright TS/Java, RestAssured); reframe wizard/labels for QA; add `core/model` (logical QA skills) + `PlatformAdapter`; `context/` + guideline templates.
 - **M2 — `claude-qa-orchestrator`.** Claude adapter + `SKILL.md` templates (`allowed-tools`) + hooks; phase-1 CLI emits `.claude/` + `context/`; phase-2 skill fills placeholders. Snapshot tests.

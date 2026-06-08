@@ -47,4 +47,4 @@ is present. Findings carry remediation text; it exits non-zero on errors (CI-fri
 
 Requires Node.js ≥ 20.
 
-See the repo root `PRD.md` and `TECH.md` for the full design.
+See the repo root `PRD.md` and `TECH.md` for the full design, and `ROADMAP.md` for delivery status.

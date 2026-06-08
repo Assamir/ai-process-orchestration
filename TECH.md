@@ -4,7 +4,7 @@
 > the shared-core + platform-adapter architecture, module contracts, the logical→platform artifact
 > mapping, build/release, and testing strategy.
 >
-> Status: **Draft v0.1** · Targets Node ≥ 20, ESM.
+> Status: **Draft v0.1** · Targets Node ≥ 20, ESM. Delivery status & per-item tracking: **[`ROADMAP.md`](ROADMAP.md)**.
 
 ---
 
