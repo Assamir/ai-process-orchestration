@@ -1,0 +1,39 @@
+# copilot-qa-orchestrator
+
+Scaffold an AI-driven **QA-process orchestration** into your repository for **GitHub Copilot in
+VS Code**.
+
+Twin of [`claude-qa-orchestrator`](../claude-qa-orchestrator) — same orchestration, different
+harness. Both are built on the shared `@qa-orch/core`.
+
+## What it does
+
+Two phases:
+
+1. **Phase 1 — installer (`npx`, deterministic, no LLM).** Detects your test stack (Playwright
+   TS/Java, RestAssured/JUnit/TestNG), runs a short wizard, and writes:
+   - `.github/copilot-instructions.md` — a lean root "map" (table of contents, not a manual).
+   - `.github/prompts/<name>.prompt.md` — the QA skill suite (`qa-init`, `ticket-review`,
+     `test-plan`, `test-case-design`, `automation-bootstrapper`, `test-automate`, `rca`,
+     `test-data-gen`, and the `qa-new → … → qa-archive` backbone).
+   - `.github/agents/qa-orchestrator.agent.md` — a router that drives the prompts.
+   - `.github/instructions/*.instructions.md` — QA conventions & test naming.
+   - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).
+   - `.vscode/mcp.json` — an MCP stub.
+2. **Phase 2 — in Copilot (LLM).** Run the `qa-orchestrator` agent (or the `/qa-init` prompt); it
+   interviews you and fills the remaining `{{PLACEHOLDER}}` markers into finished docs and prompts.
+
+## Usage
+
+```bash
+npx copilot-qa-orchestrator init            # interactive
+npx copilot-qa-orchestrator init --yes      # accept detected defaults (CI)
+npx copilot-qa-orchestrator init --root ./path/to/repo
+```
+
+Scaffolding is **idempotent**: existing files are never overwritten. Delete `context/` and the
+generated config to regenerate.
+
+Requires Node.js ≥ 20.
+
+See the repo root `PRD.md` and `TECH.md` for the full design.

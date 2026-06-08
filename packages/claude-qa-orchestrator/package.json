@@ -1,0 +1,32 @@
+{
+  "name": "claude-qa-orchestrator",
+  "version": "0.1.0",
+  "description": "Scaffold an AI-driven QA-process orchestration (test planning, ticket review, case design, automation, RCA, test data) into your repo for Claude Code. Phase 1 is a deterministic npx installer; phase 2 is an in-tool skill.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "claude-qa-orchestrator": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
+  "devDependencies": {
+    "@qa-orch/core": "*",
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  }
+}
