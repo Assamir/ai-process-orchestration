@@ -1,3 +1,5 @@
+import type { McpContext } from "../model/mcp.js";
+import { resultServers } from "../model/mcp.js";
 import type { LogicalSkill } from "../model/skills.js";
 import type { WriteFile } from "../types.js";
 import type { PlatformAdapter } from "./types.js";
@@ -68,10 +70,10 @@ ${rows}
     return [{ rel: ".github/agents/qa-orchestrator.agent.md", content }];
   },
 
-  mcpFile(): WriteFile {
+  mcpFile(ctx: McpContext): WriteFile {
     return {
       rel: ".vscode/mcp.json",
-      content: `${JSON.stringify({ servers: {} }, null, 2)}\n`,
+      content: `${JSON.stringify({ servers: resultServers(ctx) }, null, 2)}\n`,
     };
   },
 };

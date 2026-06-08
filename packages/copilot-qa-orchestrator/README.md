@@ -19,7 +19,7 @@ Two phases:
    - `.github/agents/qa-orchestrator.agent.md` — a router that drives the prompts.
    - `.github/instructions/*.instructions.md` — QA conventions & test naming.
    - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).
-   - `.vscode/mcp.json` — an MCP stub.
+   - `.vscode/mcp.json` — for Playwright, a read-only `playwright-results` MCP server over the HTML report + traces, so `rca`/`test-automate` read results directly (empty stub for other stacks).
 2. **Phase 2 — in Copilot (LLM).** Run the `qa-orchestrator` agent (or the `/qa-init` prompt); it
    interviews you and fills the remaining `{{PLACEHOLDER}}` markers into finished docs and prompts.
 

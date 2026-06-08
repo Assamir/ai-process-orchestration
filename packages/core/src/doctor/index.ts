@@ -148,7 +148,8 @@ function expectedFiles(adapter: PlatformAdapter): string[] {
   for (const f of FOUNDATION) files.add(f.rel);
   for (const s of SKILLS) for (const w of adapter.renderSkill(s)) files.add(w.rel);
   for (const w of adapter.orchestratorFiles(SKILLS)) files.add(w.rel);
-  files.add(adapter.mcpFile().rel);
+  // The MCP path is constant regardless of context; a neutral ctx is fine here.
+  files.add(adapter.mcpFile({ framework: "unknown", buildTool: "unknown" }).rel);
   files.add(MANIFEST_REL);
   return [...files];
 }

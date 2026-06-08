@@ -212,7 +212,7 @@ First time a repo needs automation, or when adding a new test level.
 ## Procedure
 1. Confirm the framework from the manifest: **{{AUTOMATION_FRAMEWORK}}**. Verify it is installed; if not, propose the exact install/config steps for the detected build tool.
 2. Establish the test folder layout, config, and a smoke test that proves the harness runs.
-3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, JUnit XML) and record those paths in \`context/foundation/tools.md\` so \`rca\` and \`test-automate\` can read outcomes directly.
+3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, JUnit XML). For Playwright, a read-only \`playwright-results\` MCP filesystem server is already wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) over \`./playwright-report\` + \`./test-results\` — verify those paths match your Playwright config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`rca\` and \`test-automate\` can read outcomes directly.
 4. Do not weaken the iron QA rule.
 
 ## Done when
@@ -251,7 +251,7 @@ const analysis: LogicalSkill[] = [
 A test failed or a bug was reported and you need the real cause, not a symptom. Read-only.
 
 ## Procedure
-1. Gather artifacts from the paths in \`tools.md\` (logs, trace, screenshots, JUnit XML). What is not in context does not exist — pull the evidence in.
+1. Gather artifacts: for Playwright, read the HTML report, traces, and screenshots through the \`playwright-results\` MCP server; otherwise use the paths in \`tools.md\` (logs, trace, JUnit XML). What is not in context does not exist — pull the evidence in.
 2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect.
 3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity.
 4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`test-automate\` to fix a test, or a bug report for a product defect).

@@ -200,10 +200,11 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the
   **`doctor`** command (`core/src/doctor/index.ts`, `runDoctor`; exits non-zero on errors). A recurring
   **`gardening`** skill that opens targeted fixes remains on the roadmap.
-- **Make test results legible to the agent.** The QA analog of Codex's Chrome DevTools / observability
-  wiring: `automation-bootstrapper` should provision **MCP entries** (`.mcp.json` / `.vscode/mcp.json`)
-  for test artifacts — Playwright HTML report & traces, run logs — so `rca` and `test-automate` can read
-  outcomes directly instead of relying on copy-paste.
+- **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
+  observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
+  (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
+  `resultServers`), so `rca` and `test-automate` read outcomes directly instead of relying on copy-paste.
+  Both adapters share the server map; only the JSON envelope differs (`mcpServers` vs `servers`).
 - **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`ticket-review`,
   `test-case-design`, `rca`) or write (`test-automate`, `automation-bootstrapper`); the adapter encodes
   this as Claude `allowed-tools` and as Copilot agent tool allowlists — schema-level filtering, not prose.

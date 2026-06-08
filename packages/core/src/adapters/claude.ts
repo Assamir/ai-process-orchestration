@@ -1,3 +1,5 @@
+import type { McpContext } from "../model/mcp.js";
+import { resultServers } from "../model/mcp.js";
 import type { LogicalSkill } from "../model/skills.js";
 import type { WriteFile } from "../types.js";
 import type { PlatformAdapter } from "./types.js";
@@ -38,10 +40,10 @@ ${skill.body}
     return [];
   },
 
-  mcpFile(): WriteFile {
+  mcpFile(ctx: McpContext): WriteFile {
     return {
       rel: ".mcp.json",
-      content: `${JSON.stringify({ mcpServers: {} }, null, 2)}\n`,
+      content: `${JSON.stringify({ mcpServers: resultServers(ctx) }, null, 2)}\n`,
     };
   },
 };

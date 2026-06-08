@@ -1,3 +1,4 @@
+import type { McpContext } from "../model/mcp.js";
 import type { LogicalSkill } from "../model/skills.js";
 import type { PlatformId, WriteFile } from "../types.js";
 
@@ -21,6 +22,6 @@ export interface PlatformAdapter {
   renderSkill(skill: LogicalSkill): WriteFile[];
   /** Cross-skill orchestrator files (Copilot agent; Claude returns []). */
   orchestratorFiles(skills: LogicalSkill[]): WriteFile[];
-  /** The MCP stub file for this platform. */
-  mcpFile(): WriteFile;
+  /** The MCP config for this platform, wiring result-legibility servers from `ctx`. */
+  mcpFile(ctx: McpContext): WriteFile;
 }

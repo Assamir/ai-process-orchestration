@@ -17,7 +17,7 @@ Two phases:
      `test-data-gen`, and the `qa-new → … → qa-archive` backbone).
    - `.ai/guidelines/*.md` — QA conventions & test naming.
    - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).
-   - `.mcp.json` — an MCP stub.
+   - `.mcp.json` — for Playwright, a read-only `playwright-results` MCP server over the HTML report + traces, so `rca`/`test-automate` read results directly (empty stub for other stacks).
 2. **Phase 2 — in Claude Code (LLM).** Run the `qa-init` skill; it interviews you and fills the
    remaining `{{PLACEHOLDER}}` markers into finished foundation docs and skills.
 
