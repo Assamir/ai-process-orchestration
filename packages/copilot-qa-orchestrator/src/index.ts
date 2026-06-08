@@ -1,6 +1,6 @@
-import { copilotAdapter, runInit } from "@qa-orch/core";
+import { copilotAdapter, runCli } from "@qa-orch/core";
 
-runInit(copilotAdapter, {
+runCli(copilotAdapter, {
   binName: "copilot-qa-orchestrator",
   toolName: "GitHub Copilot (VS Code)",
 }).then(

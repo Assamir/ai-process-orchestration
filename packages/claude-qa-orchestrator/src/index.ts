@@ -1,6 +1,6 @@
-import { claudeAdapter, runInit } from "@qa-orch/core";
+import { claudeAdapter, runCli } from "@qa-orch/core";
 
-runInit(claudeAdapter, {
+runCli(claudeAdapter, {
   binName: "claude-qa-orchestrator",
   toolName: "Claude Code",
 }).then(

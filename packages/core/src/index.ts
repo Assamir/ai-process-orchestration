@@ -14,5 +14,6 @@ export { rootConfigMarkdown, GUIDELINES, FOUNDATION } from "./model/context.js";
 export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";
-export { scaffold, type ScaffoldInput } from "./scaffold/index.js";
-export { runInit, type CliMeta } from "./cli.js";
+export { scaffold, type ScaffoldInput, PHASE1_VAR_NAMES } from "./scaffold/index.js";
+export { runDoctor, type DoctorFinding, type DoctorReport } from "./doctor/index.js";
+export { runCli, type CliMeta } from "./cli.js";

@@ -32,6 +32,17 @@ npx claude-qa-orchestrator init --root ./path/to/repo
 Scaffolding is **idempotent**: existing files are never overwritten. Delete `context/` and the
 generated config to regenerate.
 
+## Validate (`doctor`)
+
+```bash
+npx claude-qa-orchestrator doctor            # validate the scaffold in the current repo
+npx claude-qa-orchestrator doctor --root ./path/to/repo
+```
+
+A deterministic check (no LLM) that runs **outside the agent loop**: verifies structure, the handoff
+manifest, that no phase-1 placeholders leaked, that relative links resolve, and that the iron QA rule
+is present. Findings carry remediation text; it exits non-zero on errors (CI-friendly).
+
 Requires Node.js ≥ 20.
 
 See the repo root `PRD.md` and `TECH.md` for the full design.

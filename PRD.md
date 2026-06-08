@@ -122,7 +122,7 @@ Roadmap stacks (post-MVP): pytest, Cypress, k6, and others.
 **Roadmap (post-MVP):** pytest & Cypress stacks; ticketing integrations (e.g. Jira) via MCP; richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
-- **`doctor`** — a deterministic validator that checks the scaffolded `context/` for freshness, cross-link integrity, and structure **outside the agent loop**, reusing `vscode/auditskill` heuristics; error messages carry remediation text the agent can act on.
+- **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).
 - **`gardening` skill** — a recurring "docs/test-debt cleanup" pass that scans for drift and stale artifacts and proposes targeted fixes (entropy / garbage-collection of "QA slop").
 - **Result legibility via MCP** — `automation-bootstrapper` wires `.mcp.json` / `.vscode/mcp.json` entries for Playwright HTML reports, traces, and run logs so `rca` / `test-automate` read outcomes directly (the QA analog of Codex's Chrome DevTools + observability wiring).
 - **`tech-debt-tracker.md`** in `context/foundation/` — a versioned, agent-readable backlog of test debt, known flaky areas, and RCA history.

@@ -15,6 +15,22 @@ export interface ScaffoldInput {
 }
 
 /**
+ * Names of the placeholders phase 1 resolves. Anything else (`{{...}}`) is a
+ * phase-2 marker. Kept in sync with `buildVars` below — `doctor` reads this to
+ * tell "render incomplete" (phase-1 leftover) from "phase 2 not done yet".
+ */
+export const PHASE1_VAR_NAMES = [
+  "GENERATED_AT",
+  "PROJECT_LANGUAGE",
+  "BUILD_TOOL",
+  "AUTOMATION_FRAMEWORK",
+  "REPORT_LANGUAGE_NAME",
+  "AUTONOMY_LEVEL",
+  "LINTERS",
+  "QA_CONVENTIONS",
+] as const;
+
+/**
  * Write the full QA orchestration for one platform: lean root config, guidelines,
  * the `context/` system of record, the skill suite (via the adapter), the
  * orchestrator, an MCP stub, and the phase-2 handoff manifest.

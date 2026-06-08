@@ -99,7 +99,17 @@ npm test            # vitest in core (detect/render/scaffold + parity)
 npm run build       # tsup -> dist/index.js (shebang bin) in each leaf
 node packages/claude-qa-orchestrator/dist/index.js init --root <target> --yes
 node packages/copilot-qa-orchestrator/dist/index.js init --root <target> --yes
+node packages/claude-qa-orchestrator/dist/index.js doctor --root <target>   # validate a scaffold
 ```
+
+### Commands: `init` and `doctor`
+
+The shared CLI (`core/src/cli.ts`, `runCli`) routes the first positional. `init` is the phase-1
+installer. **`doctor`** (`core/src/doctor/index.ts`, `runDoctor`) is a deterministic, read-only
+validator — the QA analog of `vscode/auditskill`, run **outside the agent loop**: it checks structure,
+the manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule, emits
+findings with remediation, and exits non-zero on errors. Both commands live in `core` (parity); the
+leaves only pick the adapter.
 
 ## Working in this repo
 

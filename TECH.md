@@ -196,9 +196,10 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   detail: the iron QA rule (tests in the detected framework), every test case traces to an acceptance
   criterion, every automated test carries a stable ID, deterministic work-item IDs. Leave *how* to the agent.
 - **Mechanical enforcement + remediation-carrying errors.** A deterministic validator (the QA analog
-  of `vscode/auditskill`) checks `context/` for freshness, cross-links, and structure **outside the
-  agent loop**; its error messages carry fix instructions so they can be fed back into agent context.
-  Ships as a roadmap **`doctor`** command and a recurring **`gardening`** skill that opens targeted fixes.
+  of `vscode/auditskill`) checks structure, cross-links, and placeholders **outside the agent loop**;
+  its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the
+  **`doctor`** command (`core/src/doctor/index.ts`, `runDoctor`; exits non-zero on errors). A recurring
+  **`gardening`** skill that opens targeted fixes remains on the roadmap.
 - **Make test results legible to the agent.** The QA analog of Codex's Chrome DevTools / observability
   wiring: `automation-bootstrapper` should provision **MCP entries** (`.mcp.json` / `.vscode/mcp.json`)
   for test artifacts — Playwright HTML report & traces, run logs — so `rca` and `test-automate` can read
