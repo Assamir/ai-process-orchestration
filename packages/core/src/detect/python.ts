@@ -5,7 +5,7 @@ import type { DetectorResult } from "./node.js";
 /**
  * Detect a Python test project from pyproject.toml / requirements.txt / setup.py.
  * MVP parsing is substring-based over the manifest text (no TOML parser). pytest
- * is roadmap-tier for the scaffolded skills but cheaply detectable here.
+ * is a first-class scaffolded stack (wizard default, QA advice, MCP results).
  */
 export function detectPython(root: string): DetectorResult {
   const pyproject = readIfExists(root, "pyproject.toml");

@@ -50,6 +50,23 @@ describe("detectStack (QA stacks)", () => {
     expect(stack.primaryFramework).toBe("restassured");
   });
 
+  it("detects pytest on Poetry as a first-class stack (R-006)", () => {
+    project.write(
+      "pyproject.toml",
+      `[tool.poetry]
+name = "demo"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+ruff = "^0.4"`,
+    );
+    const stack = detectStack(project.dir);
+    expect(stack.language).toBe("python");
+    expect(stack.buildTool).toBe("poetry");
+    expect(stack.frameworks).toContain("pytest");
+    expect(stack.primaryFramework).toBe("pytest");
+    expect(stack.linters).toContain("ruff");
+  });
+
   it("prefers Node when multiple stacks are present", () => {
     project.write("package.json", JSON.stringify({ devDependencies: { "@playwright/test": "^1" } }));
     project.write("pom.xml", "<project><dependencies><dependency><artifactId>junit-jupiter</artifactId></dependency></dependencies></project>");

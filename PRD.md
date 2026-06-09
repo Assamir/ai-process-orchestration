@@ -95,10 +95,11 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - **Playwright (TS/JS)** — `@playwright/test`, `playwright.config.*`.
 - **Playwright (Java)** — `com.microsoft.playwright` (Maven/Gradle).
 - **RestAssured (Java)** — `io.rest-assured` (Maven/Gradle), with JUnit 5 / TestNG runner detection.
+- **pytest (Python)** — `pyproject.toml` / `requirements.txt` / `setup.py` (pip or Poetry), with a `pytest-results` MCP server over `./reports` + `./test-results`.
 
 Polyglot repos are detected fully; one primary stack is chosen by priority and used to seed wizard defaults.
 
-Roadmap stacks (post-MVP): pytest, k6, and others.
+Roadmap stacks (post-MVP): k6 and others.
 
 ## 7. User journeys
 
@@ -121,7 +122,7 @@ Roadmap stacks (post-MVP): pytest, k6, and others.
 - **M3 — `copilot-qa-orchestrator` (parity).** Copilot adapter + `.github/{copilot-instructions,instructions,prompts,agents,chatmodes}` + `.vscode/mcp.json`; phase-2 as `.agent.md`/`.prompt.md`. Parity snapshot tests.
 - **M4 — Docs & release.** Final PRD/TECH, per-package README, independent versioning, npx smoke tests for both.
 
-**Roadmap (post-MVP):** pytest stack; ticketing integrations (e.g. Jira) via MCP; richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
+**Roadmap (post-MVP):** ticketing integrations (e.g. Jira) via MCP; richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
 - **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).

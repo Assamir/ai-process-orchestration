@@ -212,7 +212,7 @@ First time a repo needs automation, or when adding a new test level.
 ## Procedure
 1. Confirm the framework from the manifest: **{{AUTOMATION_FRAMEWORK}}**. Verify it is installed; if not, propose the exact install/config steps for the detected build tool.
 2. Establish the test folder layout, config, and a smoke test that proves the harness runs.
-3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, JUnit XML). For Playwright, a read-only \`playwright-results\` MCP filesystem server is already wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) over \`./playwright-report\` + \`./test-results\` — verify those paths match your Playwright config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`rca\` and \`test-automate\` can read outcomes directly.
+3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, pytest-html + JUnit XML, Surefire XML). A read-only results MCP filesystem server is pre-wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) for Playwright (\`playwright-results\` over \`./playwright-report\` + \`./test-results\`) and pytest (\`pytest-results\` over \`./reports\` + \`./test-results\`) — verify those paths match your config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`rca\` and \`test-automate\` can read outcomes directly.
 4. Do not weaken the iron QA rule.
 
 ## Done when

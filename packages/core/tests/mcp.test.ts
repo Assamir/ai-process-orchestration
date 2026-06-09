@@ -23,7 +23,14 @@ describe("resultServers (MCP legibility)", () => {
     );
   });
 
-  it("returns no servers for non-Playwright frameworks (empty stub)", () => {
+  it("wires a filesystem server over reports + artifacts for pytest (R-006)", () => {
+    const s = resultServers({ framework: "pytest", buildTool: "poetry" })["pytest-results"];
+    expect(s).toBeDefined();
+    expect(s!.args).toContain("@modelcontextprotocol/server-filesystem");
+    expect(s!.args).toEqual(expect.arrayContaining(["./reports", "./test-results"]));
+  });
+
+  it("returns no servers for frameworks without results wiring yet (empty stub)", () => {
     expect(resultServers({ framework: "restassured", buildTool: "maven" })).toEqual({});
     expect(resultServers({ framework: "unknown", buildTool: "unknown" })).toEqual({});
   });
@@ -61,5 +68,20 @@ describe("scaffold wires MCP results into the platform config", () => {
     scaffold({ root: project.dir, adapter: copilotAdapter, stack, answers });
     const mcp = JSON.parse(readFileSync(join(project.dir, ".vscode/mcp.json"), "utf8"));
     expect(mcp.servers["playwright-results"]).toBeDefined();
+  });
+
+  it("seeds the pytest-results server when scaffolding a pytest repo (R-006)", () => {
+    const pyStack: DetectedStack = {
+      language: "python",
+      buildTool: "poetry",
+      frameworks: ["pytest"],
+      primaryFramework: "pytest",
+      linters: ["ruff"],
+      manifests: ["pyproject.toml"],
+    };
+    const pyAnswers: WizardAnswers = { ...answers, automationFramework: "pytest" };
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: pyStack, answers: pyAnswers });
+    const mcp = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
+    expect(mcp.mcpServers["pytest-results"]).toBeDefined();
   });
 });

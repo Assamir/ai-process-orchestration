@@ -14,9 +14,9 @@ export type BuildTool =
   | "unknown";
 
 /**
- * Test-automation frameworks we detect / scaffold for. MVP focuses on the JVM +
- * JS profile (Playwright TS/Java, RestAssured/JUnit/TestNG); pytest is roadmap
- * but cheaply detectable, so it is kept here.
+ * Test-automation frameworks we detect / scaffold for: the JVM + JS profile
+ * (Playwright TS/Java, RestAssured/JUnit/TestNG) plus pytest as a first-class
+ * Python stack (detected, wizard default, QA advice, and MCP results wiring).
  */
 export type AutomationFramework =
   | "playwright-ts"

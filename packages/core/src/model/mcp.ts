@@ -18,8 +18,8 @@ export interface McpContext {
  * `test-automate` can read outcomes directly instead of relying on copy-paste.
  *
  * Returns server entries keyed by name; both adapters wrap them in their own JSON
- * envelope (`mcpServers` for Claude, `servers` for Copilot). Non-Playwright
- * frameworks return `{}` (empty stub) for now — see roadmap.
+ * envelope (`mcpServers` for Claude, `servers` for Copilot). Frameworks without a
+ * results wiring yet (JVM RestAssured/JUnit/TestNG) return `{}` — see roadmap.
  */
 export function resultServers(ctx: McpContext): Record<string, McpServer> {
   switch (ctx.framework) {
@@ -30,6 +30,11 @@ export function resultServers(ctx: McpContext): Record<string, McpServer> {
       const reportDir = ctx.buildTool === "gradle" ? "./build/reports/tests" : "./target/surefire-reports";
       return { "playwright-results": filesystem([reportDir, "./test-results"]) };
     }
+    case "pytest":
+      // pytest writes where configured; the common conventions are a pytest-html
+      // report + a JUnit XML (`--junitxml`) under ./reports, with artifacts in
+      // ./test-results. Expose both read-only so rca/test-automate read outcomes.
+      return { "pytest-results": filesystem(["./reports", "./test-results"]) };
     default:
       return {};
   }

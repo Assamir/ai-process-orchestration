@@ -30,18 +30,13 @@
 | 0.3.0 | **R-003** MCP result-legibility — `playwright-results` filesystem server wired into `.mcp.json` / `.vscode/mcp.json` | `20999c9` | `packages/core/src/model/mcp.ts`, adapters |
 | 0.4.0 | **R-004** `gardening` skill — recurring read-only QA drift/slop sweep over `context/` + tests; proposes targeted fixes, never edits | `78c7d90` | `packages/core/src/model/skills.ts`, `tests/scaffold.test.ts` |
 | 0.4.1 | **R-005** `tech-debt-tracker.md` foundation doc — first-class versioned test-debt backlog; `qa-archive` appends, `gardening` scans, `doctor` checks it exists | `62bbecf` | `packages/core/src/model/context.ts`, `model/skills.ts` (`qa-archive`, `gardening`) |
+| 0.5.0 | **R-006** pytest as a first-class stack — wizard default + QA advice (already in `labels.ts`) plus a `pytest-results` MCP server over `./reports` + `./test-results` | _pending_ | `packages/core/src/model/mcp.ts`, `detect/python.ts`, `types.ts`, `model/skills.ts` (`automation-bootstrapper`), `tests/` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 ## Next (planned)
 
-### ⬜ R-006 — pytest as a first-class stack → target v0.5.0
-- **What:** promote pytest from "detected" to fully supported: wizard default, QA advice, and an MCP results
-  server (e.g. over `./reports` / `junit.xml` / `pytest-html`).
-- **Lands in:** `detect/python.ts` (already detects), `labels.ts` (already has advice — verify choices),
-  `model/mcp.ts` (`resultServers` case for `pytest`), `tests/` (detect + mcp).
-- **Acceptance:** scaffolding a pytest repo seeds the right framework + MCP results server; tests cover it.
-- **Traces to:** PRD §6 "Roadmap stacks".
+_All currently scheduled items are shipped. The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
 
