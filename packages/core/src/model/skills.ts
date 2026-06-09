@@ -278,6 +278,28 @@ When cases need specific data (valid, invalid, boundary) that does not exist yet
 ## Done when
 Every case has the data it needs, in a reusable, schema-valid form.`,
   },
+  {
+    name: "gardening",
+    description: "Recurring read-only sweep for QA drift and slop across context/ and tests; proposes targeted fixes (does not edit).",
+    readOnly: true,
+    bucket: "analysis",
+    reads: ["context/foundation/", "context/changes/", "context/archive/"],
+    writes: [],
+    body: `## When to use
+Run on a cadence (end of a sprint, before a release) to fight entropy: stale context, drifted docs, dead test debt, accumulated "QA slop". Read-only — it reports a fix list, it never edits.
+
+## Procedure
+1. Start from deterministic signals: run \`doctor\` (or read its latest report) and fold its findings in — broken links, leftover \`{{PLACEHOLDER}}\` markers, missing files. What \`doctor\` already catches, you do not re-derive.
+2. Scan the system of record for drift and staleness:
+   - Foundation docs (\`test-strategy\`, \`test-plan\`, \`environments\`, \`tools\`, \`lessons\`) — contradictions, out-of-date info, and paths that no longer exist.
+   - \`context/changes/\` — work-items that are done but never archived, or abandoned and stale.
+   - Tests vs cases — cases with no automated test, tests with no traced criterion, duplicated/overlapping coverage, and flaky patterns recorded in \`lessons.md\`.
+3. Apply the golden rules and flag each violation: every behavior has a test in **{{AUTOMATION_FRAMEWORK}}**; every case traces to an acceptance criterion; \`context/\` stays lean and current. This sweep reinforces the iron QA rule — never propose weakening it.
+4. Output a prioritized fix list in **{{REPORT_LANGUAGE_NAME}}**: each item states what is wrong, where (file/path), why it matters, and the single targeted fix. Group by severity and hand each fix to the right write skill (\`qa-archive\`, \`test-automate\`, \`test-case-design\`, \`test-plan\`). Do not edit files yourself.
+
+## Done when
+A prioritized, deduplicated drift report exists with a concrete next action per item. No files were modified.`,
+  },
 ];
 
 /** The full MVP skill suite, in workflow order. */

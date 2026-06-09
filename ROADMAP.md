@@ -28,20 +28,11 @@
 | 0.1.0 | **R-001** Monorepo + twin npx packages (core + Claude/Copilot), two-phase scaffolder, 13-skill QA suite, `context/` system of record | `e27cb05` | `packages/*`, root `package.json` |
 | 0.2.0 | **R-002** `doctor` — deterministic scaffold validator (structure, manifest, placeholders, links, iron QA rule) | `4809161` | `packages/core/src/doctor/index.ts`, `cli.ts` |
 | 0.3.0 | **R-003** MCP result-legibility — `playwright-results` filesystem server wired into `.mcp.json` / `.vscode/mcp.json` | `20999c9` | `packages/core/src/model/mcp.ts`, adapters |
+| 0.4.0 | **R-004** `gardening` skill — recurring read-only QA drift/slop sweep over `context/` + tests; proposes targeted fixes, never edits | `9add846` | `packages/core/src/model/skills.ts`, `tests/scaffold.test.ts` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 ## Next (planned)
-
-### ⬜ R-004 — `gardening` skill (maintenance loop) → target v0.4.0
-- **What:** a recurring, read-only "QA slop / drift" review that scans the scaffolded `context/` + tests
-  for staleness and inconsistency and proposes targeted fixes (does not auto-edit).
-- **Why:** OpenAI Codex "entropy & garbage-collection" + "golden rules" (see TECH §11; PRD §8 roadmap).
-- **Lands in:** `packages/core/src/model/skills.ts` (new `LogicalSkill`, bucket `analysis`, `readOnly: true`);
-  rendered by both adapters automatically. Optionally reuse `doctor` findings.
-- **Acceptance:** skill present for both platforms (parity test sees it); read-only tool allowlist; no
-  weakening of the iron QA rule; `docs` updated; bump 0.4.0.
-- **Traces to:** TECH §11 "Entropy / garbage-collection"; PRD §8.
 
 ### ⬜ R-005 — `tech-debt-tracker.md` foundation doc → target v0.4.0
 - **What:** add `context/foundation/tech-debt-tracker.md` to the scaffold; `qa-archive` appends test debt /
@@ -58,14 +49,6 @@ PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 
 - **Lands in:** `detect/python.ts` (already detects), `labels.ts` (already has advice — verify choices),
   `model/mcp.ts` (`resultServers` case for `pytest`), `tests/` (detect + mcp).
 - **Acceptance:** scaffolding a pytest repo seeds the right framework + MCP results server; tests cover it.
-- **Traces to:** PRD §6 "Roadmap stacks".
-
-### ⬜ R-007 — Cypress stack → target v0.6.0
-- **What:** detect Cypress (`cypress` dep / `cypress.config.*`), add framework + QA advice + MCP results
-  (`./cypress/reports`, `./cypress/videos`, `./cypress/screenshots`).
-- **Lands in:** `detect/node.ts`, `types.ts` (add `cypress` to `AutomationFramework`), `labels.ts`,
-  `model/mcp.ts`, `tests/`.
-- **Acceptance:** Cypress repo detected + scaffolded with results wiring; parity + detect tests.
 - **Traces to:** PRD §6 "Roadmap stacks".
 
 ## Backlog (unscheduled)

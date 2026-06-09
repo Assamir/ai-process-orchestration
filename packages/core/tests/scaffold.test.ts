@@ -60,6 +60,18 @@ describe("scaffold (Claude)", () => {
     expect(rca).not.toContain("Write, Edit, Bash");
   });
 
+  it("ships the gardening maintenance skill as read-only (R-004)", () => {
+    const gardening = SKILLS.find((s) => s.name === "gardening");
+    expect(gardening, "gardening skill registered").toBeDefined();
+    expect(gardening!.readOnly).toBe(true);
+    expect(gardening!.bucket).toBe("analysis");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/gardening/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob");
+    expect(skill).not.toContain("Write, Edit, Bash");
+  });
+
   it("writes a valid manifest listing every skill", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const manifest = JSON.parse(readFileSync(join(project.dir, "context/.scaffold/manifest.json"), "utf8"));
