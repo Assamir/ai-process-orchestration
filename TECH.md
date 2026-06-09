@@ -85,16 +85,21 @@ Each leaf package is `core` + one `PlatformAdapter` implementation + that platfo
 
 A logical skill from `core/model` renders to different surfaces:
 
-- **Claude** → `.claude/skills/<name>/SKILL.md` with YAML frontmatter incl. `allowed-tools`.
+- **Claude** → `.claude/skills/<name>/SKILL.md` with YAML frontmatter incl. `model` (the suggested
+  tier) and `allowed-tools`.
 - **Copilot** → `.github/prompts/<name>.prompt.md`; cross-skill choreography is expressed via the
   orchestrator agent's `handoffs[]` (frontmatter shape proven by
   `vscode/auditskill/.github/agents/audit-agents.agent.md`: `description`, `model`, `tools[]`,
   `agents[]`, `user-invokable`, `argument-hint`, `handoffs[{label,agent,prompt,send}]`, `target`).
+  Copilot prompts carry no per-prompt model field, so `suggestedModel` is documentation-only there.
 
 ```ts
 interface LogicalSkill {
-  name: string;                 // e.g. "ticket-review"
+  name: string;                 // e.g. "qa-ticket-review"
   description: string;
+  readOnly: boolean;            // read-only skills get no write tools in the allowlist
+  bucket: "backbone" | "design" | "automation" | "analysis";
+  suggestedModel: "opus" | "sonnet" | "haiku"; // matched to cognitive load; -> Claude `model:` frontmatter
   reads: string[];              // context/ paths it consumes
   writes: string[];             // context/ paths it produces
   body: string;                 // procedure text (may contain {{PLACEHOLDER}} for phase 2)
@@ -110,6 +115,37 @@ interface PlatformAdapter {
 }
 ```
 
+### Skill × model × tooling matrix (R-014)
+
+The single authoritative view of the suite: each skill's bucket, read/write mode, **suggested model
+tier**, and the MCP/tooling it leans on. **Naming standard (R-017): every skill is `qa-<name>`** — a
+uniform prefix so the suite is unambiguous in the tool's skill/prompt picker and never collides with a
+target repo's own skills. `suggestedModel` is defined once on the `LogicalSkill`
+(`core/src/model/skills.ts`) and rendered into Claude `SKILL.md` `model:` frontmatter; on Copilot it is
+documentation-only (prompts have no model field). Heuristic: **`opus`** for heavy reasoning (risk
+analysis, case derivation, root cause, coverage judgment), **`haiku`** for mechanical steps (id +
+file creation, archive moves), **`sonnet`** for the balanced middle.
+
+| Skill | Bucket | Mode | Suggested model | Why | MCP / tooling |
+|---|---|---|---|---|---|
+| `qa-init` | backbone | write | `sonnet` | guided interview + fill foundation | reads `manifest.json` |
+| `qa-new` | backbone | write | `haiku` | mechanical: stable id + `work.md` | — |
+| `qa-plan` | backbone | write | `opus` | risk/strategy reasoning | — |
+| `qa-implement` | backbone | write | `sonnet` | orchestration / delegation | result servers (indirect) |
+| `qa-review` | backbone | read | `opus` | coverage + traceability judgment | result servers |
+| `qa-archive` | backbone | write | `haiku` | mechanical: append + move | — |
+| `qa-ticket-review` | design | read | `opus` | ambiguity + risk analysis | `atlassian` (opt-in) |
+| `qa-test-plan` | design | write | `sonnet` | strategy-level doc | — |
+| `qa-test-case-design` | design | write | `opus` | derive negative/boundary cases | — |
+| `qa-automation-bootstrapper` | automation | write | `sonnet` | framework setup + wiring | result servers |
+| `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
+| `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
+| `qa-test-data-gen` | analysis | write | `sonnet` | schema-valid data | — |
+| `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
+
+"Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
+`pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`).
+
 The leaf CLI = parse args → `detectStack` → `runWizard`/`defaultAnswers` → for each `LogicalSkill`
 call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outputs.
 
@@ -117,8 +153,8 @@ call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outp
 
 ```
 context/
-├── foundation/   test-strategy.md, test-plan.md, tools.md, environments.md, lessons.md
-├── changes/<work-id>/   work.md, plan.md, cases.md, automation.md, review.md
+├── foundation/   test-strategy.md, test-plan.md, tools.md, environments.md, lessons.md, tech-debt-tracker.md
+├── changes/<work-id>/   work.md, plan.md, cases.md, automation.md
 └── archive/<work-id>/   (read-only)
 ```
 
@@ -198,15 +234,63 @@ which tools it calls, how it validates, when it stops). The patterns below come 
 - **Mechanical enforcement + remediation-carrying errors.** A deterministic validator (the QA analog
   of `vscode/auditskill`) checks structure, cross-links, and placeholders **outside the agent loop**;
   its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the
-  **`doctor`** command (`core/src/doctor/index.ts`, `runDoctor`; exits non-zero on errors). A recurring
-  **`gardening`** skill that opens targeted fixes remains on the roadmap.
+  **`doctor`** command (`core/src/doctor/index.ts`, `runDoctor`; exits non-zero on errors) and the
+  recurring read-only **`qa-gardening`** skill (shipped R-004) that folds in `doctor`'s findings and hands
+  each targeted fix to the right write skill.
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
-  `resultServers`), so `rca` and `test-automate` read outcomes directly instead of relying on copy-paste.
+  `resultServers`), so `qa-rca` and `qa-test-automate` read outcomes directly instead of relying on copy-paste.
   Both adapters share the server map; only the JSON envelope differs (`mcpServers` vs `servers`).
-- **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`ticket-review`,
-  `test-case-design`, `rca`) or write (`test-automate`, `automation-bootstrapper`); the adapter encodes
-  this as Claude `allowed-tools` and as Copilot agent tool allowlists — schema-level filtering, not prose.
+- **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`qa-ticket-review`,
+  `qa-review`, `qa-rca`, `qa-gardening`) or write (`qa-test-case-design`, `qa-test-automate`,
+  `qa-automation-bootstrapper`, …); the adapter encodes this as Claude `allowed-tools` and as Copilot agent
+  tool allowlists — schema-level filtering, not prose. Each skill also carries a `suggestedModel` tier
+  (R-014), rendered as Claude `model:` frontmatter — see the matrix in §5.
 - **Compaction survival.** The handful of inviolable rules live in the lean root so they persist when
   the conversation is compacted over long QA sessions.
+
+## 12. Scaffolded-guidelines standard & flow reference (R-015)
+
+### 12.1 Guideline docs — the standard
+
+Phase 1 scaffolds a small, fixed set of **guideline docs** from `GUIDELINES` in
+`core/src/model/context.ts`. They are platform-agnostic content; only the path differs (Claude
+`.ai/guidelines/<name>.md`, Copilot `.github/instructions/<name>.instructions.md` — `adapter.guidelineRel`).
+Current set:
+
+| Guideline | Purpose | Phase-1 seeded | Phase-2 `{{PLACEHOLDER}}` |
+|---|---|---|---|
+| `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`) | `PROJECT_SPECIFIC_CONVENTIONS` |
+| `test-naming` | naming + traceability of cases/specs | project language, framework | `NAMING_RULES`, `NAMING_EXAMPLES` |
+
+Standard each guideline follows:
+
+- **Two-phase fill.** A leading note states what phase 1 seeded and what phase 2 must refine. Phase-1
+  fields are rendered deterministically; remaining `{{PLACEHOLDER}}` sections are left intact for the
+  in-tool LLM (`render.ts` preserves unknown placeholders).
+- **Lean & non-obvious.** Record only project-specific rules an agent would otherwise get wrong — not
+  general testing advice. Link out to `context/foundation/*`, don't duplicate it.
+- **Reinforces, never weakens, the iron QA rule.** Test-quality rules (one behavior per test;
+  deterministic/independent/parallel-safe; negative + boundary coverage; diagnostics on failure) are
+  non-negotiable and must survive phase-2 edits.
+- **Adding a guideline** = append to `GUIDELINES` (name, title, body); both adapters render it via
+  `guidelineRel`; `doctor` then expects it to exist (`doctor/index.ts` builds its file set from
+  `GUIDELINES`). Keep the body platform-agnostic so parity holds.
+
+### 12.2 Flow reference (phase 1 → phase 2 → daily loop)
+
+**Phase 1 — installer (`npx <pkg> init`), deterministic, no LLM** (`cli.ts` → `scaffold/index.ts`):
+`detectStack` → `runWizard` (or `defaultAnswers` for `--yes`) → `scaffold` writes, skip-if-exists, the
+lean root config + guidelines + the 14 skill files + MCP config + the `context/` skeleton +
+`.scaffold/manifest.json`. Only **phase-1 placeholders** are rendered (`PHASE1_VAR_NAMES`); everything
+else is left for phase 2. No model API, no `ANTHROPIC_API_KEY`.
+
+**Phase 2 — in the tool (LLM).** `qa-init` reads `manifest.json`, interviews the QA owner, and fills the
+remaining `{{PLACEHOLDER}}` markers in `context/foundation/*` and the guideline docs. Subsequent skills
+fill their own placeholders as they run.
+
+**Daily work-item loop** (state of record = `context/`, read before acting / update after):
+`qa-new` → `qa-ticket-review` → `qa-test-plan` / `qa-test-case-design` → `qa-automation-bootstrapper` (first time) /
+`qa-test-automate` → run → `qa-rca` (on failure) → `qa-review` → `qa-archive`. `qa-gardening` runs out-of-band on
+a cadence to sweep drift; `doctor` runs outside the agent loop to validate structure.

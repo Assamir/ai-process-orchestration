@@ -81,7 +81,7 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
   if (isCancel(qaConventions)) return abort();
 
   const atlassianMcp = await confirm({
-    message: "Wire a local Jira + Confluence (Atlassian) MCP server for ticket-review?",
+    message: "Wire a local Jira + Confluence (Atlassian) MCP server for qa-ticket-review?",
     initialValue: seed.atlassianMcp,
   });
   if (isCancel(atlassianMcp)) return abort();

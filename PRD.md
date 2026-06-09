@@ -78,17 +78,20 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - `qa-new` / `qa-plan` / `qa-implement` / `qa-review` / `qa-archive` — change-driven workflow for a unit of test work (a "work-item"), adapted from the 10xDevs new→plan→implement→review→archive loop.
 
 **B. Test design**
-- `ticket-review` — analyze a ticket/requirement for testability, acceptance criteria, and risks.
-- `test-plan` — create/update `context/foundation/test-plan.md`.
-- `test-case-design` — generate structured test cases into `context/changes/<id>/cases.md`.
+- `qa-ticket-review` — analyze a ticket/requirement for testability, acceptance criteria, and risks.
+- `qa-test-plan` — create/update `context/foundation/test-plan.md`.
+- `qa-test-case-design` — generate structured test cases into `context/changes/<id>/cases.md`.
 
 **C. Automation**
-- `automation-bootstrapper` — detect + set up the test framework (Playwright TS/Java, RestAssured/JUnit).
-- `test-automate` — author/maintain automated tests in the detected framework.
+- `qa-automation-bootstrapper` — detect + set up the test framework (Playwright TS/Java, RestAssured/JUnit).
+- `qa-test-automate` — author/maintain automated tests in the detected framework.
 
 **D. Analysis & data**
-- `rca` — root-cause analysis of failed runs / bugs.
-- `test-data-gen` — generate test data.
+- `qa-rca` — root-cause analysis of failed runs / bugs.
+- `qa-test-data-gen` — generate test data.
+- `qa-gardening` — recurring, read-only sweep for QA drift/slop across `context/` + tests; proposes targeted fixes, never edits (shipped R-004; see §8).
+
+This is **14 skills** in total. Each skill carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load — the full skill × model × tooling matrix lives in **TECH.md §5**.
 
 ## 6. Supported test stacks (MVP)
 
@@ -110,7 +113,7 @@ Roadmap stacks (post-MVP): k6 and others.
 4. Inside the tool (Claude Code or Copilot), the QA runs the phase-2 skill/prompt; it interviews them and fills the placeholders into finished skills.
 
 **Daily work-item flow (after setup)**
-`ticket-review` → `test-plan` → `test-case-design` → `automation-bootstrapper` (first time) → `test-automate` → run → `rca` (on failure) → `qa-review` → `qa-archive`. Each step reads/writes the shared `context/`.
+`qa-ticket-review` → `qa-test-plan` → `qa-test-case-design` → `qa-automation-bootstrapper` (first time) → `qa-test-automate` → run → `qa-rca` (on failure) → `qa-review` → `qa-archive`. Each step reads/writes the shared `context/`.
 
 ## 8. Milestones & roadmap
 
@@ -126,9 +129,9 @@ Roadmap stacks (post-MVP): k6 and others.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
 - **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).
-- **`gardening` skill** — ✅ **shipped (v0.4.0).** A recurring, read-only "docs/test-debt cleanup" pass that folds in `doctor` findings, scans `context/` + tests for drift and stale artifacts, and proposes targeted fixes grouped by severity (entropy / garbage-collection of "QA slop"). Read-only: it reports and hands each fix to the right write skill, it never edits.
-- **Result legibility via MCP** — ✅ **shipped (v0.3.0, extended through v0.6.0).** Phase 1 wires a read-only filesystem MCP server into `.mcp.json` / `.vscode/mcp.json` over each stack's result artifacts, so `rca` / `test-automate` read outcomes directly (the QA analog of Codex's Chrome DevTools + observability wiring): `playwright-results` (HTML report + traces), `pytest-results` (`./reports` + `./test-results`, v0.5.0), and `jvm-results` (Surefire/Serenity or Gradle test reports for RestAssured/JUnit/TestNG, v0.6.0). Richer observability beyond filesystem reports remains on the roadmap.
-- **Ticketing via MCP** — ✅ **shipped (v0.7.0).** An opt-in (default off, CI-safe) phase-1 wizard question wires a local, custom-built `atlassian` MCP server (Jira + Confluence) so `ticket-review` reads tickets and linked specs directly. Secrets are never written into the repo: the launch path and credentials are `${VAR}` indirections supplied via the environment, rendered in each platform's interpolation syntax (`${VAR}` for Claude, `${env:VAR}` for VS Code).
+- **`qa-gardening` skill** — ✅ **shipped (v0.4.0).** A recurring, read-only "docs/test-debt cleanup" pass that folds in `doctor` findings, scans `context/` + tests for drift and stale artifacts, and proposes targeted fixes grouped by severity (entropy / garbage-collection of "QA slop"). Read-only: it reports and hands each fix to the right write skill, it never edits.
+- **Result legibility via MCP** — ✅ **shipped (v0.3.0, extended through v0.6.0).** Phase 1 wires a read-only filesystem MCP server into `.mcp.json` / `.vscode/mcp.json` over each stack's result artifacts, so `qa-rca` / `qa-test-automate` read outcomes directly (the QA analog of Codex's Chrome DevTools + observability wiring): `playwright-results` (HTML report + traces), `pytest-results` (`./reports` + `./test-results`, v0.5.0), and `jvm-results` (Surefire/Serenity or Gradle test reports for RestAssured/JUnit/TestNG, v0.6.0). Richer observability beyond filesystem reports remains on the roadmap.
+- **Ticketing via MCP** — ✅ **shipped (v0.7.0).** An opt-in (default off, CI-safe) phase-1 wizard question wires a local, custom-built `atlassian` MCP server (Jira + Confluence) so `qa-ticket-review` reads tickets and linked specs directly. Secrets are never written into the repo: the launch path and credentials are `${VAR}` indirections supplied via the environment, rendered in each platform's interpolation syntax (`${VAR}` for Claude, `${env:VAR}` for VS Code).
 - **`tech-debt-tracker.md`** in `context/foundation/` — a versioned, agent-readable backlog of test debt, known flaky areas, and RCA history.
 
 ## 9. Success metrics

@@ -16,6 +16,14 @@ export interface LogicalSkill {
   readOnly: boolean;
   /** Capability bucket, for grouping in the root config. */
   bucket: "backbone" | "design" | "automation" | "analysis";
+  /**
+   * Suggested model tier for the skill's cognitive load — the single source of
+   * truth for the skill × model matrix (see TECH.md §5). Rendered as Claude
+   * `SKILL.md` `model:` frontmatter; Copilot prompts have no equivalent field,
+   * so there it stays documentation-only. `opus` for heavy reasoning
+   * (planning, RCA, case design), `haiku` for mechanical steps, `sonnet` otherwise.
+   */
+  suggestedModel: "opus" | "sonnet" | "haiku";
   /** `context/` paths the skill consumes. */
   reads: string[];
   /** `context/` paths the skill produces. */
@@ -30,6 +38,7 @@ const backbone: LogicalSkill[] = [
     description: "Bootstrap the context/ system of record and the lean root config for this repo.",
     readOnly: false,
     bucket: "backbone",
+    suggestedModel: "sonnet",
     reads: [],
     writes: ["context/foundation/test-strategy.md", "context/foundation/environments.md", "context/foundation/tools.md"],
     body: `## When to use
@@ -49,6 +58,7 @@ Foundation docs have no unresolved \`{{PLACEHOLDER}}\` markers and the root conf
     description: "Open a new QA work-item (a bounded unit of test work) with a stable id.",
     readOnly: false,
     bucket: "backbone",
+    suggestedModel: "haiku",
     reads: ["context/foundation/test-strategy.md"],
     writes: ["context/changes/<work-id>/work.md"],
     body: `## When to use
@@ -57,7 +67,7 @@ Starting any unit of test work: a ticket to test, a regression to chase, a suite
 ## Procedure
 1. Derive a stable \`work-id\` as \`<stream>-<slug>\` (e.g. \`api-login-429\`). Keep it deterministic so re-runs stay stable.
 2. Create \`context/changes/<work-id>/work.md\` with: title, source (ticket link), goal, in/out of scope, and acceptance criteria.
-3. Do not start planning yet — hand off to \`qa-plan\` (or \`ticket-review\` first if the requirement is unclear).
+3. Do not start planning yet — hand off to \`qa-plan\` (or \`qa-ticket-review\` first if the requirement is unclear).
 
 ## Done when
 \`context/changes/<work-id>/work.md\` exists and states scope + acceptance criteria.`,
@@ -67,6 +77,7 @@ Starting any unit of test work: a ticket to test, a regression to chase, a suite
     description: "Write the test approach for a work-item before any cases or code are produced.",
     readOnly: false,
     bucket: "backbone",
+    suggestedModel: "opus",
     reads: ["context/changes/<work-id>/work.md", "context/foundation/test-plan.md"],
     writes: ["context/changes/<work-id>/plan.md"],
     body: `## When to use
@@ -86,15 +97,16 @@ The plan lists ordered steps, risks, and success criteria, and has been approved
     description: "Execute an approved work-item plan step by step, keeping context/ current.",
     readOnly: false,
     bucket: "backbone",
+    suggestedModel: "sonnet",
     reads: ["context/changes/<work-id>/plan.md"],
     writes: ["context/changes/<work-id>/"],
     body: `## When to use
 After \`qa-plan\` is approved. Executes the plan by delegating to the design/automation/analysis skills.
 
 ## Procedure
-1. Work the plan steps in order. For each step, hand off to the right skill (\`test-case-design\`, \`automation-bootstrapper\`, \`test-automate\`, \`test-data-gen\`).
+1. Work the plan steps in order. For each step, hand off to the right skill (\`qa-test-case-design\`, \`qa-automation-bootstrapper\`, \`qa-test-automate\`, \`qa-test-data-gen\`).
 2. After each step, update the work-item folder (cases.md / automation.md) so progress survives a context reset.
-3. Run the relevant tests and capture results; on failure hand off to \`rca\`.
+3. Run the relevant tests and capture results; on failure hand off to \`qa-rca\`.
 4. Stop and escalate when the plan is blocked or a decision exceeds autonomy **{{AUTONOMY_LEVEL}}**.
 
 ## Done when
@@ -105,6 +117,7 @@ Every plan step is done or explicitly deferred, with artifacts recorded under th
     description: "Review a finished work-item for coverage, quality, and traceability (read-only).",
     readOnly: true,
     bucket: "backbone",
+    suggestedModel: "opus",
     reads: ["context/changes/<work-id>/"],
     writes: [],
     body: `## When to use
@@ -124,6 +137,7 @@ A clear verdict with a findings list is produced. No files were modified.`,
     description: "Close a reviewed work-item: capture lessons and move it to the read-only archive.",
     readOnly: false,
     bucket: "backbone",
+    suggestedModel: "haiku",
     reads: ["context/changes/<work-id>/"],
     writes: ["context/archive/<work-id>/", "context/foundation/lessons.md", "context/foundation/tech-debt-tracker.md"],
     body: `## When to use
@@ -141,10 +155,11 @@ The work-item lives under \`context/archive/\`, lessons are captured, and any ne
 
 const design: LogicalSkill[] = [
   {
-    name: "ticket-review",
+    name: "qa-ticket-review",
     description: "Analyze a ticket/requirement for testability, acceptance criteria, and risk (read-only).",
     readOnly: true,
     bucket: "design",
+    suggestedModel: "opus",
     reads: ["context/changes/<work-id>/work.md"],
     writes: [],
     body: `## When to use
@@ -161,10 +176,11 @@ When a ticket arrives and you need to know if it can be tested as written. Read-
 The reviewer has a clear testability verdict and a list of open questions.`,
   },
   {
-    name: "test-plan",
+    name: "qa-test-plan",
     description: "Create or update the project's foundation test plan (strategy-level, durable).",
     readOnly: false,
     bucket: "design",
+    suggestedModel: "sonnet",
     reads: ["context/foundation/test-strategy.md"],
     writes: ["context/foundation/test-plan.md"],
     body: `## When to use
@@ -179,19 +195,20 @@ To establish or evolve the durable, cross-work-item test plan.
 \`test-plan.md\` is current and free of unresolved \`{{PLACEHOLDER}}\` markers.`,
   },
   {
-    name: "test-case-design",
+    name: "qa-test-case-design",
     description: "Generate structured test cases for a work-item from its acceptance criteria.",
     readOnly: false,
     bucket: "design",
+    suggestedModel: "opus",
     reads: ["context/changes/<work-id>/work.md", "context/foundation/test-plan.md"],
     writes: ["context/changes/<work-id>/cases.md"],
     body: `## When to use
-After acceptance criteria are clear (post \`ticket-review\`).
+After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
 1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path.
 2. Write each case to \`context/changes/<work-id>/cases.md\` with: id, title, preconditions, steps, expected result, test level, and the criterion it traces to.
-3. Note required test data; hand off to \`test-data-gen\` if it must be produced.
+3. Note required test data; hand off to \`qa-test-data-gen\` if it must be produced.
 4. Keep cases automation-ready (deterministic, independent).
 
 ## Done when
@@ -201,10 +218,11 @@ Every acceptance criterion maps to one or more traceable cases.`,
 
 const automation: LogicalSkill[] = [
   {
-    name: "automation-bootstrapper",
+    name: "qa-automation-bootstrapper",
     description: "Set up the test-automation framework and wire result artifacts to be agent-readable.",
     readOnly: false,
     bucket: "automation",
+    suggestedModel: "sonnet",
     reads: ["context/.scaffold/manifest.json", "context/foundation/tools.md"],
     writes: ["context/foundation/tools.md"],
     body: `## When to use
@@ -213,17 +231,18 @@ First time a repo needs automation, or when adding a new test level.
 ## Procedure
 1. Confirm the framework from the manifest: **{{AUTOMATION_FRAMEWORK}}**. Verify it is installed; if not, propose the exact install/config steps for the detected build tool.
 2. Establish the test folder layout, config, and a smoke test that proves the harness runs.
-3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, pytest-html + JUnit XML, Surefire XML). A read-only results MCP filesystem server is pre-wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) for Playwright (\`playwright-results\` over \`./playwright-report\` + \`./test-results\`), pytest (\`pytest-results\` over \`./reports\` + \`./test-results\`), and JVM runners — RestAssured/JUnit/TestNG (\`jvm-results\` over the Surefire/Serenity report dirs) — verify those paths match your config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`rca\` and \`test-automate\` can read outcomes directly.
+3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, pytest-html + JUnit XML, Surefire XML). A read-only results MCP filesystem server is pre-wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) for Playwright (\`playwright-results\` over \`./playwright-report\` + \`./test-results\`), pytest (\`pytest-results\` over \`./reports\` + \`./test-results\`), and JVM runners — RestAssured/JUnit/TestNG (\`jvm-results\` over the Surefire/Serenity report dirs) — verify those paths match your config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`qa-rca\` and \`qa-test-automate\` can read outcomes directly.
 4. Do not weaken the iron QA rule.
 
 ## Done when
 A smoke test passes and result-artifact paths are recorded in \`tools.md\`.`,
   },
   {
-    name: "test-automate",
+    name: "qa-test-automate",
     description: "Author and maintain automated tests in the chosen framework from designed cases.",
     readOnly: false,
     bucket: "automation",
+    suggestedModel: "opus",
     reads: ["context/changes/<work-id>/cases.md", "context/foundation/tools.md"],
     writes: ["context/changes/<work-id>/automation.md"],
     body: `## When to use
@@ -233,7 +252,7 @@ After cases are designed and the framework is bootstrapped.
 1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions.
 2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure.
 3. Run the new tests; record the command and result location in \`context/changes/<work-id>/automation.md\`.
-4. On failure, hand off to \`rca\` rather than blindly retrying.
+4. On failure, hand off to \`qa-rca\` rather than blindly retrying.
 
 ## Done when
 The new tests pass locally and the run is recorded in \`automation.md\`.`,
@@ -242,10 +261,11 @@ The new tests pass locally and the run is recorded in \`automation.md\`.`,
 
 const analysis: LogicalSkill[] = [
   {
-    name: "rca",
+    name: "qa-rca",
     description: "Root-cause a failing test run or bug from artifacts, without changing code (read-only).",
     readOnly: true,
     bucket: "analysis",
+    suggestedModel: "opus",
     reads: ["context/foundation/tools.md", "context/changes/<work-id>/automation.md"],
     writes: [],
     body: `## When to use
@@ -255,16 +275,17 @@ A test failed or a bug was reported and you need the real cause, not a symptom. 
 1. Gather artifacts: for Playwright, read the HTML report, traces, and screenshots through the \`playwright-results\` MCP server; otherwise use the paths in \`tools.md\` (logs, trace, JUnit XML). What is not in context does not exist — pull the evidence in.
 2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect.
 3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity.
-4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`test-automate\` to fix a test, or a bug report for a product defect).
+4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`qa-test-automate\` to fix a test, or a bug report for a product defect).
 
 ## Done when
 A single root cause with an evidence chain and a recommended action is produced.`,
   },
   {
-    name: "test-data-gen",
+    name: "qa-test-data-gen",
     description: "Produce test data for designed cases, matching schema and edge conditions.",
     readOnly: false,
     bucket: "analysis",
+    suggestedModel: "sonnet",
     reads: ["context/changes/<work-id>/cases.md", "context/foundation/environments.md"],
     writes: ["context/changes/<work-id>/"],
     body: `## When to use
@@ -280,10 +301,11 @@ When cases need specific data (valid, invalid, boundary) that does not exist yet
 Every case has the data it needs, in a reusable, schema-valid form.`,
   },
   {
-    name: "gardening",
+    name: "qa-gardening",
     description: "Recurring read-only sweep for QA drift and slop across context/ and tests; proposes targeted fixes (does not edit).",
     readOnly: true,
     bucket: "analysis",
+    suggestedModel: "sonnet",
     reads: ["context/foundation/", "context/changes/", "context/archive/"],
     writes: [],
     body: `## When to use
@@ -296,7 +318,7 @@ Run on a cadence (end of a sprint, before a release) to fight entropy: stale con
    - \`context/changes/\` — work-items that are done but never archived, or abandoned and stale.
    - Tests vs cases — cases with no automated test, tests with no traced criterion, duplicated/overlapping coverage, and flaky patterns recorded in \`lessons.md\`.
 3. Apply the golden rules and flag each violation: every behavior has a test in **{{AUTOMATION_FRAMEWORK}}**; every case traces to an acceptance criterion; \`context/\` stays lean and current. This sweep reinforces the iron QA rule — never propose weakening it.
-4. Output a prioritized fix list in **{{REPORT_LANGUAGE_NAME}}**: each item states what is wrong, where (file/path), why it matters, and the single targeted fix. Group by severity and hand each fix to the right write skill (\`qa-archive\`, \`test-automate\`, \`test-case-design\`, \`test-plan\`). Do not edit files yourself.
+4. Output a prioritized fix list in **{{REPORT_LANGUAGE_NAME}}**: each item states what is wrong, where (file/path), why it matters, and the single targeted fix. Group by severity and hand each fix to the right write skill (\`qa-archive\`, \`qa-test-automate\`, \`qa-test-case-design\`, \`qa-test-plan\`). Do not edit files yourself.
 
 ## Done when
 A prioritized, deduplicated drift report exists with a concrete next action per item. No files were modified.`,

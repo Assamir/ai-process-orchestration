@@ -18,8 +18,8 @@ export interface McpContext {
 /**
  * MCP servers that make **test results legible to the agent** — the QA analog of
  * Codex's Chrome DevTools / observability wiring. For Playwright we expose the
- * HTML report + traces/screenshots via a read-only filesystem server so `rca` and
- * `test-automate` can read outcomes directly instead of relying on copy-paste.
+ * HTML report + traces/screenshots via a read-only filesystem server so `qa-rca` and
+ * `qa-test-automate` can read outcomes directly instead of relying on copy-paste.
  *
  * Returns server entries keyed by name; both adapters wrap them in their own JSON
  * envelope (`mcpServers` for Claude, `servers` for Copilot). Only `unknown`
@@ -37,7 +37,7 @@ export function resultServers(ctx: McpContext): Record<string, McpServer> {
     case "pytest":
       // pytest writes where configured; the common conventions are a pytest-html
       // report + a JUnit XML (`--junitxml`) under ./reports, with artifacts in
-      // ./test-results. Expose both read-only so rca/test-automate read outcomes.
+      // ./test-results. Expose both read-only so qa-rca/qa-test-automate read outcomes.
       return { "pytest-results": filesystem(["./reports", "./test-results"]) };
     case "restassured":
     case "junit5":
@@ -67,7 +67,7 @@ function filesystem(dirs: string[]): McpServer {
 
 /**
  * Optional, local, custom-built **Atlassian** MCP server exposing Jira +
- * Confluence tools so `ticket-review` reads tickets and linked specs directly
+ * Confluence tools so `qa-ticket-review` reads tickets and linked specs directly
  * instead of relying on pasted text. Off unless the wizard opts in.
  *
  * Secrets are never written as values: the launch path and credentials are

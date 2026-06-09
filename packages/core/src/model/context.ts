@@ -50,7 +50,7 @@ export function rootConfigMarkdown(skills: LogicalSkill[], invoke: string): stri
 ## How to work
 
 1. Open or create a work-item with \`qa-new\` (id = \`<stream>-<slug>\`, stable).
-2. Drive it: \`ticket-review\` → \`test-plan\`/\`test-case-design\` → \`automation-bootstrapper\`/\`test-automate\` → run → \`rca\` on failure → \`qa-review\` → \`qa-archive\`.
+2. Drive it: \`qa-ticket-review\` → \`qa-test-plan\`/\`qa-test-case-design\` → \`qa-automation-bootstrapper\`/\`qa-test-automate\` → run → \`qa-rca\` on failure → \`qa-review\` → \`qa-archive\`.
 3. Run each step as a ${invoke}. State of record lives under \`context/\` — read it before acting, update it after.
 
 ## Skills

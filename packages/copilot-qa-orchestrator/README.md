@@ -13,13 +13,14 @@ Two phases:
 1. **Phase 1 — installer (`npx`, deterministic, no LLM).** Detects your test stack (Playwright
    TS/Java, RestAssured/JUnit/TestNG), runs a short wizard, and writes:
    - `.github/copilot-instructions.md` — a lean root "map" (table of contents, not a manual).
-   - `.github/prompts/<name>.prompt.md` — the QA skill suite (`qa-init`, `ticket-review`,
-     `test-plan`, `test-case-design`, `automation-bootstrapper`, `test-automate`, `rca`,
-     `test-data-gen`, and the `qa-new → … → qa-archive` backbone).
+   - `.github/prompts/<name>.prompt.md` — the QA skill suite (every skill is `qa-<name>`: `qa-init`,
+     `qa-ticket-review`, `qa-test-plan`, `qa-test-case-design`, `qa-automation-bootstrapper`,
+     `qa-test-automate`, `qa-rca`, `qa-test-data-gen`, `qa-gardening`, and the
+     `qa-new → … → qa-archive` backbone).
    - `.github/agents/qa-orchestrator.agent.md` — a router that drives the prompts.
    - `.github/instructions/*.instructions.md` — QA conventions & test naming.
    - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).
-   - `.vscode/mcp.json` — for Playwright, a read-only `playwright-results` MCP server over the HTML report + traces, so `rca`/`test-automate` read results directly (empty stub for other stacks).
+   - `.vscode/mcp.json` — for Playwright, a read-only `playwright-results` MCP server over the HTML report + traces, so `qa-rca`/`qa-test-automate` read results directly (empty stub for other stacks).
 2. **Phase 2 — in Copilot (LLM).** Run the `qa-orchestrator` agent (or the `/qa-init` prompt); it
    interviews you and fills the remaining `{{PLACEHOLDER}}` markers into finished docs and prompts.
 

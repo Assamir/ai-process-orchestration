@@ -22,6 +22,7 @@ export const claudeAdapter: PlatformAdapter = {
     const content = `---
 name: ${skill.name}
 description: ${skill.description}
+model: ${skill.suggestedModel}
 allowed-tools: ${tools}
 ---
 

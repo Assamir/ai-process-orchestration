@@ -55,7 +55,7 @@ export interface WizardAnswers {
   qaConventions: string;
   /**
    * Wire the optional local, custom-built Atlassian (Jira + Confluence) MCP
-   * server so `ticket-review` reads tickets/specs directly. Off by default
+   * server so `qa-ticket-review` reads tickets/specs directly. Off by default
    * (and under `--yes`/CI) — opt-in, since it needs a local server + secrets.
    */
   atlassianMcp: boolean;

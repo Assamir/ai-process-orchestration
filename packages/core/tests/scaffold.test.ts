@@ -40,7 +40,7 @@ describe("scaffold (Claude)", () => {
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       ".claude/skills/qa-init/SKILL.md",
-      ".claude/skills/rca/SKILL.md",
+      ".claude/skills/qa-rca/SKILL.md",
       ".mcp.json",
       "context/.scaffold/manifest.json",
     ];
@@ -56,21 +56,32 @@ describe("scaffold (Claude)", () => {
 
   it("renders read-only skills without write tools", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
-    const rca = readFileSync(join(project.dir, ".claude/skills/rca/SKILL.md"), "utf8");
+    const rca = readFileSync(join(project.dir, ".claude/skills/qa-rca/SKILL.md"), "utf8");
     expect(rca).toContain("allowed-tools: Read, Grep, Glob");
     expect(rca).not.toContain("Write, Edit, Bash");
   });
 
   it("ships the gardening maintenance skill as read-only (R-004)", () => {
-    const gardening = SKILLS.find((s) => s.name === "gardening");
+    const gardening = SKILLS.find((s) => s.name === "qa-gardening");
     expect(gardening, "gardening skill registered").toBeDefined();
     expect(gardening!.readOnly).toBe(true);
     expect(gardening!.bucket).toBe("analysis");
 
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
-    const skill = readFileSync(join(project.dir, ".claude/skills/gardening/SKILL.md"), "utf8");
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-gardening/SKILL.md"), "utf8");
     expect(skill).toContain("allowed-tools: Read, Grep, Glob");
     expect(skill).not.toContain("Write, Edit, Bash");
+  });
+
+  it("renders each skill's suggested model into SKILL.md frontmatter (R-014)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Heavy-reasoning skill -> opus; mechanical skill -> haiku.
+    const plan = readFileSync(join(project.dir, ".claude/skills/qa-plan/SKILL.md"), "utf8");
+    expect(plan).toContain("model: opus");
+    const archive = readFileSync(join(project.dir, ".claude/skills/qa-archive/SKILL.md"), "utf8");
+    expect(archive).toContain("model: haiku");
+    // The matrix is total: every logical skill declares a valid tier.
+    for (const s of SKILLS) expect(["opus", "sonnet", "haiku"]).toContain(s.suggestedModel);
   });
 
   it("scaffolds the tech-debt-tracker foundation doc and qa-archive writes to it (R-005)", () => {
@@ -116,6 +127,12 @@ describe("scaffold (Copilot)", () => {
       "context/foundation/test-strategy.md",
     ];
     for (const rel of expected) expect(existsSync(join(project.dir, rel)), rel).toBe(true);
+  });
+
+  it("keeps the suggested model documentation-only — no model: field in prompts (R-014)", () => {
+    scaffold({ root: project.dir, adapter: copilotAdapter, stack, answers });
+    const prompt = readFileSync(join(project.dir, ".github/prompts/qa-plan.prompt.md"), "utf8");
+    expect(prompt).not.toContain("model:");
   });
 });
 

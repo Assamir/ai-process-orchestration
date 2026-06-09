@@ -60,7 +60,7 @@ weaken the iron QA rule (tests in **{{AUTOMATION_FRAMEWORK}}**).
 ## Workflow
 
 1. Open or create a work-item: run the \`/qa-new\` prompt (id = \`<stream>-<slug>\`, stable).
-2. Drive it: \`/ticket-review\` → \`/test-plan\` or \`/test-case-design\` → \`/automation-bootstrapper\` or \`/test-automate\` → run → \`/rca\` on failure → \`/qa-review\` → \`/qa-archive\`.
+2. Drive it: \`/qa-ticket-review\` → \`/qa-test-plan\` or \`/qa-test-case-design\` → \`/qa-automation-bootstrapper\` or \`/qa-test-automate\` → run → \`/qa-rca\` on failure → \`/qa-review\` → \`/qa-archive\`.
 3. Run each step as its prompt. State of record is \`context/\`.
 
 ## Skills (run as \`/<name>\` prompts)
