@@ -1,4 +1,4 @@
-import { cancel, isCancel, note, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, note, select, text } from "@clack/prompts";
 import { defaultQaConventions, frameworkChoices, frameworkLabel } from "../labels.js";
 import type {
   AutomationFramework,
@@ -23,6 +23,7 @@ export function defaultAnswers(stack: DetectedStack): WizardAnswers {
     reportLanguage: "en",
     autonomyLevel: "medium",
     qaConventions: defaultQaConventions(automationFramework, stack.linters),
+    atlassianMcp: false,
   };
 }
 
@@ -79,11 +80,18 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
   });
   if (isCancel(qaConventions)) return abort();
 
+  const atlassianMcp = await confirm({
+    message: "Wire a local Jira + Confluence (Atlassian) MCP server for ticket-review?",
+    initialValue: seed.atlassianMcp,
+  });
+  if (isCancel(atlassianMcp)) return abort();
+
   return {
     automationFramework,
     reportLanguage,
     autonomyLevel,
     qaConventions: qaConventions.trim(),
+    atlassianMcp,
   };
 }
 

@@ -151,10 +151,11 @@ const design: LogicalSkill[] = [
 When a ticket arrives and you need to know if it can be tested as written. Read-only.
 
 ## Procedure
-1. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
-2. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable.
-3. Identify risk areas, edge cases, and required test data and environments.
-4. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly.
+1. Pull the source: if an \`atlassian\` MCP server is configured (Jira + Confluence), read the ticket and any linked Confluence specs directly through it — what's not in context doesn't exist. Otherwise work from the ticket text in \`work.md\`.
+2. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
+3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable.
+4. Identify risk areas, edge cases, and required test data and environments.
+5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly.
 
 ## Done when
 The reviewer has a clear testability verdict and a list of open questions.`,

@@ -1,5 +1,5 @@
 import type { McpContext } from "../model/mcp.js";
-import { resultServers } from "../model/mcp.js";
+import { mcpServers } from "../model/mcp.js";
 import type { LogicalSkill } from "../model/skills.js";
 import type { WriteFile } from "../types.js";
 import type { PlatformAdapter } from "./types.js";
@@ -41,9 +41,10 @@ ${skill.body}
   },
 
   mcpFile(ctx: McpContext): WriteFile {
+    // Claude Code expands `${VAR}` in .mcp.json string values directly.
     return {
       rel: ".mcp.json",
-      content: `${JSON.stringify({ mcpServers: resultServers(ctx) }, null, 2)}\n`,
+      content: `${JSON.stringify({ mcpServers: mcpServers(ctx) }, null, 2)}\n`,
     };
   },
 };

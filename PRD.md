@@ -122,12 +122,13 @@ Roadmap stacks (post-MVP): k6 and others.
 - **M3 — `copilot-qa-orchestrator` (parity).** Copilot adapter + `.github/{copilot-instructions,instructions,prompts,agents,chatmodes}` + `.vscode/mcp.json`; phase-2 as `.agent.md`/`.prompt.md`. Parity snapshot tests.
 - **M4 — Docs & release.** Final PRD/TECH, per-package README, independent versioning, npx smoke tests for both.
 
-**Roadmap (post-MVP):** ticketing integrations (e.g. Jira) via MCP; richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
+**Roadmap (post-MVP):** richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
 - **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).
 - **`gardening` skill** — ✅ **shipped (v0.4.0).** A recurring, read-only "docs/test-debt cleanup" pass that folds in `doctor` findings, scans `context/` + tests for drift and stale artifacts, and proposes targeted fixes grouped by severity (entropy / garbage-collection of "QA slop"). Read-only: it reports and hands each fix to the right write skill, it never edits.
 - **Result legibility via MCP** — ✅ **shipped (v0.3.0, extended through v0.6.0).** Phase 1 wires a read-only filesystem MCP server into `.mcp.json` / `.vscode/mcp.json` over each stack's result artifacts, so `rca` / `test-automate` read outcomes directly (the QA analog of Codex's Chrome DevTools + observability wiring): `playwright-results` (HTML report + traces), `pytest-results` (`./reports` + `./test-results`, v0.5.0), and `jvm-results` (Surefire/Serenity or Gradle test reports for RestAssured/JUnit/TestNG, v0.6.0). Richer observability beyond filesystem reports remains on the roadmap.
+- **Ticketing via MCP** — ✅ **shipped (v0.7.0).** An opt-in (default off, CI-safe) phase-1 wizard question wires a local, custom-built `atlassian` MCP server (Jira + Confluence) so `ticket-review` reads tickets and linked specs directly. Secrets are never written into the repo: the launch path and credentials are `${VAR}` indirections supplied via the environment, rendered in each platform's interpolation syntax (`${VAR}` for Claude, `${env:VAR}` for VS Code).
 - **`tech-debt-tracker.md`** in `context/foundation/` — a versioned, agent-readable backlog of test debt, known flaky areas, and RCA history.
 
 ## 9. Success metrics

@@ -15,6 +15,7 @@ const stack: DetectedStack = {
 };
 
 const answers: WizardAnswers = {
+  atlassianMcp: false,
   automationFramework: "playwright-ts",
   reportLanguage: "en",
   autonomyLevel: "medium",

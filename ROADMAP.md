@@ -32,6 +32,7 @@
 | 0.4.1 | **R-005** `tech-debt-tracker.md` foundation doc — first-class versioned test-debt backlog; `qa-archive` appends, `gardening` scans, `doctor` checks it exists | `62bbecf` | `packages/core/src/model/context.ts`, `model/skills.ts` (`qa-archive`, `gardening`) |
 | 0.5.0 | **R-006** pytest as a first-class stack — wizard default + QA advice (already in `labels.ts`) plus a `pytest-results` MCP server over `./reports` + `./test-results` | `e005b73` | `packages/core/src/model/mcp.ts`, `detect/python.ts`, `types.ts`, `model/skills.ts` (`automation-bootstrapper`), `tests/` |
 | 0.6.0 | **R-008** MCP results for JVM stacks — `jvm-results` server over Surefire/Serenity report dirs (Maven) or Gradle test/serenity reports for RestAssured/JUnit5/TestNG | `b7df77b` | `packages/core/src/model/mcp.ts`, `model/skills.ts` (`automation-bootstrapper`), `tests/mcp.test.ts` |
+| 0.7.0 | **R-009** Ticketing via MCP — opt-in local custom `atlassian` (Jira + Confluence) server with env-var-indirected secrets; `ticket-review` reads tickets/specs directly; platform-correct `${VAR}`/`${env:VAR}` rendering | _pending_ | `model/mcp.ts`, `types.ts`, `wizard/index.ts`, `scaffold/index.ts`, `adapters/*`, `model/skills.ts` (`ticket-review`), `tests/mcp.test.ts` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -41,8 +42,6 @@ _All currently scheduled items are shipped. The next stack/feature work lives in
 
 ## Backlog (unscheduled)
 
-- **🧊 R-009 — Ticketing (Jira) via MCP.** Optional MCP server so `ticket-review` reads tickets directly.
-  Needs config/secrets handling. Lands: `model/mcp.ts`, `ticket-review` body. Traces: PRD §8.
 - **🧊 R-010 — Richer test-data generation.** Faker/factories/mocks support in `test-data-gen`. Lands:
   `model/skills.ts`, possibly a helper. Traces: PRD §8.
 - **🧊 R-011 — k6 / performance testing.** New stack + skill. Lands: `detect/*`, `model/skills.ts`. Traces: PRD §8.

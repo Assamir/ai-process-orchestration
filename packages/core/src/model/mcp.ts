@@ -1,14 +1,18 @@
 import type { AutomationFramework, BuildTool } from "../types.js";
 
-/** A stdio MCP server entry (command + args). Same shape both platforms. */
+/** A stdio MCP server entry (command + args, optional env). Same shape both platforms. */
 export interface McpServer {
   command: string;
   args: string[];
+  /** Environment passed to the server. Values may use `${VAR}` indirection. */
+  env?: Record<string, string>;
 }
 
 export interface McpContext {
   framework: AutomationFramework;
   buildTool: BuildTool;
+  /** Wire the optional local Atlassian (Jira + Confluence) MCP server. */
+  atlassianMcp?: boolean;
 }
 
 /**
@@ -59,4 +63,33 @@ function filesystem(dirs: string[]): McpServer {
     command: "npx",
     args: ["-y", "@modelcontextprotocol/server-filesystem", ...dirs],
   };
+}
+
+/**
+ * Optional, local, custom-built **Atlassian** MCP server exposing Jira +
+ * Confluence tools so `ticket-review` reads tickets and linked specs directly
+ * instead of relying on pasted text. Off unless the wizard opts in.
+ *
+ * Secrets are never written as values: the launch path and credentials are
+ * `${VAR}` indirections the user supplies via the environment. Each adapter
+ * renders the platform-correct interpolation token.
+ */
+export function ticketingServers(ctx: McpContext): Record<string, McpServer> {
+  if (!ctx.atlassianMcp) return {};
+  return {
+    atlassian: {
+      command: "node",
+      args: ["${ATLASSIAN_MCP_PATH}"],
+      env: {
+        ATLASSIAN_URL: "${ATLASSIAN_URL}",
+        ATLASSIAN_EMAIL: "${ATLASSIAN_EMAIL}",
+        ATLASSIAN_API_TOKEN: "${ATLASSIAN_API_TOKEN}",
+      },
+    },
+  };
+}
+
+/** Every MCP server a scaffold wires: result-legibility plus optional ticketing. */
+export function mcpServers(ctx: McpContext): Record<string, McpServer> {
+  return { ...resultServers(ctx), ...ticketingServers(ctx) };
 }

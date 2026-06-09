@@ -53,6 +53,12 @@ export interface WizardAnswers {
   autonomyLevel: AutonomyLevel;
   /** Seeded QA conventions text the developer can refine. */
   qaConventions: string;
+  /**
+   * Wire the optional local, custom-built Atlassian (Jira + Confluence) MCP
+   * server so `ticket-review` reads tickets/specs directly. Off by default
+   * (and under `--yes`/CI) — opt-in, since it needs a local server + secrets.
+   */
+  atlassianMcp: boolean;
 }
 
 /** A single platform we can scaffold for. */

@@ -48,7 +48,11 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     ...FOUNDATION.map((f) => ({ rel: f.rel, content: f.body })),
     ...SKILLS.flatMap((s) => adapter.renderSkill(s)),
     ...adapter.orchestratorFiles(SKILLS),
-    adapter.mcpFile({ framework: answers.automationFramework, buildTool: stack.buildTool }),
+    adapter.mcpFile({
+      framework: answers.automationFramework,
+      buildTool: stack.buildTool,
+      atlassianMcp: answers.atlassianMcp,
+    }),
   ];
 
   const results: WriteResult[] = files.map((f) =>

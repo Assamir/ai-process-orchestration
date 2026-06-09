@@ -11,7 +11,7 @@ export {
 export { render } from "./render.js";
 export { SKILLS, type LogicalSkill } from "./model/skills.js";
 export { rootConfigMarkdown, GUIDELINES, FOUNDATION } from "./model/context.js";
-export { resultServers, type McpServer, type McpContext } from "./model/mcp.js";
+export { resultServers, ticketingServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
 export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";

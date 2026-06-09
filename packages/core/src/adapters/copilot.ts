@@ -1,5 +1,5 @@
 import type { McpContext } from "../model/mcp.js";
-import { resultServers } from "../model/mcp.js";
+import { mcpServers } from "../model/mcp.js";
 import type { LogicalSkill } from "../model/skills.js";
 import type { WriteFile } from "../types.js";
 import type { PlatformAdapter } from "./types.js";
@@ -71,10 +71,13 @@ ${rows}
   },
 
   mcpFile(ctx: McpContext): WriteFile {
-    return {
-      rel: ".vscode/mcp.json",
-      content: `${JSON.stringify({ servers: resultServers(ctx) }, null, 2)}\n`,
-    };
+    // VS Code expands environment variables as `${env:VAR}`, not `${VAR}`;
+    // rewrite the shared model's tokens to the platform-correct syntax.
+    const json = JSON.stringify({ servers: mcpServers(ctx) }, null, 2).replace(
+      /\$\{([A-Z0-9_]+)\}/g,
+      "${env:$1}",
+    );
+    return { rel: ".vscode/mcp.json", content: `${json}\n` };
   },
 };
 
