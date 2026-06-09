@@ -59,7 +59,7 @@ ${skillList}
 
 ## Where things live
 
-- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons.
+- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons, tech-debt tracker.
 - \`context/changes/<work-id>/\` — in-flight work (work.md, plan.md, cases.md, automation.md).
 - \`context/archive/<work-id>/\` — completed work (read-only history).
 - Guidelines — QA conventions & naming (see the guidelines files).
@@ -181,6 +181,28 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 > don't repeat mistakes (flaky areas, data tricks, tooling gotchas).
 
 {{LESSONS}}
+`,
+  },
+  {
+    rel: "context/foundation/tech-debt-tracker.md",
+    body: `# Tech-debt tracker
+
+> Durable, append-only — a first-class, versioned backlog of test debt and
+> known-flaky areas. \`qa-archive\` appends entries as work-items close. Nothing
+> here is auto-deleted: an item is resolved by linking the work-item that paid it
+> down, not by removing the row, so the history of what we owed survives.
+
+## Open test debt
+
+> Each entry: id, area, what's owed, severity, and the work-item that found/introduced it.
+
+{{TECH_DEBT}}
+
+## Known flaky areas
+
+> Tests or areas that fail intermittently — the quarantine reason and a link to the tracking work-item.
+
+{{FLAKY_AREAS}}
 `,
   },
   {

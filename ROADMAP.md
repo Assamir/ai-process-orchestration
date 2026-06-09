@@ -29,19 +29,11 @@
 | 0.2.0 | **R-002** `doctor` — deterministic scaffold validator (structure, manifest, placeholders, links, iron QA rule) | `4809161` | `packages/core/src/doctor/index.ts`, `cli.ts` |
 | 0.3.0 | **R-003** MCP result-legibility — `playwright-results` filesystem server wired into `.mcp.json` / `.vscode/mcp.json` | `20999c9` | `packages/core/src/model/mcp.ts`, adapters |
 | 0.4.0 | **R-004** `gardening` skill — recurring read-only QA drift/slop sweep over `context/` + tests; proposes targeted fixes, never edits | `78c7d90` | `packages/core/src/model/skills.ts`, `tests/scaffold.test.ts` |
+| 0.4.1 | **R-005** `tech-debt-tracker.md` foundation doc — first-class versioned test-debt backlog; `qa-archive` appends, `gardening` scans, `doctor` checks it exists | _pending_ | `packages/core/src/model/context.ts`, `model/skills.ts` (`qa-archive`, `gardening`) |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 ## Next (planned)
-
-### ⬜ R-005 — `tech-debt-tracker.md` foundation doc → target v0.4.0
-- **What:** add `context/foundation/tech-debt-tracker.md` to the scaffold; `qa-archive` appends test debt /
-  known flaky areas; `doctor` checks it exists.
-- **Why:** Codex "plans as first-class artifacts" / versioned debt backlog (TECH §6, §11).
-- **Lands in:** `packages/core/src/model/context.ts` (`FOUNDATION`), `model/skills.ts` (`qa-archive` body),
-  `packages/core/src/doctor/index.ts` (expected-files list).
-- **Acceptance:** new foundation file scaffolded both platforms; doctor green on fresh scaffold; parity holds.
-- **Traces to:** TECH §6 (system of record), §11.
 
 ### ⬜ R-006 — pytest as a first-class stack → target v0.5.0
 - **What:** promote pytest from "detected" to fully supported: wizard default, QA advice, and an MCP results

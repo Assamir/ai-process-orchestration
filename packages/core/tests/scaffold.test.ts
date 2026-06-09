@@ -72,6 +72,16 @@ describe("scaffold (Claude)", () => {
     expect(skill).not.toContain("Write, Edit, Bash");
   });
 
+  it("scaffolds the tech-debt-tracker foundation doc and qa-archive writes to it (R-005)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const tracker = join(project.dir, "context/foundation/tech-debt-tracker.md");
+    expect(existsSync(tracker), "tech-debt-tracker.md scaffolded").toBe(true);
+    expect(readFileSync(tracker, "utf8")).toContain("Tech-debt tracker");
+
+    const archive = SKILLS.find((s) => s.name === "qa-archive");
+    expect(archive!.writes).toContain("context/foundation/tech-debt-tracker.md");
+  });
+
   it("writes a valid manifest listing every skill", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const manifest = JSON.parse(readFileSync(join(project.dir, "context/.scaffold/manifest.json"), "utf8"));

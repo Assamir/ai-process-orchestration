@@ -125,17 +125,17 @@ A clear verdict with a findings list is produced. No files were modified.`,
     readOnly: false,
     bucket: "backbone",
     reads: ["context/changes/<work-id>/"],
-    writes: ["context/archive/<work-id>/", "context/foundation/lessons.md"],
+    writes: ["context/archive/<work-id>/", "context/foundation/lessons.md", "context/foundation/tech-debt-tracker.md"],
     body: `## When to use
 After \`qa-review\` approves a work-item.
 
 ## Procedure
 1. Append any reusable lesson (a flaky area, a data trick, a tooling gotcha) to \`context/foundation/lessons.md\`.
-2. Move \`context/changes/<work-id>/\` to \`context/archive/<work-id>/\` (treat as read-only history).
-3. Note any follow-up test debt for \`tech-debt-tracker.md\` if present.
+2. Append any test debt or known-flaky area uncovered during the work-item to \`context/foundation/tech-debt-tracker.md\` — it is a first-class, versioned backlog. Add a new entry (do not delete or rewrite past ones) linking back to this work-id, so what we owe survives.
+3. Move \`context/changes/<work-id>/\` to \`context/archive/<work-id>/\` (treat as read-only history).
 
 ## Done when
-The work-item lives under \`context/archive/\` and lessons are captured.`,
+The work-item lives under \`context/archive/\`, lessons are captured, and any new test debt is recorded in the tracker.`,
   },
 ];
 
@@ -291,7 +291,7 @@ Run on a cadence (end of a sprint, before a release) to fight entropy: stale con
 ## Procedure
 1. Start from deterministic signals: run \`doctor\` (or read its latest report) and fold its findings in — broken links, leftover \`{{PLACEHOLDER}}\` markers, missing files. What \`doctor\` already catches, you do not re-derive.
 2. Scan the system of record for drift and staleness:
-   - Foundation docs (\`test-strategy\`, \`test-plan\`, \`environments\`, \`tools\`, \`lessons\`) — contradictions, out-of-date info, and paths that no longer exist.
+   - Foundation docs (\`test-strategy\`, \`test-plan\`, \`environments\`, \`tools\`, \`lessons\`, \`tech-debt-tracker\`) — contradictions, out-of-date info, paths that no longer exist, and debt entries that were resolved but never linked to the work-item that paid them down.
    - \`context/changes/\` — work-items that are done but never archived, or abandoned and stale.
    - Tests vs cases — cases with no automated test, tests with no traced criterion, duplicated/overlapping coverage, and flaky patterns recorded in \`lessons.md\`.
 3. Apply the golden rules and flag each violation: every behavior has a test in **{{AUTOMATION_FRAMEWORK}}**; every case traces to an acceptance criterion; \`context/\` stays lean and current. This sweep reinforces the iron QA rule — never propose weakening it.
