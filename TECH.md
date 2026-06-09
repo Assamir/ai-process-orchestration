@@ -142,9 +142,16 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
 | `qa-test-data-gen` | analysis | write | `sonnet` | schema-valid data | — |
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
+| `qa-bug-report` | analysis | write | `sonnet` | structured defect report from evidence | result servers, `atlassian` (opt-in) |
+| `qa-reverse-engineer` | analysis | write | `opus` | reverse-engineer code → project docs | reads app source (read-only on code) |
 
 "Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
 `pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`).
+
+**Orchestration via `## Next` (R-020).** Every skill body ends with a `## Next` section recommending
+the downstream skill(s) — the agent-orchestration graph is encoded in the skills themselves, not in a
+separate router. `qa-reverse-engineer` writes durable system docs to `context/reference/`; `qa-bug-report`
+closes the `qa-rca` → defect gap.
 
 The leaf CLI = parse args → `detectStack` → `runWizard`/`defaultAnswers` → for each `LogicalSkill`
 call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outputs.
@@ -154,8 +161,9 @@ call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outp
 ```
 context/
 ├── foundation/   test-strategy.md, test-plan.md, tools.md, environments.md, lessons.md, tech-debt-tracker.md
-├── changes/<work-id>/   work.md, plan.md, cases.md, automation.md
-└── archive/<work-id>/   (read-only)
+├── changes/<work-id>/   work.md, plan.md, cases.md, automation.md, bug-report.md
+├── archive/<work-id>/   (read-only)
+└── reference/   system-overview.md + reverse-engineered docs (qa-reverse-engineer)
 ```
 
 - The lean root config is an **index**, not a repository; skills fetch from `context/` just-in-time
@@ -292,5 +300,7 @@ fill their own placeholders as they run.
 
 **Daily work-item loop** (state of record = `context/`, read before acting / update after):
 `qa-new` → `qa-ticket-review` → `qa-test-plan` / `qa-test-case-design` → `qa-automation-bootstrapper` (first time) /
-`qa-test-automate` → run → `qa-rca` (on failure) → `qa-review` → `qa-archive`. `qa-gardening` runs out-of-band on
-a cadence to sweep drift; `doctor` runs outside the agent loop to validate structure.
+`qa-test-automate` → run → `qa-rca` (on failure) → `qa-review` → `qa-archive`. On a product defect `qa-rca`
+hands off to `qa-bug-report`. Out of band: `qa-reverse-engineer` builds `context/reference/` to understand
+an app before testing; `qa-gardening` sweeps drift on a cadence; `doctor` validates structure outside the
+agent loop. Each skill's `## Next` section names its recommended successors (R-020).

@@ -62,6 +62,7 @@ ${skillList}
 - \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons, tech-debt tracker.
 - \`context/changes/<work-id>/\` — in-flight work (work.md, plan.md, cases.md, automation.md).
 - \`context/archive/<work-id>/\` — completed work (read-only history).
+- \`context/reference/\` — reverse-engineered system docs (produced by \`qa-reverse-engineer\`).
 - Guidelines — QA conventions & naming (see the guidelines files).
 `;
 }
@@ -203,6 +204,18 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 > Tests or areas that fail intermittently — the quarantine reason and a link to the tracking work-item.
 
 {{FLAKY_AREAS}}
+`,
+  },
+  {
+    rel: "context/reference/system-overview.md",
+    body: `# System reference
+
+> Durable. Produced by \`qa-reverse-engineer\` in phase 2 from the application source.
+> For a large/monolith codebase the skill first proposes how to split this, then fills it.
+> Covers: business context, architecture, data flow, integrations, entry points, test surface.
+> Links out to real source paths — it does not duplicate code.
+
+{{REVERSE_ENGINEERED_MAP}}
 `,
   },
   {

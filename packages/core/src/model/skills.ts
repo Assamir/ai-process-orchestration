@@ -51,7 +51,11 @@ Run once, first thing, to turn a fresh scaffold into a usable QA orchestration.
 4. Confirm the iron QA rule names the chosen framework: **{{AUTOMATION_FRAMEWORK}}**.
 
 ## Done when
-Foundation docs have no unresolved \`{{PLACEHOLDER}}\` markers and the root config links to them.`,
+Foundation docs have no unresolved \`{{PLACEHOLDER}}\` markers and the root config links to them.
+
+## Next
+- \`qa-reverse-engineer\` — map an unfamiliar codebase into \`context/reference/\` before testing.
+- \`qa-new\` — open the first work-item once the foundation is filled.`,
   },
   {
     name: "qa-new",
@@ -70,7 +74,11 @@ Starting any unit of test work: a ticket to test, a regression to chase, a suite
 3. Do not start planning yet — hand off to \`qa-plan\` (or \`qa-ticket-review\` first if the requirement is unclear).
 
 ## Done when
-\`context/changes/<work-id>/work.md\` exists and states scope + acceptance criteria.`,
+\`context/changes/<work-id>/work.md\` exists and states scope + acceptance criteria.
+
+## Next
+- \`qa-ticket-review\` — if the requirement is unclear, assess testability first.
+- \`qa-plan\` — otherwise, plan the test approach.`,
   },
   {
     name: "qa-plan",
@@ -90,7 +98,10 @@ After a work-item exists and its scope is clear. The plan is a control mechanism
 4. Pause for human approval before implementing (respect autonomy level: **{{AUTONOMY_LEVEL}}**).
 
 ## Done when
-The plan lists ordered steps, risks, and success criteria, and has been approved.`,
+The plan lists ordered steps, risks, and success criteria, and has been approved.
+
+## Next
+- \`qa-implement\` — once the plan is approved, execute it step by step.`,
   },
   {
     name: "qa-implement",
@@ -110,7 +121,12 @@ After \`qa-plan\` is approved. Executes the plan by delegating to the design/aut
 4. Stop and escalate when the plan is blocked or a decision exceeds autonomy **{{AUTONOMY_LEVEL}}**.
 
 ## Done when
-Every plan step is done or explicitly deferred, with artifacts recorded under the work-item.`,
+Every plan step is done or explicitly deferred, with artifacts recorded under the work-item.
+
+## Next
+- \`qa-test-case-design\` / \`qa-automation-bootstrapper\` / \`qa-test-automate\` / \`qa-test-data-gen\` — per the plan step in hand.
+- \`qa-rca\` — on a test failure, before retrying.
+- \`qa-review\` — when every step is done.`,
   },
   {
     name: "qa-review",
@@ -130,7 +146,11 @@ Before archiving a work-item. Read-only: report findings, do not modify files.
 4. Write the review summary to the chat in **{{REPORT_LANGUAGE_NAME}}**; recommend approve / changes-needed.
 
 ## Done when
-A clear verdict with a findings list is produced. No files were modified.`,
+A clear verdict with a findings list is produced. No files were modified.
+
+## Next
+- \`qa-archive\` — if approved.
+- \`qa-implement\` — if changes are needed.`,
   },
   {
     name: "qa-archive",
@@ -149,7 +169,11 @@ After \`qa-review\` approves a work-item.
 3. Move \`context/changes/<work-id>/\` to \`context/archive/<work-id>/\` (treat as read-only history).
 
 ## Done when
-The work-item lives under \`context/archive/\`, lessons are captured, and any new test debt is recorded in the tracker.`,
+The work-item lives under \`context/archive/\`, lessons are captured, and any new test debt is recorded in the tracker.
+
+## Next
+- \`qa-new\` — start the next work-item.
+- \`qa-gardening\` — periodically, to sweep accumulated drift.`,
   },
 ];
 
@@ -173,7 +197,11 @@ When a ticket arrives and you need to know if it can be tested as written. Read-
 5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly.
 
 ## Done when
-The reviewer has a clear testability verdict and a list of open questions.`,
+The reviewer has a clear testability verdict and a list of open questions.
+
+## Next
+- \`qa-test-plan\` — fold the requirement into the durable test plan.
+- \`qa-test-case-design\` — derive cases once the criteria are testable.`,
   },
   {
     name: "qa-test-plan",
@@ -192,7 +220,10 @@ To establish or evolve the durable, cross-work-item test plan.
 3. Keep it lean and link out to foundation docs rather than duplicating them.
 
 ## Done when
-\`test-plan.md\` is current and free of unresolved \`{{PLACEHOLDER}}\` markers.`,
+\`test-plan.md\` is current and free of unresolved \`{{PLACEHOLDER}}\` markers.
+
+## Next
+- \`qa-test-case-design\` — derive cases from the planned scope.`,
   },
   {
     name: "qa-test-case-design",
@@ -212,7 +243,11 @@ After acceptance criteria are clear (post \`qa-ticket-review\`).
 4. Keep cases automation-ready (deterministic, independent).
 
 ## Done when
-Every acceptance criterion maps to one or more traceable cases.`,
+Every acceptance criterion maps to one or more traceable cases.
+
+## Next
+- \`qa-test-data-gen\` — if cases need data that does not exist yet.
+- \`qa-test-automate\` — implement the designed cases.`,
   },
 ];
 
@@ -235,7 +270,10 @@ First time a repo needs automation, or when adding a new test level.
 4. Do not weaken the iron QA rule.
 
 ## Done when
-A smoke test passes and result-artifact paths are recorded in \`tools.md\`.`,
+A smoke test passes and result-artifact paths are recorded in \`tools.md\`.
+
+## Next
+- \`qa-test-automate\` — author tests now that the harness runs.`,
   },
   {
     name: "qa-test-automate",
@@ -255,7 +293,10 @@ After cases are designed and the framework is bootstrapped.
 4. On failure, hand off to \`qa-rca\` rather than blindly retrying.
 
 ## Done when
-The new tests pass locally and the run is recorded in \`automation.md\`.`,
+The new tests pass locally and the run is recorded in \`automation.md\`.
+
+## Next
+- \`qa-rca\` — on failure, find the real cause before retrying.`,
   },
 ];
 
@@ -278,7 +319,11 @@ A test failed or a bug was reported and you need the real cause, not a symptom. 
 4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`qa-test-automate\` to fix a test, or a bug report for a product defect).
 
 ## Done when
-A single root cause with an evidence chain and a recommended action is produced.`,
+A single root cause with an evidence chain and a recommended action is produced.
+
+## Next
+- \`qa-test-automate\` — if it is a test defect, fix the test.
+- \`qa-bug-report\` — if it is a product defect, file a structured report.`,
   },
   {
     name: "qa-test-data-gen",
@@ -298,11 +343,14 @@ When cases need specific data (valid, invalid, boundary) that does not exist yet
 4. Note any data that must be cleaned up after a run.
 
 ## Done when
-Every case has the data it needs, in a reusable, schema-valid form.`,
+Every case has the data it needs, in a reusable, schema-valid form.
+
+## Next
+- \`qa-test-automate\` — wire the generated data into the tests.`,
   },
   {
     name: "qa-gardening",
-    description: "Recurring read-only sweep for QA drift and slop across context/ and tests; proposes targeted fixes (does not edit).",
+    description: "Recurring read-only, LLM-driven sweep for semantic QA drift/slop across context/ and tests; proposes and delegates targeted fixes, never edits — the in-agent-loop complement to the deterministic doctor command.",
     readOnly: true,
     bucket: "analysis",
     suggestedModel: "sonnet",
@@ -310,6 +358,8 @@ Every case has the data it needs, in a reusable, schema-valid form.`,
     writes: [],
     body: `## When to use
 Run on a cadence (end of a sprint, before a release) to fight entropy: stale context, drifted docs, dead test debt, accumulated "QA slop". Read-only — it reports a fix list, it never edits.
+
+**\`qa-gardening\` vs \`doctor\`.** \`doctor\` is deterministic and mechanical, run *outside* the agent loop (structure, broken links, leftover placeholders, the iron-rule presence — exit code for CI). \`qa-gardening\` is the *semantic* pass *inside* the agent loop: it folds in \`doctor\`'s findings (never re-deriving them), then judges drift a validator cannot see (contradictions, stale info, untraced coverage) and hands each fix to the right write skill. It diagnoses and dispatches; it never applies the fix itself.
 
 ## Procedure
 1. Start from deterministic signals: run \`doctor\` (or read its latest report) and fold its findings in — broken links, leftover \`{{PLACEHOLDER}}\` markers, missing files. What \`doctor\` already catches, you do not re-derive.
@@ -321,7 +371,77 @@ Run on a cadence (end of a sprint, before a release) to fight entropy: stale con
 4. Output a prioritized fix list in **{{REPORT_LANGUAGE_NAME}}**: each item states what is wrong, where (file/path), why it matters, and the single targeted fix. Group by severity and hand each fix to the right write skill (\`qa-archive\`, \`qa-test-automate\`, \`qa-test-case-design\`, \`qa-test-plan\`). Do not edit files yourself.
 
 ## Done when
-A prioritized, deduplicated drift report exists with a concrete next action per item. No files were modified.`,
+A prioritized, deduplicated drift report exists with a concrete next action per item. No files were modified.
+
+## Next
+- \`qa-archive\` / \`qa-test-automate\` / \`qa-test-case-design\` / \`qa-test-plan\` — hand each proposed fix to the matching write skill.`,
+  },
+  {
+    name: "qa-bug-report",
+    description: "Turn a confirmed product defect into a structured, reproducible bug report with evidence (writes the report only).",
+    readOnly: false,
+    bucket: "analysis",
+    suggestedModel: "sonnet",
+    reads: ["context/changes/<work-id>/automation.md", "context/changes/<work-id>/work.md", "context/foundation/tools.md"],
+    writes: ["context/changes/<work-id>/bug-report.md"],
+    body: `## When to use
+After \`qa-rca\` concludes the failure is a product defect (not a test defect) and you need a structured, reproducible report. Reads evidence; writes only the report.
+
+## Procedure
+1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist.
+2. Confirm reproducibility: minimal, ordered steps from a known state; note environment and the test data used.
+3. Fill the template below into \`context/changes/<work-id>/bug-report.md\`. Link the affected acceptance criterion and the work-id; carry the suspected area from \`qa-rca\`.
+4. If an \`atlassian\` MCP server is configured, propose filing it as a Jira issue — mirror the template, do not invent fields.
+
+## Template
+\`\`\`md
+# Bug: <one-line summary>
+- **Severity / Priority:** <S1-S4 / P1-P4>
+- **Environment:** <env, build/version, browser/runtime>
+- **Work-item / AC:** <work-id> · <criterion id>
+- **Suspected area (from qa-rca):** <component / module>
+
+## Steps to reproduce
+1. <step>
+
+## Expected vs actual
+- **Expected:** <...>
+- **Actual:** <...>
+
+## Evidence
+- <links to trace / screenshot / log via the result MCP server or tools.md paths>
+\`\`\`
+
+## Done when
+\`bug-report.md\` exists with reproducible steps, expected vs actual, severity, evidence links, and a traced acceptance criterion. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-archive\` — once the defect is logged and the work-item is wrapping up.
+- File it in \`atlassian\` (if configured) so the defect leaves the repo for the tracker.`,
+  },
+  {
+    name: "qa-reverse-engineer",
+    description: "Reverse-engineer the application source into structured project documentation under context/reference/ (read-only on code).",
+    readOnly: false,
+    bucket: "analysis",
+    suggestedModel: "opus",
+    reads: ["context/.scaffold/manifest.json"],
+    writes: ["context/reference/"],
+    body: `## When to use
+To understand an existing application before planning tests, or to onboard onto an unfamiliar/legacy codebase. Read-only on the application source — it never modifies code; it only reads it and writes documentation under \`context/reference/\`.
+
+## Procedure
+1. Recon first: from \`context/.scaffold/manifest.json\` and a light scan, identify the language(s), build tool, frameworks, and the obvious entry points (HTTP routes, CLI, jobs, message consumers).
+2. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
+3. Fill \`context/reference/\` (index in \`system-overview.md\`, linking out): business context, architecture, data flow, integrations (external systems, APIs, queues, DBs), entry points, and the test surface (what is risky / untested).
+4. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable.
+
+## Done when
+\`context/reference/\` holds the agreed structure with no unresolved \`{{PLACEHOLDER}}\` markers, and the map traces to real source paths. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-ticket-review\` / \`qa-test-plan\` — now informed by the system map.
+- \`qa-gardening\` — can read \`context/reference/\` to flag drift between the map and the code.`,
   },
 ];
 

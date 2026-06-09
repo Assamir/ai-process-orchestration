@@ -90,8 +90,10 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - `qa-rca` — root-cause analysis of failed runs / bugs.
 - `qa-test-data-gen` — generate test data.
 - `qa-gardening` — recurring, read-only sweep for QA drift/slop across `context/` + tests; proposes targeted fixes, never edits (shipped R-004; see §8).
+- `qa-bug-report` — turn a confirmed product defect into a structured, reproducible report with evidence (shipped R-018).
+- `qa-reverse-engineer` — reverse-engineer the application source into structured project docs under `context/reference/` (business, architecture, data flow, integrations, entry points, test surface; shipped R-019).
 
-This is **14 skills** in total. Each skill carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load — the full skill × model × tooling matrix lives in **TECH.md §5**.
+This is **16 skills** in total. Each carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load, and a `## Next` section recommending downstream skills so the agent-orchestration graph lives in the suite itself — the full skill × model × tooling matrix is in **TECH.md §5**.
 
 ## 6. Supported test stacks (MVP)
 

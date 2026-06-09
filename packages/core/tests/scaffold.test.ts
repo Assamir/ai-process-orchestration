@@ -84,6 +84,19 @@ describe("scaffold (Claude)", () => {
     for (const s of SKILLS) expect(["opus", "sonnet", "haiku"]).toContain(s.suggestedModel);
   });
 
+  it("ships qa-bug-report and qa-reverse-engineer and scaffolds context/reference/ (R-018, R-019)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    expect(existsSync(join(project.dir, ".claude/skills/qa-bug-report/SKILL.md")), "qa-bug-report").toBe(true);
+    expect(existsSync(join(project.dir, ".claude/skills/qa-reverse-engineer/SKILL.md")), "qa-reverse-engineer").toBe(true);
+    expect(existsSync(join(project.dir, "context/reference/system-overview.md")), "reference index").toBe(true);
+    const bugReport = SKILLS.find((s) => s.name === "qa-bug-report");
+    expect(bugReport!.writes).toContain("context/changes/<work-id>/bug-report.md");
+  });
+
+  it("every skill suggests a flow via a ## Next section (R-020)", () => {
+    for (const s of SKILLS) expect(s.body, s.name).toContain("## Next");
+  });
+
   it("scaffolds the tech-debt-tracker foundation doc and qa-archive writes to it (R-005)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const tracker = join(project.dir, "context/foundation/tech-debt-tracker.md");
