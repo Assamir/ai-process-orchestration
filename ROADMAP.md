@@ -31,6 +31,7 @@
 | 0.4.0 | **R-004** `gardening` skill — recurring read-only QA drift/slop sweep over `context/` + tests; proposes targeted fixes, never edits | `78c7d90` | `packages/core/src/model/skills.ts`, `tests/scaffold.test.ts` |
 | 0.4.1 | **R-005** `tech-debt-tracker.md` foundation doc — first-class versioned test-debt backlog; `qa-archive` appends, `gardening` scans, `doctor` checks it exists | `62bbecf` | `packages/core/src/model/context.ts`, `model/skills.ts` (`qa-archive`, `gardening`) |
 | 0.5.0 | **R-006** pytest as a first-class stack — wizard default + QA advice (already in `labels.ts`) plus a `pytest-results` MCP server over `./reports` + `./test-results` | `e005b73` | `packages/core/src/model/mcp.ts`, `detect/python.ts`, `types.ts`, `model/skills.ts` (`automation-bootstrapper`), `tests/` |
+| 0.6.0 | **R-008** MCP results for JVM stacks — `jvm-results` server over Surefire/Serenity report dirs (Maven) or Gradle test/serenity reports for RestAssured/JUnit5/TestNG | _pending_ | `packages/core/src/model/mcp.ts`, `model/skills.ts` (`automation-bootstrapper`), `tests/mcp.test.ts` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -40,8 +41,6 @@ _All currently scheduled items are shipped. The next stack/feature work lives in
 
 ## Backlog (unscheduled)
 
-- **🧊 R-008 — MCP results for RestAssured/JUnit/TestNG.** Extend `resultServers` to wire Surefire/Serenity
-  report dirs for JVM stacks. Lands: `model/mcp.ts`, `tests/`. Traces: TECH §11.
 - **🧊 R-009 — Ticketing (Jira) via MCP.** Optional MCP server so `ticket-review` reads tickets directly.
   Needs config/secrets handling. Lands: `model/mcp.ts`, `ticket-review` body. Traces: PRD §8.
 - **🧊 R-010 — Richer test-data generation.** Faker/factories/mocks support in `test-data-gen`. Lands:

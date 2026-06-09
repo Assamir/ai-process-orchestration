@@ -18,8 +18,8 @@ export interface McpContext {
  * `test-automate` can read outcomes directly instead of relying on copy-paste.
  *
  * Returns server entries keyed by name; both adapters wrap them in their own JSON
- * envelope (`mcpServers` for Claude, `servers` for Copilot). Frameworks without a
- * results wiring yet (JVM RestAssured/JUnit/TestNG) return `{}` — see roadmap.
+ * envelope (`mcpServers` for Claude, `servers` for Copilot). Only `unknown`
+ * (no detected framework) returns `{}`.
  */
 export function resultServers(ctx: McpContext): Record<string, McpServer> {
   switch (ctx.framework) {
@@ -35,9 +35,22 @@ export function resultServers(ctx: McpContext): Record<string, McpServer> {
       // report + a JUnit XML (`--junitxml`) under ./reports, with artifacts in
       // ./test-results. Expose both read-only so rca/test-automate read outcomes.
       return { "pytest-results": filesystem(["./reports", "./test-results"]) };
+    case "restassured":
+    case "junit5":
+    case "testng":
+      // JVM runners write Surefire/Failsafe XML (or Gradle's test reports) plus a
+      // Serenity site when used; conventional dirs differ by build tool.
+      return { "jvm-results": filesystem(jvmReportDirs(ctx.buildTool)) };
     default:
       return {};
   }
+}
+
+/** Conventional Surefire/Serenity report directories for a JVM stack, by build tool. */
+function jvmReportDirs(buildTool: BuildTool): string[] {
+  return buildTool === "gradle"
+    ? ["./build/reports/tests", "./build/reports/serenity"]
+    : ["./target/surefire-reports", "./target/site/serenity"];
 }
 
 /** Read-only filesystem MCP server scoped to the given result directories. */

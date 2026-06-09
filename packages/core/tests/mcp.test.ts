@@ -30,8 +30,20 @@ describe("resultServers (MCP legibility)", () => {
     expect(s!.args).toEqual(expect.arrayContaining(["./reports", "./test-results"]));
   });
 
-  it("returns no servers for frameworks without results wiring yet (empty stub)", () => {
-    expect(resultServers({ framework: "restassured", buildTool: "maven" })).toEqual({});
+  it("wires Surefire/Serenity report dirs for JVM stacks per build tool (R-008)", () => {
+    const maven = resultServers({ framework: "restassured", buildTool: "maven" })["jvm-results"];
+    expect(maven).toBeDefined();
+    expect(maven!.args).toContain("@modelcontextprotocol/server-filesystem");
+    expect(maven!.args).toEqual(expect.arrayContaining(["./target/surefire-reports", "./target/site/serenity"]));
+
+    const gradle = resultServers({ framework: "junit5", buildTool: "gradle" })["jvm-results"];
+    expect(gradle!.args).toEqual(expect.arrayContaining(["./build/reports/tests", "./build/reports/serenity"]));
+
+    // TestNG rides the same JVM layout.
+    expect(resultServers({ framework: "testng", buildTool: "maven" })["jvm-results"]).toBeDefined();
+  });
+
+  it("returns no servers only when the framework is unknown (empty stub)", () => {
     expect(resultServers({ framework: "unknown", buildTool: "unknown" })).toEqual({});
   });
 });
@@ -83,5 +95,20 @@ describe("scaffold wires MCP results into the platform config", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack: pyStack, answers: pyAnswers });
     const mcp = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
     expect(mcp.mcpServers["pytest-results"]).toBeDefined();
+  });
+
+  it("seeds the jvm-results server when scaffolding a RestAssured (Maven) repo (R-008)", () => {
+    const jvmStack: DetectedStack = {
+      language: "java",
+      buildTool: "maven",
+      frameworks: ["restassured", "junit5"],
+      primaryFramework: "restassured",
+      linters: [],
+      manifests: ["pom.xml"],
+    };
+    const jvmAnswers: WizardAnswers = { ...answers, automationFramework: "restassured" };
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: jvmStack, answers: jvmAnswers });
+    const mcp = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
+    expect(mcp.mcpServers["jvm-results"]).toBeDefined();
   });
 });
