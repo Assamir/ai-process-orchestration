@@ -104,7 +104,7 @@ This is **16 skills** in total. Each carries a **suggested model tier** (`opus`/
 
 Polyglot repos are detected fully; one primary stack is chosen by priority and used to seed wizard defaults.
 
-Roadmap stacks (post-MVP): k6 and others.
+Roadmap stacks (post-MVP): additional automation stacks as demand emerges.
 
 ## 7. User journeys
 
@@ -127,7 +127,7 @@ Roadmap stacks (post-MVP): k6 and others.
 - **M3 — `copilot-qa-orchestrator` (parity).** Copilot adapter + `.github/{copilot-instructions,instructions,prompts,agents,chatmodes}` + `.vscode/mcp.json`; phase-2 as `.agent.md`/`.prompt.md`. Parity snapshot tests.
 - **M4 — Docs & release.** Final PRD/TECH, per-package README, independent versioning, npx smoke tests for both.
 
-**Roadmap (post-MVP):** richer test-data generation (faker/factories/mocks); k6 / performance; a metrics dashboard skill.
+**Roadmap (post-MVP):** richer test-data generation (faker/factories/mocks); a metrics-dashboard + observability skill; a coverage-gap skill; Playwright MCP/CLI tooling; a Mermaid diagram standard + guideline-standard upgrade (mandatory good/bad examples + suggested patterns). See **[`ROADMAP.md`](ROADMAP.md)** for the tracked backlog.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
 - **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).

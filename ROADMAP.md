@@ -62,17 +62,42 @@ stack/feature work lives in the backlog below._
   `model/skills.ts`, possibly a helper. **Done when:** `qa-test-data-gen` can emit reusable
   factories/fixtures (not just inline values) for the detected stack, schema-validated, with a test
   proving the generated form is referenced from cases. Traces: PRD §8.
-- **🧊 R-011 — k6 / performance testing.** New stack + skill. Lands: `detect/*`, `types.ts`,
-  `model/skills.ts`, `model/mcp.ts`. **Done when:** k6 is a detected framework with wizard defaults, a
-  perf-oriented skill exists, and a `k6-results` MCP server is wired over its output dir; parity test
-  green. Traces: PRD §6 (post-MVP stacks), §8.
-- **🧊 R-012 — Metrics dashboard skill.** Summarize coverage/flakiness from `context/` + results. Lands:
-  `model/skills.ts`. **Done when:** a read-only skill aggregates pass/fail/flake + criterion-coverage
-  from the result MCP servers and `context/`, emitting a digest in the report language. Traces: PRD §9
-  success metrics.
-- **🧊 R-016 — Richer observability beyond filesystem reports.** Extend result legibility past static
-  report dirs (e.g. live run streaming / cloud test observability). Lands: `model/mcp.ts`, `detect/*`.
-  Traces: PRD §8 ("Richer observability … remains on the roadmap"), TECH §11.
+- **🧊 R-012 — Metrics dashboard + observability skill** _(merged with former R-016)_. Summarize
+  coverage/flakiness from `context/` + results, and extend result legibility past static filesystem
+  report dirs (e.g. live run streaming / cloud test observability). Lands: `model/skills.ts`,
+  `model/mcp.ts`, `detect/*`. **Done when:** a read-only skill aggregates pass/fail/flake +
+  criterion-coverage from the result MCP servers and `context/`, emitting a digest in the report
+  language, and the result-legibility layer is no longer limited to static report directories. Traces:
+  PRD §8 ("Richer observability … remains on the roadmap"), §9 success metrics, TECH §11.
+- **🧊 R-022 — `qa-coverage-gap` skill** (read-only). Maps acceptance criteria → cases → automated
+  tests and reports uncovered criteria. Lands: `model/skills.ts`, `tests/scaffold.test.ts`, PRD §5,
+  TECH §5. **Done when:** a read-only skill emits a coverage-gap report with AC↔case↔test traceability;
+  parity test green. Traces: PRD §9 success metrics.
+- **🧊 R-023 — Playwright MCP (browser) wiring.** Wire the official Playwright MCP server into
+  `.mcp.json` / `.vscode/mcp.json` for interactive browser exploration in `qa-test-case-design` /
+  `qa-rca`. Lands: `model/mcp.ts`, `adapters/*`, `tests/mcp.test.ts`. **Done when:** both adapters
+  render the server (platform-correct envelope), opt-in is wizard-controlled, parity test green.
+  Traces: TECH §11 (result/observability legibility).
+- **🧊 R-024 — `qa-playwright-cli` skill.** Wraps the Playwright CLI (`codegen`, `show-report`,
+  `trace`, `--ui`, `--update-snapshots`) as support for `qa-test-automate` / `qa-rca`. Lands:
+  `model/skills.ts`, `tests/scaffold.test.ts`. **Done when:** the skill exists in both packages with
+  the correct read-only/write tool allowlist; parity test green. Traces: PRD §5 (automation).
+- **🧊 R-025 — Mermaid diagram standard.** New `diagram-conventions` guideline (rendered by both
+  adapters via `GUIDELINES`) plus a TECH section defining the Mermaid standard. Lands:
+  `model/context.ts` (`GUIDELINES`), TECH §12, `doctor/index.ts` (guideline file set). **Done when:**
+  the guideline ships on both platforms, `doctor` expects it, TECH §12 documents the standard; parity
+  green. Traces: TECH §12 (scaffolded-guidelines standard).
+- **🧊 R-026 — Guideline-standard upgrade: mandatory good/bad examples + suggested patterns.** Every
+  standards/guideline doc MUST carry ✅ good / ❌ bad example sections; the standard also encourages a
+  "Stosowane wzorce" (applicable design / programming / testing patterns) section. Enforced by
+  `doctor`; updates TECH §12.1 + the templates in `context.ts`. Lands: `model/context.ts`,
+  `doctor/index.ts`, TECH §12.1. **Done when:** the guideline template carries both sections, `doctor`
+  flags a standards doc missing the good/bad examples, TECH §12.1 documents the rule; parity green.
+  Traces: TECH §11 ("mechanical enforcement + remediation-carrying errors"), §12.1.
+
+> **ID notes — R-011 dropped, R-016 merged.** `R-011` (k6 / performance) was removed from the backlog
+> as deprioritized; `R-016` (richer observability) was folded into **R-012**. IDs are append-only and
+> never reused, so both stay permanent gaps (like R-007), not slots to fill.
 
 ## Conventions for tracking
 
