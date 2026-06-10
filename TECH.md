@@ -284,6 +284,7 @@ Current set:
 |---|---|---|---|
 | `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`) | `PROJECT_SPECIFIC_CONVENTIONS` |
 | `test-naming` | naming + traceability of cases/specs | project language, framework | `NAMING_RULES`, `NAMING_EXAMPLES` |
+| `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + an example diagram | `PROJECT_DIAGRAMS` |
 
 Standard each guideline follows:
 
@@ -299,11 +300,25 @@ Standard each guideline follows:
   `guidelineRel`; `doctor` then expects it to exist (`doctor/index.ts` builds its file set from
   `GUIDELINES`). Keep the body platform-agnostic so parity holds.
 
-### 12.2 Flow reference (phase 1 → phase 2 → daily loop)
+### 12.2 Diagram standard — Mermaid (R-025)
+
+The `diagram-conventions` guideline fixes **Mermaid** as the diagram format for everything under
+`context/` and in reports: fenced ```` ```mermaid ```` blocks render in the tool and on the repo host,
+diff cleanly, and never rot into a stale binary image. The standard maps a diagram type to a use:
+`flowchart` (process/decision flow), `sequenceDiagram` (interactions over time — `qa-rca` repros,
+integration design), `stateDiagram-v2` (entity lifecycle under test), `erDiagram` (data shapes that must
+match a schema — pairs with `qa-test-data-gen`). Rules: one diagram per block, explicit direction,
+meaningful labels, ~15-node cap (split by domain past that), and the diagram **supports** prose +
+traceability — it never displaces the rule that every case traces to an acceptance criterion. The
+guideline ships an example flowchart (AC → case → test → `qa-rca`/`qa-review`) and a phase-2
+`{{PROJECT_DIAGRAMS}}` slot for the product's canonical diagrams. As with any guideline, it is added by
+appending to `GUIDELINES`; both adapters render it and `doctor` then expects it.
+
+### 12.3 Flow reference (phase 1 → phase 2 → daily loop)
 
 **Phase 1 — installer (`npx <pkg> init`), deterministic, no LLM** (`cli.ts` → `scaffold/index.ts`):
 `detectStack` → `runWizard` (or `defaultAnswers` for `--yes`) → `scaffold` writes, skip-if-exists, the
-lean root config + guidelines + the 14 skill files + MCP config + the `context/` skeleton +
+lean root config + guidelines + the full skill suite + MCP config + the `context/` skeleton +
 `.scaffold/manifest.json`. Only **phase-1 placeholders** are rendered (`PHASE1_VAR_NAMES`); everything
 else is left for phase 2. No model API, no `ANTHROPIC_API_KEY`.
 

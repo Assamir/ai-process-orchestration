@@ -39,6 +39,7 @@ describe("scaffold (Claude)", () => {
       "CLAUDE.md",
       ".ai/guidelines/qa-conventions.md",
       ".ai/guidelines/test-naming.md",
+      ".ai/guidelines/diagram-conventions.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       ".claude/skills/qa-init/SKILL.md",
@@ -115,6 +116,26 @@ describe("scaffold (Claude)", () => {
     expect(skill).toContain("@faker-js/faker");
     expect(skill).toContain("Playwright (TypeScript)");
     expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+  });
+
+  it("ships the Mermaid diagram-conventions guideline on both platforms; doctor expects it (R-025)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/diagram-conventions.md"), "utf8");
+    expect(claude).toContain("mermaid");
+    expect(claude).toContain("flowchart");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/diagram-conventions.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("mermaid");
+    } finally {
+      copilotProject.cleanup();
+    }
   });
 
   it("ships qa-playwright-cli as a write automation skill with the write tool allowlist (R-024)", () => {

@@ -120,6 +120,43 @@ export const GUIDELINES: Array<{ name: string; title: string; body: string }> = 
 {{NAMING_EXAMPLES}}
 `,
   },
+  {
+    name: "diagram-conventions",
+    title: "Diagram conventions (Mermaid)",
+    body: `# Diagram conventions (Mermaid)
+
+> Phase 1 seeded this standard. Phase 2 adds the project-specific diagrams in the \`{{PLACEHOLDER}}\` section.
+
+Diagrams in \`context/\` and in reports use **Mermaid** fenced code blocks, so they render in the tool and on the repo host, diff cleanly in version control, and never go stale as a binary image. Do not paste screenshots for an architecture or flow that could be Mermaid.
+
+## Which diagram for what
+- **\`flowchart\`** — process / decision flow (a test run, the daily loop, a triage path).
+- **\`sequenceDiagram\`** — interactions over time (a request across services, an auth handshake); ideal for \`qa-rca\` reproductions and integration-test design.
+- **\`stateDiagram-v2\`** — the lifecycle of an entity under test (order, session, work-item).
+- **\`erDiagram\`** — data shapes when test data must match a schema (pairs with \`qa-test-data-gen\`).
+
+## Rules
+- Fence as \`\`\`mermaid; one diagram per block; declare direction (\`TD\`/\`LR\`) explicitly.
+- Label every node and edge meaningfully. Keep a diagram to ~15 nodes — split a bigger one by domain rather than letting it sprawl.
+- The diagram **supports** the prose and traceability; it never replaces the rule that every case traces to an acceptance criterion.
+- Reference real source paths in the surrounding text; don't encode detail in the diagram that will drift from the code.
+
+## Example
+\`\`\`mermaid
+flowchart LR
+  A[Acceptance criterion] --> B[Test case]
+  B --> C[Automated test]
+  C -->|fail| D[qa-rca]
+  C -->|pass| E[qa-review]
+\`\`\`
+
+## Project-specific diagrams
+
+> Add the canonical diagrams for this product (key user journeys, the system-context view) once known.
+
+{{PROJECT_DIAGRAMS}}
+`,
+  },
 ];
 
 /** The `context/` system of record laid down at scaffold time. */
