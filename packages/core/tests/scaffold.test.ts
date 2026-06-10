@@ -175,6 +175,30 @@ describe("scaffold (Claude)", () => {
     expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
   });
 
+  it("ships qa-ci-pipeline as a write skill that runs the framework and publishes the result dirs (R-027)", () => {
+    const ci = SKILLS.find((s) => s.name === "qa-ci-pipeline");
+    expect(ci, "qa-ci-pipeline registered").toBeDefined();
+    expect(ci!.readOnly).toBe(false);
+    expect(ci!.bucket).toBe("automation");
+    // Names the three supported CI providers.
+    expect(ci!.body).toContain("GitHub Actions");
+    expect(ci!.body).toContain("GitLab CI");
+    expect(ci!.body).toContain("Azure Pipelines");
+    // Publishes into the result dirs the result MCP reads, closing the loop at the CI boundary.
+    expect(ci!.body).toContain("./playwright-report");
+    expect(ci!.body).toContain("result MCP");
+    // Wired from qa-test-automate's ## Next so the flow reaches CI after local green.
+    const automate = SKILLS.find((s) => s.name === "qa-test-automate");
+    expect(automate!.body).toContain("qa-ci-pipeline");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-ci-pipeline/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+    // Phase-1 placeholders are rendered with the chosen framework.
+    expect(skill).toContain("Playwright (TypeScript)");
+    expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+  });
+
   it("ships qa-metrics as a read-only observability/metrics digest skill (R-012)", () => {
     const metrics = SKILLS.find((s) => s.name === "qa-metrics");
     expect(metrics, "qa-metrics registered").toBeDefined();

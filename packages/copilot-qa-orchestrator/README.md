@@ -16,8 +16,8 @@ Two phases:
    - `.github/prompts/<name>.prompt.md` — the QA skill suite (every skill is `qa-<name>`: `qa-init`,
      `qa-ticket-review`, `qa-test-plan`, `qa-test-case-design`, `qa-automation-bootstrapper`,
      `qa-test-automate`, `qa-rca`, `qa-test-data-gen`, `qa-gardening`, `qa-bug-report`,
-     `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-playwright-cli`, and the
-     `qa-new → … → qa-archive` backbone).
+     `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-playwright-cli`, `qa-ci-pipeline`,
+     and the `qa-new → … → qa-archive` backbone).
    - `.github/agents/qa-orchestrator.agent.md` — a router that drives the prompts.
    - `.github/instructions/*.instructions.md` — QA conventions & test naming.
    - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).

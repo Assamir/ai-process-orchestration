@@ -48,15 +48,16 @@
 | 0.14.0 | **R-024** `qa-playwright-cli` skill (write/automation) — wraps the Playwright CLI (`codegen`, `show-report`, `show-trace`, `--ui`, `--update-snapshots`) to support `qa-test-automate` / `qa-rca`; renders with the write tool allowlist on both platforms, references the opt-in browser MCP | `b7ea605` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.15.0 | **R-025** Mermaid diagram standard — new `diagram-conventions` guideline (diagram-type → use mapping, fencing/labeling/size rules, an example flowchart, a `{{PROJECT_DIAGRAMS}}` phase-2 slot); ships on both platforms via `GUIDELINES`, `doctor` expects it; TECH §12.2 documents the standard | `6d0438b` | `model/context.ts` (`GUIDELINES`), `tests/scaffold.test.ts`, `TECH.md` §12, `PRD.md` |
 | 0.16.0 | **R-026** Guideline-standard upgrade — every guideline now carries a mandatory `## Examples (✅ good / ❌ bad)` section + an encouraged `## Applicable patterns` section (phase-2 `*_PATTERNS` slots); `doctor` enforces the good/bad examples (`GUIDELINE:examples:<name>`, error); TECH §12.1 documents the rule | `8851a91` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1 |
+| 0.17.0 | **R-027** `qa-ci-pipeline` skill (write) — generates or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs `{{AUTOMATION_FRAMEWORK}}`, fails on test failure, and publishes the result dirs wired into the result MCP (Playwright/pytest/Surefire-Serenity/Allure); wired from `qa-test-automate` + `qa-automation-bootstrapper` `## Next`; closes the test → report → legibility loop at the CI boundary | _pending_ | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md` §5, `TECH.md` §5, `ROADMAP.md` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 > **ID note — R-007 was never used.** The sequence jumps R-006 → R-008; no commit or doc references
 > `R-007` (verified). IDs are **append-only and never reused**, so `R-007` stays a permanent gap
-> (reserved/skipped), not a slot to fill. The current shipped suite is **19 skills** (the 13 of R-001,
+> (reserved/skipped), not a slot to fill. The current shipped suite is **20 skills** (the 13 of R-001,
 > `qa-gardening` from R-004, `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019,
-> `qa-coverage-gap` from R-022, `qa-metrics` from R-012, and `qa-playwright-cli` from R-024); see the
-> skill × model × tooling matrix in TECH §5.
+> `qa-coverage-gap` from R-022, `qa-metrics` from R-012, `qa-playwright-cli` from R-024, and
+> `qa-ci-pipeline` from R-027); see the skill × model × tooling matrix in TECH §5.
 
 ## Next (planned)
 
@@ -65,19 +66,10 @@ _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R
 (`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, R-012
 (`qa-metrics` + Allure observability) in **v0.12.0**, R-023 (Playwright browser MCP) in **v0.13.0**, and
 R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in **v0.15.0**, and R-026
-(guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**. The next stack/feature work lives
-in the backlog below._
+(guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, and R-027 (`qa-ci-pipeline` skill)
+in **v0.17.0**. The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-027 — `qa-ci-pipeline` skill (write) — generate/audit CI config for the chosen stack.**
-  Scaffolds or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs
-  `{{AUTOMATION_FRAMEWORK}}` and publishes results into the report dirs already wired into the result
-  MCP (Playwright / Surefire / Serenity / Allure / pytest). Closes the "test → report → legibility"
-  loop at the CI boundary. Lands: `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`,
-  READMEs. **Done when:** the skill renders on both platforms with the write allowlist, references the
-  result dirs from `mcp.ts`, and `## Next` wires it from `qa-test-automate`; parity green. Traces:
-  PRD §5, TECH §11.
 
 - **🧊 R-028 — Documentation-as-Code guideline + `doctor` enforcement.** A first-class
   `documentation-as-code` guideline codifying what the product already embodies: docs live in-repo,

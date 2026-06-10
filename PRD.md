@@ -86,6 +86,7 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - `qa-automation-bootstrapper` — detect + set up the test framework (Playwright TS/Java, RestAssured/JUnit).
 - `qa-test-automate` — author/maintain automated tests in the detected framework.
 - `qa-playwright-cli` — drive the Playwright CLI (`codegen`, `show-report`, `show-trace`, `--ui`, `--update-snapshots`) to support authoring and RCA on Playwright stacks (shipped R-024).
+- `qa-ci-pipeline` — generate or audit a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs the chosen framework and publishes results into the report dirs wired into the result MCP, closing the test → report → legibility loop at the CI boundary (shipped R-027).
 
 **D. Analysis & data**
 - `qa-rca` — root-cause analysis of failed runs / bugs.
@@ -96,7 +97,7 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - `qa-coverage-gap` — read-only AC ↔ case ↔ test traceability map; reports uncovered/partial criteria and orphan cases/tests (shipped R-022; see §9 success metrics).
 - `qa-metrics` — read-only QA observability digest: aggregates pass/fail/flakiness (incl. cross-run Allure history) and acceptance-criterion coverage across `context/` into a dashboard in the report language (shipped R-012; see §8).
 
-This is **19 skills** in total. Each carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load, and a `## Next` section recommending downstream skills so the agent-orchestration graph lives in the suite itself — the full skill × model × tooling matrix is in **TECH.md §5**.
+This is **20 skills** in total. Each carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load, and a `## Next` section recommending downstream skills so the agent-orchestration graph lives in the suite itself — the full skill × model × tooling matrix is in **TECH.md §5**.
 
 ## 6. Supported test stacks (MVP)
 

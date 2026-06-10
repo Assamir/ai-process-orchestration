@@ -275,7 +275,8 @@ First time a repo needs automation, or when adding a new test level.
 A smoke test passes and result-artifact paths are recorded in \`tools.md\`.
 
 ## Next
-- \`qa-test-automate\` — author tests now that the harness runs.`,
+- \`qa-test-automate\` — author tests now that the harness runs.
+- \`qa-ci-pipeline\` — wire the harness into CI so the same results are produced on every push.`,
   },
   {
     name: "qa-test-automate",
@@ -299,7 +300,8 @@ The new tests pass locally and the run is recorded in \`automation.md\`.
 
 ## Next
 - \`qa-rca\` — on failure, find the real cause before retrying.
-- \`qa-playwright-cli\` — use the Playwright CLI to record a draft, inspect a trace, or refresh snapshots.`,
+- \`qa-playwright-cli\` — use the Playwright CLI to record a draft, inspect a trace, or refresh snapshots.
+- \`qa-ci-pipeline\` — once tests pass locally, make them run in CI and publish results.`,
   },
   {
     name: "qa-playwright-cli",
@@ -325,6 +327,32 @@ The CLI task is complete (a recorded test refactored to conventions, a trace ins
 ## Next
 - \`qa-test-automate\` — fold the recorded/refactored test into the suite under the QA conventions.
 - \`qa-rca\` — when a trace points to a product defect, root-cause it.`,
+  },
+  {
+    name: "qa-ci-pipeline",
+    description: "Generate or audit a CI pipeline that runs the chosen framework and publishes results into the report dirs wired into the result MCP.",
+    readOnly: false,
+    bucket: "automation",
+    suggestedModel: "sonnet",
+    reads: ["context/.scaffold/manifest.json", "context/foundation/tools.md"],
+    writes: ["context/foundation/tools.md", ".github/workflows/qa.yml (or .gitlab-ci.yml / azure-pipelines.yml)"],
+    body: `## When to use
+When the suite must run in CI, not just locally — to scaffold a pipeline for a fresh repo, or to audit an existing one. The goal is to close the **test → report → legibility** loop at the CI boundary: CI runs **{{AUTOMATION_FRAMEWORK}}** and publishes its results into the exact report dirs the result MCP server already reads, so \`qa-rca\` / \`qa-metrics\` can read CI outcomes the same way they read local runs.
+
+## Procedure
+1. Read \`context/foundation/tools.md\` (run command, report / trace / results paths) and \`context/.scaffold/manifest.json\` (language, build tool, framework). These paths are the contract — the pipeline must publish into them unchanged.
+2. Pick the provider. Detect what the repo already uses: **GitHub Actions** (\`.github/workflows/*.yml\`), **GitLab CI** (\`.gitlab-ci.yml\`), or **Azure Pipelines** (\`azure-pipelines.yml\`). If none exists, default to GitHub Actions and confirm before writing (respect autonomy **{{AUTONOMY_LEVEL}}**).
+3. Generate (or audit) the pipeline so it: checks out, sets up the runtime + build tool, installs deps (and Playwright browsers / JVM deps as needed), runs the recorded run command for **{{AUTOMATION_FRAMEWORK}}**, and **uploads the result dirs as build artifacts** — the same dirs wired into the result MCP: \`./playwright-report\` + \`./test-results\` (Playwright), \`./reports\` + \`./test-results\` (pytest), Surefire/Serenity (\`./target/surefire-reports\` or Gradle \`./build/reports/tests\`), and \`./allure-results\` + \`./allure-report\` when Allure is used. Match the paths in \`tools.md\` exactly — a pipeline that writes results elsewhere breaks legibility.
+4. Cache deps/browsers, use a matrix only where it earns its keep, and **fail the build when tests fail** — the iron QA rule holds in CI: work without passing tests is not done. Never add a step that swallows a non-zero test exit.
+5. In **audit** mode, do not rewrite blindly: check the existing pipeline actually runs the framework, fails on test failure, and uploads every result dir; report each gap with the single fix.
+6. Record the pipeline file path and how to fetch its artifacts in \`context/foundation/tools.md\` so the result MCP and \`qa-metrics\` know where CI results land.
+
+## Done when
+A CI pipeline for the detected provider runs **{{AUTOMATION_FRAMEWORK}}**, fails on test failure, and publishes the result dirs the result MCP reads — and \`tools.md\` records it. In audit mode, a gap report with one fix per finding (output in **{{REPORT_LANGUAGE_NAME}}**).
+
+## Next
+- \`qa-metrics\` — aggregate the now-published CI results into the QA health digest.
+- \`qa-rca\` — when a CI run fails, root-cause it from the uploaded artifacts.`,
   },
 ];
 

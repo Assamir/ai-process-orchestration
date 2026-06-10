@@ -140,6 +140,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-automation-bootstrapper` | automation | write | `sonnet` | framework setup + wiring | result servers |
 | `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
 | `qa-playwright-cli` | automation | write | `sonnet` | drive Playwright CLI (codegen/trace/snapshots) | Playwright CLI, browser MCP (opt-in) |
+| `qa-ci-pipeline` | automation | write | `sonnet` | generate/audit CI that runs the framework + publishes result dirs | reads `tools.md` + `manifest.json`, targets result-MCP dirs |
 | `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
 | `qa-test-data-gen` | analysis | write | `sonnet` | reusable schema-valid factories/fixtures | stack-aware (faker/factory_boy/datafaker) |
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
@@ -157,7 +158,10 @@ are appended to that server — so `qa-metrics` reads flakiness/trends, not just
 the downstream skill(s) — the agent-orchestration graph is encoded in the skills themselves, not in a
 separate router. `qa-reverse-engineer` writes durable system docs to `context/reference/`; `qa-bug-report`
 closes the `qa-rca` → defect gap; `qa-coverage-gap` (R-022) maps AC ↔ case ↔ test and reports uncovered
-criteria, feeding `qa-test-case-design` / `qa-test-automate`.
+criteria, feeding `qa-test-case-design` / `qa-test-automate`. `qa-ci-pipeline` (R-027) extends `qa-test-automate`'s
+`## Next`: once tests pass locally, it generates/audits a CI pipeline (GitHub Actions / GitLab CI / Azure
+Pipelines) that runs the framework and publishes the result-MCP dirs, so `qa-metrics` / `qa-rca` read CI
+outcomes the same way they read local runs — the test → report → legibility loop closed at the CI boundary.
 
 The leaf CLI = parse args → `detectStack` → `runWizard`/`defaultAnswers` → for each `LogicalSkill`
 call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outputs.
