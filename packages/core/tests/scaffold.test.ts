@@ -138,6 +138,28 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      for (const name of ["qa-conventions", "test-naming", "diagram-conventions"]) {
+        const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
+        expect(claude, `claude ${name} good`).toContain("✅");
+        expect(claude, `claude ${name} bad`).toContain("❌");
+        expect(claude, `claude ${name} patterns`).toContain("## Applicable patterns");
+        const copilot = readFileSync(
+          join(copilotProject.dir, `.github/instructions/${name}.instructions.md`),
+          "utf8",
+        );
+        expect(copilot, `copilot ${name} good`).toContain("✅");
+        expect(copilot, `copilot ${name} bad`).toContain("❌");
+      }
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("ships qa-playwright-cli as a write automation skill with the write tool allowlist (R-024)", () => {
     const cli = SKILLS.find((s) => s.name === "qa-playwright-cli");
     expect(cli, "qa-playwright-cli registered").toBeDefined();

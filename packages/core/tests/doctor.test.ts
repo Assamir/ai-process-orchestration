@@ -1,4 +1,4 @@
-import { appendFileSync, rmSync } from "node:fs";
+import { appendFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claudeAdapter, copilotAdapter, runDoctor, scaffold } from "../src/index.js";
@@ -60,6 +60,20 @@ describe("runDoctor", () => {
     appendFileSync(join(project.dir, ".ai/guidelines/qa-conventions.md"), "\nSee [missing](./does-not-exist.md).\n");
     const report = runDoctor(project.dir, claudeAdapter);
     expect(report.findings.some((f) => f.id.startsWith("LINK:") && f.severity === "error")).toBe(true);
+  });
+
+  it("flags a guideline missing its good/bad examples (R-026)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Overwrite a guideline with content that drops the ✅/❌ example sections.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/test-naming.md"),
+      "# Test naming\n\nNames state behavior and outcome.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "GUIDELINE:examples:test-naming" && f.severity === "error")).toBe(
+      true,
+    );
   });
 
   it("detects a platform mismatch via the manifest", () => {

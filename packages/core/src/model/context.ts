@@ -95,6 +95,34 @@ export const GUIDELINES: Array<{ name: string; title: string; body: string }> = 
 > Record only non-obvious, project-specific rules an agent would otherwise get wrong.
 
 {{PROJECT_SPECIFIC_CONVENTIONS}}
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it. Keep these short and real to this codebase.
+
+✅ **Good** — one behavior, deterministic, waits on a condition, traces to an AC:
+\`\`\`
+test("returns 429 when the rate limit is exceeded", async () => {
+  await sendRequests(limit + 1);
+  await expect(lastResponse).toHaveStatus(429); // AC-3.1
+});
+\`\`\`
+
+❌ **Avoid** — two behaviors, a fixed sleep, order-dependent state:
+\`\`\`
+test("rate limit", async () => {
+  await sleep(2000);          // flaky: races the limiter
+  expect(res.status).toBe(429);
+  expect(user.isLoggedIn);    // unrelated second assertion
+});
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: name the design / programming / testing patterns this codebase applies
+> (e.g. Page Object, Arrange-Act-Assert, Builder for test data) so agents follow them.
+
+{{CONVENTIONS_PATTERNS}}
 `,
   },
   {
@@ -113,11 +141,30 @@ export const GUIDELINES: Array<{ name: string; title: string; body: string }> = 
 
 {{NAMING_RULES}}
 
-## Examples
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — states behavior + outcome, traceable to an AC:
+- \`returns 429 when rate limit exceeded\` → AC-3.1
+- \`rejects checkout when the cart is empty\` → AC-7.2
+
+❌ **Avoid** — vague, numbered, or implementation-mirroring names:
+- \`test1\`, \`testLogin\`, \`it("works")\`
+- \`calls validateCart() then setStatus()\` (mirrors the code, not the behavior)
+
+## Examples from this codebase
 
 > Add a few real names from this codebase so agents copy the right pattern.
 
 {{NAMING_EXAMPLES}}
+
+## Applicable patterns
+
+> Encouraged: naming patterns this codebase uses (e.g. Given-When-Then, "should…",
+> one-feature-area-per-file) so agents copy the right shape.
+
+{{NAMING_PATTERNS}}
 `,
   },
   {
@@ -141,7 +188,11 @@ Diagrams in \`context/\` and in reports use **Mermaid** fenced code blocks, so t
 - The diagram **supports** the prose and traceability; it never replaces the rule that every case traces to an acceptance criterion.
 - Reference real source paths in the surrounding text; don't encode detail in the diagram that will drift from the code.
 
-## Example
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — a fenced, directed, meaningfully labeled Mermaid flowchart:
 \`\`\`mermaid
 flowchart LR
   A[Acceptance criterion] --> B[Test case]
@@ -149,6 +200,17 @@ flowchart LR
   C -->|fail| D[qa-rca]
   C -->|pass| E[qa-review]
 \`\`\`
+
+❌ **Avoid** — a pasted PNG screenshot (binary, rots, can't diff), or one
+unlabeled 40-node blob with no declared direction. Don't paste an image for a
+flow that could be Mermaid; split a sprawling diagram by domain instead.
+
+## Applicable patterns
+
+> Encouraged: diagram patterns this product favors (e.g. C4 levels for architecture,
+> swimlanes for cross-team flows) so agents reach for the right shape.
+
+{{DIAGRAM_PATTERNS}}
 
 ## Project-specific diagrams
 

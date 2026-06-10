@@ -47,6 +47,7 @@
 | 0.13.0 | **R-023** Playwright browser MCP wiring — opt-in (default off, CI-safe) wizard question wires the official `@playwright/mcp` browser server for interactive exploration in `qa-test-case-design` / `qa-rca`; both adapters render it (platform-correct envelope), `qa-rca`/`qa-test-case-design` bodies reference it | `a12684d` | `model/mcp.ts`, `types.ts`, `wizard/index.ts`, `scaffold/index.ts`, `model/skills.ts`, `index.ts`, `tests/mcp.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.14.0 | **R-024** `qa-playwright-cli` skill (write/automation) — wraps the Playwright CLI (`codegen`, `show-report`, `show-trace`, `--ui`, `--update-snapshots`) to support `qa-test-automate` / `qa-rca`; renders with the write tool allowlist on both platforms, references the opt-in browser MCP | `b7ea605` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.15.0 | **R-025** Mermaid diagram standard — new `diagram-conventions` guideline (diagram-type → use mapping, fencing/labeling/size rules, an example flowchart, a `{{PROJECT_DIAGRAMS}}` phase-2 slot); ships on both platforms via `GUIDELINES`, `doctor` expects it; TECH §12.2 documents the standard | `6d0438b` | `model/context.ts` (`GUIDELINES`), `tests/scaffold.test.ts`, `TECH.md` §12, `PRD.md` |
+| 0.16.0 | **R-026** Guideline-standard upgrade — every guideline now carries a mandatory `## Examples (✅ good / ❌ bad)` section + an encouraged `## Applicable patterns` section (phase-2 `*_PATTERNS` slots); `doctor` enforces the good/bad examples (`GUIDELINE:examples:<name>`, error); TECH §12.1 documents the rule | _pending_ | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1 |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -63,18 +64,11 @@ _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R
 (two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, R-022
 (`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, R-012
 (`qa-metrics` + Allure observability) in **v0.12.0**, R-023 (Playwright browser MCP) in **v0.13.0**, and
-R-024 (`qa-playwright-cli`) in **v0.14.0**, and R-025 (Mermaid diagram standard) in **v0.15.0**. The next
-stack/feature work lives in the backlog below._
+R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in **v0.15.0**, and R-026
+(guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**. The next stack/feature work lives
+in the backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-026 — Guideline-standard upgrade: mandatory good/bad examples + suggested patterns.** Every
-  standards/guideline doc MUST carry ✅ good / ❌ bad example sections; the standard also encourages a
-  "Stosowane wzorce" (applicable design / programming / testing patterns) section. Enforced by
-  `doctor`; updates TECH §12.1 + the templates in `context.ts`. Lands: `model/context.ts`,
-  `doctor/index.ts`, TECH §12.1. **Done when:** the guideline template carries both sections, `doctor`
-  flags a standards doc missing the good/bad examples, TECH §12.1 documents the rule; parity green.
-  Traces: TECH §11 ("mechanical enforcement + remediation-carrying errors"), §12.1.
 
 - **🧊 R-027 — `qa-ci-pipeline` skill (write) — generate/audit CI config for the chosen stack.**
   Scaffolds or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs

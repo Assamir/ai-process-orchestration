@@ -135,6 +135,26 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     });
   }
 
+  // 5. Every guideline must carry good/bad examples (R-026) — show the pattern, don't just describe it.
+  for (const g of GUIDELINES) {
+    const rel = adapter.guidelineRel(g.name);
+    const abs = join(root, rel);
+    if (!existsSync(abs)) continue; // a missing file is already reported by the structure check.
+    const text = readFileSync(abs, "utf8");
+    const missing: string[] = [];
+    if (!text.includes("✅")) missing.push("✅ good");
+    if (!text.includes("❌")) missing.push("❌ bad");
+    if (missing.length > 0) {
+      findings.push({
+        id: `GUIDELINE:examples:${g.name}`,
+        severity: "error",
+        message: `Guideline ${rel} is missing a ${missing.join(" and ")} example section.`,
+        remediation:
+          "Add both a ✅ good and ❌ bad example — every standards/guideline doc must show the pattern, not just describe it.",
+      });
+    }
+  }
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };

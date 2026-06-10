@@ -282,9 +282,9 @@ Current set:
 
 | Guideline | Purpose | Phase-1 seeded | Phase-2 `{{PLACEHOLDER}}` |
 |---|---|---|---|
-| `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`) | `PROJECT_SPECIFIC_CONVENTIONS` |
-| `test-naming` | naming + traceability of cases/specs | project language, framework | `NAMING_RULES`, `NAMING_EXAMPLES` |
-| `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + an example diagram | `PROJECT_DIAGRAMS` |
+| `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`), ✅/❌ examples | `PROJECT_SPECIFIC_CONVENTIONS`, `CONVENTIONS_PATTERNS` |
+| `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
+| `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + a ✅/❌ example diagram | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 
 Standard each guideline follows:
 
@@ -296,9 +296,20 @@ Standard each guideline follows:
 - **Reinforces, never weakens, the iron QA rule.** Test-quality rules (one behavior per test;
   deterministic/independent/parallel-safe; negative + boundary coverage; diagnostics on failure) are
   non-negotiable and must survive phase-2 edits.
+- **Mandatory ✅ good / ❌ bad examples (R-026).** Every guideline *shows* the pattern, it doesn't just
+  describe it: each carries a `## Examples (✅ good / ❌ bad — required)` section with a concrete good
+  case and a concrete bad case. `doctor` enforces this — a guideline file missing either the `✅` or
+  `❌` marker is an **error** (`GUIDELINE:examples:<name>`). Keep examples short and free of relative
+  Markdown/image links (`[..](..)` / `![..](..)`) so they don't trip the broken-link check.
+- **Encouraged "Applicable patterns" section.** Each guideline ends with an `## Applicable patterns`
+  section (phase-2 placeholder, e.g. `CONVENTIONS_PATTERNS`, `NAMING_PATTERNS`, `DIAGRAM_PATTERNS`)
+  naming the design / programming / testing patterns this codebase applies (Page Object,
+  Arrange-Act-Assert, Builder for test data, C4 levels, …) so agents reach for the right shape. Not
+  enforced by `doctor` (encouraged, not mandatory).
 - **Adding a guideline** = append to `GUIDELINES` (name, title, body); both adapters render it via
-  `guidelineRel`; `doctor` then expects it to exist (`doctor/index.ts` builds its file set from
-  `GUIDELINES`). Keep the body platform-agnostic so parity holds.
+  `guidelineRel`; `doctor` then expects it to exist **and to carry both example markers**
+  (`doctor/index.ts` builds its file set from `GUIDELINES`). Keep the body platform-agnostic so parity
+  holds.
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 
