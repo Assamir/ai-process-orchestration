@@ -76,6 +76,60 @@ stack/feature work lives in the backlog below._
   flags a standards doc missing the good/bad examples, TECH §12.1 documents the rule; parity green.
   Traces: TECH §11 ("mechanical enforcement + remediation-carrying errors"), §12.1.
 
+- **🧊 R-027 — `qa-ci-pipeline` skill (write) — generate/audit CI config for the chosen stack.**
+  Scaffolds or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs
+  `{{AUTOMATION_FRAMEWORK}}` and publishes results into the report dirs already wired into the result
+  MCP (Playwright / Surefire / Serenity / Allure / pytest). Closes the "test → report → legibility"
+  loop at the CI boundary. Lands: `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`,
+  READMEs. **Done when:** the skill renders on both platforms with the write allowlist, references the
+  result dirs from `mcp.ts`, and `## Next` wires it from `qa-test-automate`; parity green. Traces:
+  PRD §5, TECH §11.
+
+- **🧊 R-028 — Documentation-as-Code guideline + `doctor` enforcement.** A first-class
+  `documentation-as-code` guideline codifying what the product already embodies: docs live in-repo,
+  are versioned, reviewed in PR, validated deterministically by `doctor`, and kept in sync with code
+  via CI (ties to R-027). Lands: `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, TECH §12.
+  **Done when:** the guideline ships on both platforms via `GUIDELINES`, `doctor` expects it, parity
+  green. Traces: TECH §11, §12.
+
+- **🧊 R-029 — Anti-Hallucination (grounding) rule.** A load-bearing rule in the lean root config (so
+  it survives compaction) plus a guideline: every skill grounds claims in real artifacts (file:line,
+  ticket IDs, result-MCP output), cites its sources, and explicitly flags uncertainty instead of
+  inventing facts/paths/APIs. Lands: `model/context.ts` (root config + `GUIDELINES`),
+  `model/skills.ts` (procedure preambles), `doctor/index.ts`, TECH §11. **Done when:** the rule is in
+  the root config and a guideline, referenced by skill procedures, and `doctor` checks its presence;
+  parity green. Traces: TECH §11 (harness engineering).
+
+- **🧊 R-030 — Documentation-Driven / Spec-Driven Development guideline.** Codify spec-first flow: a
+  documented spec / acceptance criteria precede case design, automation and code; every test traces
+  back to the spec (extends the iron QA rule from the authoring direction). Lands:
+  `model/context.ts` (`GUIDELINES`), `model/skills.ts` (`## Next` wiring, e.g. `qa-ticket-review` →
+  `qa-test-case-design`), TECH §12. **Done when:** the guideline ships on both platforms, the skill
+  flow references it, parity green. Traces: PRD §5, TECH §11/§12.
+
+- **🧊 R-031 — Auto-fix broken relative links (`doctor --fix`), incl. Playwright report/trace links.**
+  Extend `doctor` from detect-only to optional, deterministic repair of broken relative links in
+  `context/` (reusing the auditskill `apply-step` dry-run/write pattern), explicitly handling
+  Playwright report/trace paths surfaced by `qa-playwright-cli` / the Playwright result MCP. Lands:
+  `doctor/index.ts`, `cli.ts`, `tests/`. **Done when:** `doctor --fix` repairs known broken-link
+  classes (dry-run by default), leaves unfixable links as findings, and tests cover both paths.
+  Traces: TECH §11 ("mechanical enforcement + remediation-carrying errors").
+
+- **🧊 R-032 — C4 (4-level) architecture-documentation standard.** Adopt the C4 model (L1 Context →
+  L2 Container → L3 Component → L4 Code) as the architecture-doc standard for `context/reference/`
+  produced by `qa-reverse-engineer` (R-019), rendered through the Mermaid `diagram-conventions`
+  guideline (R-025). Lands: `model/context.ts` (`GUIDELINES` + reference templates),
+  `model/skills.ts` (`qa-reverse-engineer`), TECH §12. **Done when:** reverse-engineer emits
+  C4-structured architecture docs, `diagram-conventions` maps each C4 level to a diagram type, parity
+  green. Traces: R-019, R-025, TECH §12.
+
+- **🧊 R-033 — "Review related guidelines before work" rule.** A standing procedural rule in the lean
+  root config: every write skill's first step is to read all related guidelines/standards before
+  acting (composes with R-029 grounding and R-028 docs-as-code). Lands: `model/context.ts` (root
+  config), `model/skills.ts` (procedure preambles), `doctor/index.ts` (optional check), TECH §11.
+  **Done when:** the rule is in the root config, write-skill procedures open with a "read related
+  guidelines" step, parity green. Traces: TECH §11.
+
 > **ID notes — R-011 dropped, R-016 merged.** `R-011` (k6 / performance) was removed from the backlog
 > as deprioritized; `R-016` (richer observability) was folded into **R-012**. IDs are append-only and
 > never reused, so both stay permanent gaps (like R-007), not slots to fill.
