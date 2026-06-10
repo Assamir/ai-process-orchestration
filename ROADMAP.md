@@ -42,6 +42,7 @@
 | 0.9.0 | **R-020** `## Next` suggested-flow sections across all 16 skills — agent-orchestration graph encoded in the suite itself | `0883c46` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
 | 0.9.0 | **R-021** Sharpened `qa-gardening` description + boundary vs `doctor` (semantic in-loop sweep vs deterministic out-of-loop validator); no behavior change | `0883c46` | `model/skills.ts` |
 | 0.10.0 | **R-022** `qa-coverage-gap` skill (read-only) — maps acceptance criteria ↔ cases ↔ automated tests, classifies each criterion covered/partial/uncovered, flags orphan cases/tests; emits a traceability report, wired into `qa-review` / `qa-test-case-design` `## Next` | `ffa4330` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
+| 0.11.0 | **R-010** Richer test-data generation — `qa-test-data-gen` now emits reusable, schema-valid **factories/fixtures** (not inline literals) with stack-aware tooling (`@faker-js/faker`, `factory_boy`, `datafaker`/`instancio`), boundary/invalid variants as overrides, each referenced by name from `cases.md` for traceability | `_pending_` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -54,15 +55,12 @@ PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 
 ## Next (planned)
 
 _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R-019/R-020/R-021
-(two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, and R-022
-(`qa-coverage-gap`) in **v0.10.0**. The next stack/feature work lives in the backlog below._
+(two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, R-022
+(`qa-coverage-gap`) in **v0.10.0**, and R-010 (richer test-data factories) in **v0.11.0**. The next
+stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
 
-- **🧊 R-010 — Richer test-data generation.** Faker/factories/mocks support in `qa-test-data-gen`. Lands:
-  `model/skills.ts`, possibly a helper. **Done when:** `qa-test-data-gen` can emit reusable
-  factories/fixtures (not just inline values) for the detected stack, schema-validated, with a test
-  proving the generated form is referenced from cases. Traces: PRD §8.
 - **🧊 R-012 — Metrics dashboard + observability skill** _(merged with former R-016)_. Summarize
   coverage/flakiness from `context/` + results, and extend result legibility past static filesystem
   report dirs (e.g. live run streaming / cloud test observability). Lands: `model/skills.ts`,

@@ -336,19 +336,24 @@ A single root cause with an evidence chain and a recommended action is produced.
     reads: ["context/changes/<work-id>/cases.md", "context/foundation/environments.md"],
     writes: ["context/changes/<work-id>/"],
     body: `## When to use
-When cases need specific data (valid, invalid, boundary) that does not exist yet.
+When cases need specific data (valid, invalid, boundary) that does not exist yet — especially when more than one case needs the same shape with small variations. Prefer building this once, not inline per test.
 
 ## Procedure
-1. From the cases and the environment notes, list the data each case needs, including invalid/boundary variants.
-2. Generate data that matches the real schema and constraints; never invent shapes — verify against the API/DB contract or a typed SDK.
-3. Provide it in a reusable form (fixtures/factories/seed files) and reference it from the cases and tests.
-4. Note any data that must be cleaned up after a run.
+1. From the cases and the environment notes, list the data each case needs, including invalid/boundary variants. Group cases that share a shape — they should share one factory, not copy-pasted literals.
+2. Build **reusable factories/builders, not inline values.** A factory exposes schema-valid defaults and lets each case override only the field under test, so a boundary/invalid case overrides one field and inherits a valid rest. Use the idiom for **{{AUTOMATION_FRAMEWORK}}**:
+   - Playwright (TypeScript/JS): \`@faker-js/faker\` + builder functions or Playwright \`fixtures\`.
+   - pytest: \`faker\` + \`factory_boy\` model factories exposed as pytest \`fixtures\`.
+   - RestAssured/JUnit/TestNG (JVM): \`datafaker\`/\`instancio\` + builder or object-mother factories.
+   If no data library is available, fall back to plain typed builder functions — the pattern (named, overridable, schema-valid defaults) matters more than the tool. Mock external dependencies at the seam, not the data.
+3. Validate generated shapes against the real contract — a typed SDK, JSON Schema/OpenAPI, or the DB model. Never invent shapes; a factory that drifts from the schema is worse than none.
+4. Reference each factory/fixture **by name from the case in \`cases.md\`** (and import it from the test) so data use is traceable to the criterion. Note any data that must be cleaned up after a run.
 
 ## Done when
-Every case has the data it needs, in a reusable, schema-valid form.
+Every case is backed by a named, reusable, schema-valid factory/fixture (not inline literals), referenced from \`cases.md\`, with boundary/invalid variants expressed as overrides.
 
 ## Next
-- \`qa-test-automate\` — wire the generated data into the tests.`,
+- \`qa-test-automate\` — wire the generated factories/fixtures into the tests.
+- \`qa-coverage-gap\` — confirm each case (and its data) still traces to a criterion.`,
   },
   {
     name: "qa-gardening",

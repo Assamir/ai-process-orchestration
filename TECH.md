@@ -140,7 +140,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-automation-bootstrapper` | automation | write | `sonnet` | framework setup + wiring | result servers |
 | `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
 | `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
-| `qa-test-data-gen` | analysis | write | `sonnet` | schema-valid data | — |
+| `qa-test-data-gen` | analysis | write | `sonnet` | reusable schema-valid factories/fixtures | stack-aware (faker/factory_boy/datafaker) |
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
 | `qa-bug-report` | analysis | write | `sonnet` | structured defect report from evidence | result servers, `atlassian` (opt-in) |
 | `qa-reverse-engineer` | analysis | write | `opus` | reverse-engineer code → project docs | reads app source (read-only on code) |

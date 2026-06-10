@@ -97,6 +97,24 @@ describe("scaffold (Claude)", () => {
     for (const s of SKILLS) expect(s.body, s.name).toContain("## Next");
   });
 
+  it("qa-test-data-gen emits reusable, schema-valid factories referenced from cases (R-010)", () => {
+    const dataGen = SKILLS.find((s) => s.name === "qa-test-data-gen");
+    expect(dataGen, "qa-test-data-gen registered").toBeDefined();
+    const body = dataGen!.body;
+    expect(body).toMatch(/factor(y|ies)/i);
+    expect(body).toMatch(/fixture/i);
+    expect(body).toMatch(/schema/i);
+    // Generated data must be traceable to a case, not inline literals.
+    expect(body).toContain("cases.md");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-test-data-gen/SKILL.md"), "utf8");
+    // Stack-aware tooling rendered with the chosen framework.
+    expect(skill).toContain("@faker-js/faker");
+    expect(skill).toContain("Playwright (TypeScript)");
+    expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+  });
+
   it("ships qa-coverage-gap as a read-only AC↔case↔test traceability skill (R-022)", () => {
     const gap = SKILLS.find((s) => s.name === "qa-coverage-gap");
     expect(gap, "qa-coverage-gap registered").toBeDefined();

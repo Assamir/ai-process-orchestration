@@ -88,7 +88,7 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 
 **D. Analysis & data**
 - `qa-rca` — root-cause analysis of failed runs / bugs.
-- `qa-test-data-gen` — generate test data.
+- `qa-test-data-gen` — generate test data as reusable, schema-valid **factories/fixtures** (not inline literals), with stack-aware tooling and boundary/invalid variants as overrides (richer generation shipped R-010).
 - `qa-gardening` — recurring, read-only sweep for QA drift/slop across `context/` + tests; proposes targeted fixes, never edits (shipped R-004; see §8).
 - `qa-bug-report` — turn a confirmed product defect into a structured, reproducible report with evidence (shipped R-018).
 - `qa-reverse-engineer` — reverse-engineer the application source into structured project docs under `context/reference/` (business, architecture, data flow, integrations, entry points, test surface; shipped R-019).
@@ -128,7 +128,7 @@ Roadmap stacks (post-MVP): additional automation stacks as demand emerges.
 - **M3 — `copilot-qa-orchestrator` (parity).** Copilot adapter + `.github/{copilot-instructions,instructions,prompts,agents,chatmodes}` + `.vscode/mcp.json`; phase-2 as `.agent.md`/`.prompt.md`. Parity snapshot tests.
 - **M4 — Docs & release.** Final PRD/TECH, per-package README, independent versioning, npx smoke tests for both.
 
-**Roadmap (post-MVP):** richer test-data generation (faker/factories/mocks); a metrics-dashboard + observability skill; a coverage-gap skill; Playwright MCP/CLI tooling; a Mermaid diagram standard + guideline-standard upgrade (mandatory good/bad examples + suggested patterns). See **[`ROADMAP.md`](ROADMAP.md)** for the tracked backlog.
+**Roadmap (post-MVP):** ~~richer test-data generation (faker/factories/mocks)~~ ✅ shipped (R-010, v0.11.0); ~~a coverage-gap skill~~ ✅ shipped (R-022, v0.10.0); a metrics-dashboard + observability skill; Playwright MCP/CLI tooling; a Mermaid diagram standard + guideline-standard upgrade (mandatory good/bad examples + suggested patterns). See **[`ROADMAP.md`](ROADMAP.md)** for the tracked backlog.
 
 Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TECH.md §11):
 - **`doctor`** — ✅ **shipped (v0.2.0).** A deterministic validator (`npx <pkg> doctor`) that checks structure, the handoff manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule **outside the agent loop**; findings carry remediation, exits non-zero on errors (CI-friendly).
