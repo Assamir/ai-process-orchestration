@@ -97,6 +97,22 @@ describe("scaffold (Claude)", () => {
     for (const s of SKILLS) expect(s.body, s.name).toContain("## Next");
   });
 
+  it("ships qa-coverage-gap as a read-only AC↔case↔test traceability skill (R-022)", () => {
+    const gap = SKILLS.find((s) => s.name === "qa-coverage-gap");
+    expect(gap, "qa-coverage-gap registered").toBeDefined();
+    expect(gap!.readOnly).toBe(true);
+    expect(gap!.bucket).toBe("analysis");
+    expect(gap!.writes).toEqual([]);
+    expect(gap!.reads).toContain("context/changes/<work-id>/work.md");
+    expect(gap!.reads).toContain("context/changes/<work-id>/cases.md");
+    expect(gap!.reads).toContain("context/changes/<work-id>/automation.md");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-coverage-gap/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob");
+    expect(skill).not.toContain("Write, Edit, Bash");
+  });
+
   it("scaffolds the tech-debt-tracker foundation doc and qa-archive writes to it (R-005)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const tracker = join(project.dir, "context/foundation/tech-debt-tracker.md");

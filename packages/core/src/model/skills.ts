@@ -149,6 +149,7 @@ Before archiving a work-item. Read-only: report findings, do not modify files.
 A clear verdict with a findings list is produced. No files were modified.
 
 ## Next
+- \`qa-coverage-gap\` — for a focused AC ↔ case ↔ test traceability map before the verdict.
 - \`qa-archive\` — if approved.
 - \`qa-implement\` — if changes are needed.`,
   },
@@ -247,7 +248,8 @@ Every acceptance criterion maps to one or more traceable cases.
 
 ## Next
 - \`qa-test-data-gen\` — if cases need data that does not exist yet.
-- \`qa-test-automate\` — implement the designed cases.`,
+- \`qa-test-automate\` — implement the designed cases.
+- \`qa-coverage-gap\` — confirm every acceptance criterion now traces to a case.`,
   },
 ];
 
@@ -375,6 +377,39 @@ A prioritized, deduplicated drift report exists with a concrete next action per 
 
 ## Next
 - \`qa-archive\` / \`qa-test-automate\` / \`qa-test-case-design\` / \`qa-test-plan\` — hand each proposed fix to the matching write skill.`,
+  },
+  {
+    name: "qa-coverage-gap",
+    description: "Map acceptance criteria → test cases → automated tests and report uncovered criteria (read-only).",
+    readOnly: true,
+    bucket: "analysis",
+    suggestedModel: "opus",
+    reads: [
+      "context/changes/<work-id>/work.md",
+      "context/changes/<work-id>/cases.md",
+      "context/changes/<work-id>/automation.md",
+      "context/foundation/test-plan.md",
+    ],
+    writes: [],
+    body: `## When to use
+When you need to know what is *not* covered: which acceptance criteria have no case, which cases have no automated test, and which tests trace to no criterion. Read-only — it produces a traceability map and a gap report, it never edits.
+
+Scope it to a single work-item (the default) or, given a list of work-ids, across them. This is the focused, mechanical traceability pass; \`qa-review\` makes the broader quality judgment and \`qa-gardening\` sweeps drift — this one only answers "what is covered, and what is missing".
+
+## Procedure
+1. Read the acceptance criteria from \`context/changes/<work-id>/work.md\` (and the planned scope in \`context/foundation/test-plan.md\` for cross-work-item coverage). Each criterion is a node to cover.
+2. Read \`context/changes/<work-id>/cases.md\`: for each case, follow the criterion it traces to. A case that traces to no criterion, or a criterion with no case, is a gap.
+3. Read \`context/changes/<work-id>/automation.md\` and reconcile cases against the automated tests in **{{AUTOMATION_FRAMEWORK}}**: a designed case with no automated test, or a test traceable to no case/criterion, is a gap. Pull the real test outcomes through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) where available — a case "covered" by a skipped or perpetually-failing test is not truly covered; flag it.
+4. Build the **AC ↔ case ↔ test** traceability table and classify each criterion: *covered* (case + passing test), *partial* (case but no/failing test), or *uncovered* (no case). Note orphans (cases/tests tracing to nothing).
+5. Output a coverage-gap report in **{{REPORT_LANGUAGE_NAME}}**: the traceability table, a coverage count (covered / partial / uncovered), and a prioritized list of the gaps with the single next action for each. Reinforce the iron QA rule — never propose weakening it.
+
+## Done when
+A coverage-gap report exists with an AC ↔ case ↔ test traceability table, a covered/partial/uncovered tally, and a prioritized gap list. No files were modified.
+
+## Next
+- \`qa-test-case-design\` — design cases for the *uncovered* criteria.
+- \`qa-test-automate\` — automate the *partial* criteria (case exists, no passing test).
+- \`qa-review\` — fold the coverage verdict into the work-item review before archiving.`,
   },
   {
     name: "qa-bug-report",

@@ -144,6 +144,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
 | `qa-bug-report` | analysis | write | `sonnet` | structured defect report from evidence | result servers, `atlassian` (opt-in) |
 | `qa-reverse-engineer` | analysis | write | `opus` | reverse-engineer code → project docs | reads app source (read-only on code) |
+| `qa-coverage-gap` | analysis | read | `opus` | AC ↔ case ↔ test traceability + uncovered criteria | result servers |
 
 "Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
 `pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`).
@@ -151,7 +152,8 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 **Orchestration via `## Next` (R-020).** Every skill body ends with a `## Next` section recommending
 the downstream skill(s) — the agent-orchestration graph is encoded in the skills themselves, not in a
 separate router. `qa-reverse-engineer` writes durable system docs to `context/reference/`; `qa-bug-report`
-closes the `qa-rca` → defect gap.
+closes the `qa-rca` → defect gap; `qa-coverage-gap` (R-022) maps AC ↔ case ↔ test and reports uncovered
+criteria, feeding `qa-test-case-design` / `qa-test-automate`.
 
 The leaf CLI = parse args → `detectStack` → `runWizard`/`defaultAnswers` → for each `LogicalSkill`
 call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outputs.

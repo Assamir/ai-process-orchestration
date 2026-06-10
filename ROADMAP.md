@@ -41,20 +41,21 @@
 | 0.9.0 | **R-019** `qa-reverse-engineer` skill + `context/reference/` — reverse-engineers app source into structured project docs (business, architecture, data flow, integrations, entry points, test surface); proposes a split for monoliths first | `0883c46` | `model/skills.ts`, `model/context.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.9.0 | **R-020** `## Next` suggested-flow sections across all 16 skills — agent-orchestration graph encoded in the suite itself | `0883c46` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
 | 0.9.0 | **R-021** Sharpened `qa-gardening` description + boundary vs `doctor` (semantic in-loop sweep vs deterministic out-of-loop validator); no behavior change | `0883c46` | `model/skills.ts` |
+| 0.10.0 | **R-022** `qa-coverage-gap` skill (read-only) — maps acceptance criteria ↔ cases ↔ automated tests, classifies each criterion covered/partial/uncovered, flags orphan cases/tests; emits a traceability report, wired into `qa-review` / `qa-test-case-design` `## Next` | `_pending_` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 > **ID note — R-007 was never used.** The sequence jumps R-006 → R-008; no commit or doc references
 > `R-007` (verified). IDs are **append-only and never reused**, so `R-007` stays a permanent gap
-> (reserved/skipped), not a slot to fill. The current shipped suite is **16 skills** (the 13 of R-001,
-> `qa-gardening` from R-004, and `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019); see the
-> skill × model × tooling matrix in TECH §5.
+> (reserved/skipped), not a slot to fill. The current shipped suite is **17 skills** (the 13 of R-001,
+> `qa-gardening` from R-004, `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019, and
+> `qa-coverage-gap` from R-022); see the skill × model × tooling matrix in TECH §5.
 
 ## Next (planned)
 
-_All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, and R-018/R-019/R-020/R-021
-(two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**. The next
-stack/feature work lives in the backlog below._
+_All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R-019/R-020/R-021
+(two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, and R-022
+(`qa-coverage-gap`) in **v0.10.0**. The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
 
@@ -69,10 +70,6 @@ stack/feature work lives in the backlog below._
   criterion-coverage from the result MCP servers and `context/`, emitting a digest in the report
   language, and the result-legibility layer is no longer limited to static report directories. Traces:
   PRD §8 ("Richer observability … remains on the roadmap"), §9 success metrics, TECH §11.
-- **🧊 R-022 — `qa-coverage-gap` skill** (read-only). Maps acceptance criteria → cases → automated
-  tests and reports uncovered criteria. Lands: `model/skills.ts`, `tests/scaffold.test.ts`, PRD §5,
-  TECH §5. **Done when:** a read-only skill emits a coverage-gap report with AC↔case↔test traceability;
-  parity test green. Traces: PRD §9 success metrics.
 - **🧊 R-023 — Playwright MCP (browser) wiring.** Wire the official Playwright MCP server into
   `.mcp.json` / `.vscode/mcp.json` for interactive browser exploration in `qa-test-case-design` /
   `qa-rca`. Lands: `model/mcp.ts`, `adapters/*`, `tests/mcp.test.ts`. **Done when:** both adapters
