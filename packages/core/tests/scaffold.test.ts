@@ -40,6 +40,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/qa-conventions.md",
       ".ai/guidelines/test-naming.md",
       ".ai/guidelines/diagram-conventions.md",
+      ".ai/guidelines/documentation-as-code.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       ".claude/skills/qa-init/SKILL.md",
@@ -138,12 +139,35 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the documentation-as-code guideline on both platforms; doctor expects it (R-028)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/documentation-as-code.md"), "utf8");
+    // The load-bearing contract: docs versioned in-repo, validated by doctor, synced via CI.
+    expect(claude).toContain("doctor");
+    expect(claude.toLowerCase()).toContain("version");
+    expect(claude).toContain("CI");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/documentation-as-code.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("doctor");
+      expect(copilot).toContain("CI");
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "test-naming", "diagram-conventions"]) {
+      for (const name of ["qa-conventions", "test-naming", "diagram-conventions", "documentation-as-code"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

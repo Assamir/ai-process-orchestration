@@ -289,6 +289,7 @@ Current set:
 | `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`), ✅/❌ examples | `PROJECT_SPECIFIC_CONVENTIONS`, `CONVENTIONS_PATTERNS` |
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + a ✅/❌ example diagram | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
+| `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -314,6 +315,15 @@ Standard each guideline follows:
   `guidelineRel`; `doctor` then expects it to exist **and to carry both example markers**
   (`doctor/index.ts` builds its file set from `GUIDELINES`). Keep the body platform-agnostic so parity
   holds.
+- **Documentation-as-code (R-028).** A first-class `documentation-as-code` guideline codifies what the
+  product already embodies: QA knowledge is treated like source — docs live in-repo, are versioned with
+  the code they describe, reviewed in the same PR, validated deterministically by `doctor`, and kept in
+  sync via CI (the `qa-ci-pipeline` from R-027 runs `doctor` so doc drift fails the build like a failing
+  test). `doctor` enforces its **content contract** — a separate check from the file-existence and
+  examples checks: if the guideline no longer mentions both `doctor` and CI, that is an **error**
+  (`DOCASCODE:contract`), parallel to the iron-QA-rule content check so gutting the standard fails. Like
+  every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check) and
+  a phase-2 `DOCS_AS_CODE_PATTERNS` / `PROJECT_DOC_WORKFLOW` slot.
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 

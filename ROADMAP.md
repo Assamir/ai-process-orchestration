@@ -49,6 +49,7 @@
 | 0.15.0 | **R-025** Mermaid diagram standard — new `diagram-conventions` guideline (diagram-type → use mapping, fencing/labeling/size rules, an example flowchart, a `{{PROJECT_DIAGRAMS}}` phase-2 slot); ships on both platforms via `GUIDELINES`, `doctor` expects it; TECH §12.2 documents the standard | `6d0438b` | `model/context.ts` (`GUIDELINES`), `tests/scaffold.test.ts`, `TECH.md` §12, `PRD.md` |
 | 0.16.0 | **R-026** Guideline-standard upgrade — every guideline now carries a mandatory `## Examples (✅ good / ❌ bad)` section + an encouraged `## Applicable patterns` section (phase-2 `*_PATTERNS` slots); `doctor` enforces the good/bad examples (`GUIDELINE:examples:<name>`, error); TECH §12.1 documents the rule | `8851a91` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1 |
 | 0.17.0 | **R-027** `qa-ci-pipeline` skill (write) — generates or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs `{{AUTOMATION_FRAMEWORK}}`, fails on test failure, and publishes the result dirs wired into the result MCP (Playwright/pytest/Surefire-Serenity/Allure); wired from `qa-test-automate` + `qa-automation-bootstrapper` `## Next`; closes the test → report → legibility loop at the CI boundary | `72ea232` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md` §5, `TECH.md` §5, `ROADMAP.md` |
+| 0.18.0 | **R-028** `documentation-as-code` guideline + `doctor` enforcement — codifies what the product embodies (docs versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI per R-027); ships on both platforms via `GUIDELINES` (with ✅/❌ examples + `DOCS_AS_CODE_PATTERNS`/`PROJECT_DOC_WORKFLOW` phase-2 slots); `doctor` adds a content-contract check (`DOCASCODE:contract`, error) parallel to the iron-QA-rule check | `<pending>` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1, `PRD.md` §8 |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -66,17 +67,11 @@ _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R
 (`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, R-012
 (`qa-metrics` + Allure observability) in **v0.12.0**, R-023 (Playwright browser MCP) in **v0.13.0**, and
 R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in **v0.15.0**, and R-026
-(guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, and R-027 (`qa-ci-pipeline` skill)
-in **v0.17.0**. The next stack/feature work lives in the backlog below._
+(guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, R-027 (`qa-ci-pipeline` skill)
+in **v0.17.0**, and R-028 (`documentation-as-code` guideline + `doctor` enforcement) in **v0.18.0**. The
+next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-028 — Documentation-as-Code guideline + `doctor` enforcement.** A first-class
-  `documentation-as-code` guideline codifying what the product already embodies: docs live in-repo,
-  are versioned, reviewed in PR, validated deterministically by `doctor`, and kept in sync with code
-  via CI (ties to R-027). Lands: `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, TECH §12.
-  **Done when:** the guideline ships on both platforms via `GUIDELINES`, `doctor` expects it, parity
-  green. Traces: TECH §11, §12.
 
 - **🧊 R-029 — Anti-Hallucination (grounding) rule.** A load-bearing rule in the lean root config (so
   it survives compaction) plus a guideline: every skill grounds claims in real artifacts (file:line,

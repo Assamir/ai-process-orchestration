@@ -76,6 +76,18 @@ describe("runDoctor", () => {
     );
   });
 
+  it("flags a gutted documentation-as-code guideline that drops its doctor/CI contract (R-028)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Overwrite with content that keeps the ✅/❌ markers but drops the doctor + CI contract.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/documentation-as-code.md"),
+      "# Documentation as code\n\nWrite docs. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "DOCASCODE:contract" && f.severity === "error")).toBe(true);
+  });
+
   it("detects a platform mismatch via the manifest", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const report = runDoctor(project.dir, copilotAdapter);

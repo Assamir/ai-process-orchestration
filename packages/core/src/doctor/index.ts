@@ -155,6 +155,24 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
   }
 
+  // 6. Documentation-as-code (R-028) — the guideline must keep its load-bearing
+  // contract: docs are versioned in-repo and validated by `doctor` in CI. This is
+  // a content check (parallel to the iron QA rule), so gutting the guideline fails.
+  const docAsCodeRel = adapter.guidelineRel("documentation-as-code");
+  const docAsCodeAbs = join(root, docAsCodeRel);
+  if (existsSync(docAsCodeAbs)) {
+    const text = readFileSync(docAsCodeAbs, "utf8").toLowerCase();
+    if (!text.includes("doctor") || !text.includes("ci")) {
+      findings.push({
+        id: "DOCASCODE:contract",
+        severity: "error",
+        message: `The documentation-as-code guideline (${docAsCodeRel}) no longer states its core contract (deterministic \`doctor\` validation kept in sync via CI).`,
+        remediation:
+          "Restore the contract: docs live in-repo, are versioned and reviewed in PR, validated by `doctor`, and kept in sync via CI. It must not be weakened.",
+      });
+    }
+  }
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };
