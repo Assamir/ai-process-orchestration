@@ -15,7 +15,8 @@ Two phases:
    - `.claude/skills/<name>/SKILL.md` — the QA skill suite (every skill is `qa-<name>`: `qa-init`,
      `qa-ticket-review`, `qa-test-plan`, `qa-test-case-design`, `qa-automation-bootstrapper`,
      `qa-test-automate`, `qa-rca`, `qa-test-data-gen`, `qa-gardening`, `qa-bug-report`,
-     `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, and the `qa-new → … → qa-archive` backbone).
+     `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-playwright-cli`, and the
+     `qa-new → … → qa-archive` backbone).
    - `.ai/guidelines/*.md` — QA conventions & test naming.
    - `context/` — the system of record (`foundation/`, `changes/`, `archive/`).
    - `.mcp.json` — for Playwright, a read-only `playwright-results` MCP server over the HTML report + traces, so `qa-rca`/`qa-test-automate` read results directly (empty stub for other stacks). Opt-in servers (wizard): the official `@playwright/mcp` **browser** server for interactive exploration in `qa-test-case-design`/`qa-rca`, and a local Atlassian (Jira + Confluence) server for `qa-ticket-review`.

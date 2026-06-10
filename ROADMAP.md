@@ -45,30 +45,27 @@
 | 0.11.0 | **R-010** Richer test-data generation — `qa-test-data-gen` now emits reusable, schema-valid **factories/fixtures** (not inline literals) with stack-aware tooling (`@faker-js/faker`, `factory_boy`, `datafaker`/`instancio`), boundary/invalid variants as overrides, each referenced by name from `cases.md` for traceability | `96d1df0` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
 | 0.12.0 | **R-012** Metrics dashboard + observability — read-only `qa-metrics` skill aggregates pass/fail/flakiness + acceptance-criterion coverage across `context/` and runs into a digest; result-legibility extended past static report dirs by detecting **Allure** (`DetectedStack.observability`) and wiring its `allure-results`/`allure-report` (durable cross-run history) into the result MCP server | `f20c580` | `model/skills.ts`, `model/mcp.ts`, `detect/*`, `types.ts`, `scaffold/index.ts`, `tests/*`, `PRD.md`, `TECH.md`, READMEs |
 | 0.13.0 | **R-023** Playwright browser MCP wiring — opt-in (default off, CI-safe) wizard question wires the official `@playwright/mcp` browser server for interactive exploration in `qa-test-case-design` / `qa-rca`; both adapters render it (platform-correct envelope), `qa-rca`/`qa-test-case-design` bodies reference it | `a12684d` | `model/mcp.ts`, `types.ts`, `wizard/index.ts`, `scaffold/index.ts`, `model/skills.ts`, `index.ts`, `tests/mcp.test.ts`, `PRD.md`, `TECH.md`, READMEs |
+| 0.14.0 | **R-024** `qa-playwright-cli` skill (write/automation) — wraps the Playwright CLI (`codegen`, `show-report`, `show-trace`, `--ui`, `--update-snapshots`) to support `qa-test-automate` / `qa-rca`; renders with the write tool allowlist on both platforms, references the opt-in browser MCP | `_pending_` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 > **ID note — R-007 was never used.** The sequence jumps R-006 → R-008; no commit or doc references
 > `R-007` (verified). IDs are **append-only and never reused**, so `R-007` stays a permanent gap
-> (reserved/skipped), not a slot to fill. The current shipped suite is **18 skills** (the 13 of R-001,
+> (reserved/skipped), not a slot to fill. The current shipped suite is **19 skills** (the 13 of R-001,
 > `qa-gardening` from R-004, `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019,
-> `qa-coverage-gap` from R-022, and `qa-metrics` from R-012); see the skill × model × tooling matrix in
-> TECH §5.
+> `qa-coverage-gap` from R-022, `qa-metrics` from R-012, and `qa-playwright-cli` from R-024); see the
+> skill × model × tooling matrix in TECH §5.
 
 ## Next (planned)
 
 _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R-019/R-020/R-021
 (two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, R-022
 (`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, R-012
-(`qa-metrics` + Allure observability) in **v0.12.0**, and R-023 (Playwright browser MCP) in **v0.13.0**.
-The next stack/feature work lives in the backlog below._
+(`qa-metrics` + Allure observability) in **v0.12.0**, R-023 (Playwright browser MCP) in **v0.13.0**, and
+R-024 (`qa-playwright-cli`) in **v0.14.0**. The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
 
-- **🧊 R-024 — `qa-playwright-cli` skill.** Wraps the Playwright CLI (`codegen`, `show-report`,
-  `trace`, `--ui`, `--update-snapshots`) as support for `qa-test-automate` / `qa-rca`. Lands:
-  `model/skills.ts`, `tests/scaffold.test.ts`. **Done when:** the skill exists in both packages with
-  the correct read-only/write tool allowlist; parity test green. Traces: PRD §5 (automation).
 - **🧊 R-025 — Mermaid diagram standard.** New `diagram-conventions` guideline (rendered by both
   adapters via `GUIDELINES`) plus a TECH section defining the Mermaid standard. Lands:
   `model/context.ts` (`GUIDELINES`), TECH §12, `doctor/index.ts` (guideline file set). **Done when:**

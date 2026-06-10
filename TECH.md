@@ -139,6 +139,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-test-case-design` | design | write | `opus` | derive negative/boundary cases | — |
 | `qa-automation-bootstrapper` | automation | write | `sonnet` | framework setup + wiring | result servers |
 | `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
+| `qa-playwright-cli` | automation | write | `sonnet` | drive Playwright CLI (codegen/trace/snapshots) | Playwright CLI, browser MCP (opt-in) |
 | `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
 | `qa-test-data-gen` | analysis | write | `sonnet` | reusable schema-valid factories/fixtures | stack-aware (faker/factory_boy/datafaker) |
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |

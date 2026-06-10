@@ -298,7 +298,33 @@ After cases are designed and the framework is bootstrapped.
 The new tests pass locally and the run is recorded in \`automation.md\`.
 
 ## Next
-- \`qa-rca\` — on failure, find the real cause before retrying.`,
+- \`qa-rca\` — on failure, find the real cause before retrying.
+- \`qa-playwright-cli\` — use the Playwright CLI to record a draft, inspect a trace, or refresh snapshots.`,
+  },
+  {
+    name: "qa-playwright-cli",
+    description: "Drive the Playwright CLI (codegen, show-report, show-trace, --ui, --update-snapshots) to support test authoring and root-cause analysis.",
+    readOnly: false,
+    bucket: "automation",
+    suggestedModel: "sonnet",
+    reads: ["context/changes/<work-id>/cases.md", "context/foundation/tools.md"],
+    writes: ["context/changes/<work-id>/automation.md"],
+    body: `## When to use
+When the project automates with Playwright (**{{AUTOMATION_FRAMEWORK}}**) and you want the CLI to do the heavy lifting: scaffold a test by recording, inspect a failed run, or refresh snapshots. Supports \`qa-test-automate\` (authoring) and \`qa-rca\` (diagnosis). For non-Playwright stacks, use that framework's own tooling instead — this skill is Playwright-specific.
+
+## Procedure
+1. **Author by recording** — \`npx playwright codegen <url>\` generates a first-pass test from real interactions. Always refactor it to the project conventions (stable locators, fixtures, the factories from \`qa-test-data-gen\`); never ship raw codegen output.
+2. **Inspect a failure** — \`npx playwright show-report\` and \`npx playwright show-trace <trace.zip>\` (paths from \`context/foundation/tools.md\` or the \`playwright-results\` MCP server). Use the trace's DOM/console/network to find the real cause, then hand it to \`qa-rca\`.
+3. **Debug interactively** — \`npx playwright test --ui\` (or \`--debug\`) to step a flaky/failing test. If a \`playwright-browser\` MCP server is configured, prefer it for free-form exploration.
+4. **Snapshots** — refresh only when the change is intended and reviewed: \`npx playwright test --update-snapshots\`. Treat snapshot churn as a finding to explain, not a rubber-stamp.
+5. Record the commands you ran and what they produced in \`context/changes/<work-id>/automation.md\` so the run is reproducible. Respect autonomy **{{AUTONOMY_LEVEL}}** before changing committed files (generated tests, snapshots).
+
+## Done when
+The CLI task is complete (a recorded test refactored to conventions, a trace inspected, or snapshots intentionally refreshed) and the commands + outcomes are noted in \`automation.md\`.
+
+## Next
+- \`qa-test-automate\` — fold the recorded/refactored test into the suite under the QA conventions.
+- \`qa-rca\` — when a trace points to a product defect, root-cause it.`,
   },
 ];
 

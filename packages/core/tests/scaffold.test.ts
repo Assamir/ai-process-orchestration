@@ -117,6 +117,21 @@ describe("scaffold (Claude)", () => {
     expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
   });
 
+  it("ships qa-playwright-cli as a write automation skill with the write tool allowlist (R-024)", () => {
+    const cli = SKILLS.find((s) => s.name === "qa-playwright-cli");
+    expect(cli, "qa-playwright-cli registered").toBeDefined();
+    expect(cli!.readOnly).toBe(false);
+    expect(cli!.bucket).toBe("automation");
+    // Wraps real CLI commands, so the body names the core verbs.
+    expect(cli!.body).toContain("codegen");
+    expect(cli!.body).toContain("show-trace");
+    expect(cli!.body).toContain("--update-snapshots");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-playwright-cli/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+  });
+
   it("ships qa-metrics as a read-only observability/metrics digest skill (R-012)", () => {
     const metrics = SKILLS.find((s) => s.name === "qa-metrics");
     expect(metrics, "qa-metrics registered").toBeDefined();
