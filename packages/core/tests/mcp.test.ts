@@ -46,6 +46,22 @@ describe("resultServers (MCP legibility)", () => {
   it("returns no servers only when the framework is unknown (empty stub)", () => {
     expect(resultServers({ framework: "unknown", buildTool: "unknown" })).toEqual({});
   });
+
+  it("extends result legibility past the static report dir with Allure history when detected (R-012)", () => {
+    // Allure dirs are appended to the framework's result server, alongside the static dirs.
+    const s = resultServers({ framework: "playwright-ts", buildTool: "npm", observability: ["allure"] })["playwright-results"];
+    expect(s).toBeDefined();
+    expect(s!.args).toEqual(expect.arrayContaining(["./playwright-report", "./allure-results", "./allure-report"]));
+
+    // Even with no framework result server, Allure alone is still made legible.
+    const orphan = resultServers({ framework: "unknown", buildTool: "unknown", observability: ["allure"] });
+    expect(orphan["allure-results"]).toBeDefined();
+    expect(orphan["allure-results"]!.args).toEqual(expect.arrayContaining(["./allure-results", "./allure-report"]));
+
+    // No observability → unchanged, no allure dirs leak in.
+    const none = resultServers({ framework: "playwright-ts", buildTool: "npm" })["playwright-results"];
+    expect(none!.args).not.toContain("./allure-results");
+  });
 });
 
 describe("ticketingServers (optional Atlassian MCP)", () => {
@@ -72,6 +88,7 @@ describe("scaffold wires MCP results into the platform config", () => {
     frameworks: ["playwright-ts"],
     primaryFramework: "playwright-ts",
     linters: [],
+    observability: [],
     manifests: ["package.json"],
   };
   const answers: WizardAnswers = {
@@ -107,6 +124,7 @@ describe("scaffold wires MCP results into the platform config", () => {
       frameworks: ["pytest"],
       primaryFramework: "pytest",
       linters: ["ruff"],
+      observability: [],
       manifests: ["pyproject.toml"],
     };
     const pyAnswers: WizardAnswers = { ...answers, automationFramework: "pytest" };
@@ -122,12 +140,22 @@ describe("scaffold wires MCP results into the platform config", () => {
       frameworks: ["restassured", "junit5"],
       primaryFramework: "restassured",
       linters: [],
+      observability: [],
       manifests: ["pom.xml"],
     };
     const jvmAnswers: WizardAnswers = { ...answers, automationFramework: "restassured" };
     scaffold({ root: project.dir, adapter: claudeAdapter, stack: jvmStack, answers: jvmAnswers });
     const mcp = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
     expect(mcp.mcpServers["jvm-results"]).toBeDefined();
+  });
+
+  it("wires Allure result/history dirs into the result server when observability is detected (R-012)", () => {
+    const allureStack: DetectedStack = { ...stack, observability: ["allure"] };
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: allureStack, answers });
+    const mcp = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
+    expect(mcp.mcpServers["playwright-results"].args).toEqual(
+      expect.arrayContaining(["./allure-results", "./allure-report"]),
+    );
   });
 
   it("omits the Atlassian server when the wizard opt-in is off (R-009)", () => {

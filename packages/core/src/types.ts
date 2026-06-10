@@ -42,6 +42,13 @@ export interface DetectedStack {
   primaryFramework: AutomationFramework;
   /** Linters/formatters detected from their config files or dependencies. */
   linters: string[];
+  /**
+   * Cross-run observability/reporting tools detected from dependencies (e.g.
+   * `allure`). These keep durable history beyond a single static report dir, so
+   * `qa-metrics` can read flakiness/trends; phase 1 wires their result dirs into
+   * the result MCP server. Empty when none found.
+   */
+  observability: string[];
   /** Build manifests that were actually found, relative to the scanned root. */
   manifests: string[];
 }

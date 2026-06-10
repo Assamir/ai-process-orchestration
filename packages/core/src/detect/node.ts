@@ -6,6 +6,8 @@ export interface DetectorResult {
   buildTool: BuildTool;
   frameworks: AutomationFramework[];
   linters: string[];
+  /** Cross-run observability/reporting tools (e.g. `allure`). */
+  observability: string[];
   manifests: string[];
 }
 
@@ -17,7 +19,7 @@ export interface DetectorResult {
 export function detectNode(root: string): DetectorResult {
   const pkgRaw = readIfExists(root, "package.json");
   if (pkgRaw === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
   }
 
   const manifests = ["package.json"];
@@ -63,5 +65,9 @@ export function detectNode(root: string): DetectorResult {
   }
   if (exists(root, ".editorconfig")) linters.push("editorconfig");
 
-  return { matched: true, buildTool, frameworks, linters, manifests };
+  // Allure ships durable cross-run history/flakiness beyond the static report dir.
+  const observability: string[] = [];
+  if (Object.keys(deps).some((d) => d.includes("allure"))) observability.push("allure");
+
+  return { matched: true, buildTool, frameworks, linters, observability, manifests };
 }

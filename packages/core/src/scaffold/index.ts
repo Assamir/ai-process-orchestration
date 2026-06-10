@@ -52,6 +52,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
       framework: answers.automationFramework,
       buildTool: stack.buildTool,
       atlassianMcp: answers.atlassianMcp,
+      observability: stack.observability,
     }),
   ];
 

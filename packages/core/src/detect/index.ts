@@ -32,6 +32,7 @@ export function detectStack(root: string): DetectedStack {
   const manifests = [...node.manifests, ...java.manifests, ...python.manifests];
   const linters = [...new Set([...node.linters, ...java.linters, ...python.linters])];
   const frameworks = [...new Set([...node.frameworks, ...java.frameworks, ...python.frameworks])];
+  const observability = [...new Set([...node.observability, ...java.observability, ...python.observability])];
 
   const ordered: Array<[Language, DetectorResult]> = [
     ["node", node],
@@ -44,7 +45,7 @@ export function detectStack(root: string): DetectedStack {
     FRAMEWORK_PRIORITY.find((fw) => frameworks.includes(fw)) ?? "unknown";
 
   if (!primary) {
-    return { language: null, buildTool: "unknown", frameworks, primaryFramework, linters, manifests };
+    return { language: null, buildTool: "unknown", frameworks, primaryFramework, linters, observability, manifests };
   }
 
   const [language, detection] = primary;
@@ -54,6 +55,7 @@ export function detectStack(root: string): DetectedStack {
     frameworks,
     primaryFramework,
     linters,
+    observability,
     manifests,
   };
 }

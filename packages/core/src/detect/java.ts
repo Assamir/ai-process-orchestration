@@ -14,7 +14,7 @@ export function detectJava(root: string): DetectorResult {
   const gradle = gradleGroovy ?? gradleKts;
 
   if (pom === null && gradle === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
   }
 
   const manifests: string[] = [];
@@ -42,5 +42,9 @@ export function detectJava(root: string): DetectorResult {
     if (text.includes(tool)) linters.push(tool);
   }
 
-  return { matched: true, buildTool, frameworks, linters, manifests };
+  // io.qameta.allure / allure-maven / allure-junit5 → durable cross-run history.
+  const observability: string[] = [];
+  if (text.includes("allure")) observability.push("allure");
+
+  return { matched: true, buildTool, frameworks, linters, observability, manifests };
 }

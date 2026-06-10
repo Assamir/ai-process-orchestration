@@ -43,31 +43,27 @@
 | 0.9.0 | **R-021** Sharpened `qa-gardening` description + boundary vs `doctor` (semantic in-loop sweep vs deterministic out-of-loop validator); no behavior change | `0883c46` | `model/skills.ts` |
 | 0.10.0 | **R-022** `qa-coverage-gap` skill (read-only) — maps acceptance criteria ↔ cases ↔ automated tests, classifies each criterion covered/partial/uncovered, flags orphan cases/tests; emits a traceability report, wired into `qa-review` / `qa-test-case-design` `## Next` | `ffa4330` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.11.0 | **R-010** Richer test-data generation — `qa-test-data-gen` now emits reusable, schema-valid **factories/fixtures** (not inline literals) with stack-aware tooling (`@faker-js/faker`, `factory_boy`, `datafaker`/`instancio`), boundary/invalid variants as overrides, each referenced by name from `cases.md` for traceability | `96d1df0` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
+| 0.12.0 | **R-012** Metrics dashboard + observability — read-only `qa-metrics` skill aggregates pass/fail/flakiness + acceptance-criterion coverage across `context/` and runs into a digest; result-legibility extended past static report dirs by detecting **Allure** (`DetectedStack.observability`) and wiring its `allure-results`/`allure-report` (durable cross-run history) into the result MCP server | `_pending_` | `model/skills.ts`, `model/mcp.ts`, `detect/*`, `types.ts`, `scaffold/index.ts`, `tests/*`, `PRD.md`, `TECH.md`, READMEs |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
 > **ID note — R-007 was never used.** The sequence jumps R-006 → R-008; no commit or doc references
 > `R-007` (verified). IDs are **append-only and never reused**, so `R-007` stays a permanent gap
-> (reserved/skipped), not a slot to fill. The current shipped suite is **17 skills** (the 13 of R-001,
-> `qa-gardening` from R-004, `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019, and
-> `qa-coverage-gap` from R-022); see the skill × model × tooling matrix in TECH §5.
+> (reserved/skipped), not a slot to fill. The current shipped suite is **18 skills** (the 13 of R-001,
+> `qa-gardening` from R-004, `qa-bug-report` + `qa-reverse-engineer` from R-018/R-019,
+> `qa-coverage-gap` from R-022, and `qa-metrics` from R-012); see the skill × model × tooling matrix in
+> TECH §5.
 
 ## Next (planned)
 
 _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R-019/R-020/R-021
 (two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, R-022
-(`qa-coverage-gap`) in **v0.10.0**, and R-010 (richer test-data factories) in **v0.11.0**. The next
-stack/feature work lives in the backlog below._
+(`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, and R-012
+(`qa-metrics` + Allure observability) in **v0.12.0**. The next stack/feature work lives in the backlog
+below._
 
 ## Backlog (unscheduled)
 
-- **🧊 R-012 — Metrics dashboard + observability skill** _(merged with former R-016)_. Summarize
-  coverage/flakiness from `context/` + results, and extend result legibility past static filesystem
-  report dirs (e.g. live run streaming / cloud test observability). Lands: `model/skills.ts`,
-  `model/mcp.ts`, `detect/*`. **Done when:** a read-only skill aggregates pass/fail/flake +
-  criterion-coverage from the result MCP servers and `context/`, emitting a digest in the report
-  language, and the result-legibility layer is no longer limited to static report directories. Traces:
-  PRD §8 ("Richer observability … remains on the roadmap"), §9 success metrics, TECH §11.
 - **🧊 R-023 — Playwright MCP (browser) wiring.** Wire the official Playwright MCP server into
   `.mcp.json` / `.vscode/mcp.json` for interactive browser exploration in `qa-test-case-design` /
   `qa-rca`. Lands: `model/mcp.ts`, `adapters/*`, `tests/mcp.test.ts`. **Done when:** both adapters

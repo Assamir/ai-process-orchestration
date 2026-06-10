@@ -417,6 +417,38 @@ A coverage-gap report exists with an AC ↔ case ↔ test traceability table, a 
 - \`qa-review\` — fold the coverage verdict into the work-item review before archiving.`,
   },
   {
+    name: "qa-metrics",
+    description: "Aggregate pass/fail/flakiness and acceptance-criterion coverage from the result MCP servers and context/ into a read-only QA metrics digest.",
+    readOnly: true,
+    bucket: "analysis",
+    suggestedModel: "sonnet",
+    reads: [
+      "context/changes/",
+      "context/archive/",
+      "context/foundation/tech-debt-tracker.md",
+      "context/foundation/lessons.md",
+    ],
+    writes: [],
+    body: `## When to use
+On a cadence (sprint end, before a release, after a CI run) to see QA health at a glance: how many tests pass, what is flaky, and how much of the acceptance criteria is actually covered. Read-only — it emits a digest, it never edits.
+
+This is the **observability dashboard** over the suite: \`qa-coverage-gap\` answers "what is covered for *this* work-item"; \`qa-metrics\` rolls coverage + run health up *across* work-items and *across runs*.
+
+## Procedure
+1. Pull outcomes through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`): the JUnit XML / JSON results and, where present, the **Allure** results/report. Allure keeps durable cross-run history (\`allure-report/history\`), so prefer it for **flakiness and trend** rather than the single latest run — result legibility here is not limited to one static report dir. What is not in context does not exist; read the artifacts in.
+2. Compute run metrics: total / passed / failed / skipped, pass rate, and the **flaky** set (tests that both pass and fail across runs or retries). Note the trend vs the previous run when history is available.
+3. Compute **criterion coverage** across \`context/changes/\` (and \`context/archive/\` for the baseline): how many acceptance criteria trace to a case and to a passing automated test — reuse the AC ↔ case ↔ test traceability from \`qa-coverage-gap\`. Fold in open items from \`tech-debt-tracker.md\` and known-flaky areas from \`lessons.md\`.
+4. Emit a digest in **{{REPORT_LANGUAGE_NAME}}**: a metrics table (pass rate, flake count, coverage %), the top flaky tests, the biggest coverage gaps, and the trend direction. Keep it a dashboard, not prose. Reinforce the iron QA rule — never propose weakening it.
+
+## Done when
+A read-only metrics digest exists with pass/fail/flake counts, criterion-coverage %, the flaky-test list, and (when history is available) a trend. No files were modified.
+
+## Next
+- \`qa-coverage-gap\` — drill into the uncovered criteria behind the coverage number.
+- \`qa-rca\` — root-cause the top flaky/failing tests.
+- \`qa-gardening\` — fold the metrics into the next drift sweep.`,
+  },
+  {
     name: "qa-bug-report",
     description: "Turn a confirmed product defect into a structured, reproducible bug report with evidence (writes the report only).",
     readOnly: false,

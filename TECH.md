@@ -145,9 +145,12 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-bug-report` | analysis | write | `sonnet` | structured defect report from evidence | result servers, `atlassian` (opt-in) |
 | `qa-reverse-engineer` | analysis | write | `opus` | reverse-engineer code → project docs | reads app source (read-only on code) |
 | `qa-coverage-gap` | analysis | read | `opus` | AC ↔ case ↔ test traceability + uncovered criteria | result servers |
+| `qa-metrics` | analysis | read | `sonnet` | pass/fail/flake + coverage digest across runs | result servers (+ Allure history) |
 
 "Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
-`pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`).
+`pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`). When detection finds **Allure**
+(`DetectedStack.observability`), its `allure-results` + `allure-report` (durable cross-run history) dirs
+are appended to that server — so `qa-metrics` reads flakiness/trends, not just the latest run (R-012).
 
 **Orchestration via `## Next` (R-020).** Every skill body ends with a `## Next` section recommending
 the downstream skill(s) — the agent-orchestration graph is encoded in the skills themselves, not in a
@@ -251,7 +254,11 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
   `resultServers`), so `qa-rca` and `qa-test-automate` read outcomes directly instead of relying on copy-paste.
-  Both adapters share the server map; only the JSON envelope differs (`mcpServers` vs `servers`).
+  Both adapters share the server map; only the JSON envelope differs (`mcpServers` vs `servers`). **Extended
+  in R-012:** detection of **Allure** (`DetectedStack.observability`) appends its durable cross-run history
+  (`allure-report/history`) + results dirs to the result server, lifting legibility past a single static
+  report dir; the read-only **`qa-metrics`** skill then aggregates pass/fail/flakiness + criterion-coverage
+  across runs into a digest.
 - **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`qa-ticket-review`,
   `qa-review`, `qa-rca`, `qa-gardening`) or write (`qa-test-case-design`, `qa-test-automate`,
   `qa-automation-bootstrapper`, …); the adapter encodes this as Claude `allowed-tools` and as Copilot agent

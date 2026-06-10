@@ -13,6 +13,12 @@ export interface McpContext {
   buildTool: BuildTool;
   /** Wire the optional local Atlassian (Jira + Confluence) MCP server. */
   atlassianMcp?: boolean;
+  /**
+   * Cross-run observability tools detected in the stack (e.g. `allure`). When
+   * present, their durable result/history dirs are added to the result server
+   * so legibility extends past a single static report directory (R-012).
+   */
+  observability?: string[];
 }
 
 /**
@@ -26,27 +32,40 @@ export interface McpContext {
  * (no detected framework) returns `{}`.
  */
 export function resultServers(ctx: McpContext): Record<string, McpServer> {
+  const base = baseResult(ctx);
+  // Allure keeps durable cross-run history (`allure-report/history`) + per-run
+  // results — legibility *beyond* a single static report dir, which is what
+  // `qa-metrics` needs for flakiness/trends (R-012).
+  const allure = ctx.observability?.includes("allure") ? ["./allure-results", "./allure-report"] : [];
+
+  if (base) return { [base.name]: filesystem([...base.dirs, ...allure]) };
+  // No framework result server (unknown stack), but Allure may still be wired.
+  return allure.length ? { "allure-results": filesystem(allure) } : {};
+}
+
+/** The framework's conventional result dirs and server name, or null when unknown. */
+function baseResult(ctx: McpContext): { name: string; dirs: string[] } | null {
   switch (ctx.framework) {
     case "playwright-ts":
-      return { "playwright-results": filesystem(["./playwright-report", "./test-results"]) };
+      return { name: "playwright-results", dirs: ["./playwright-report", "./test-results"] };
     case "playwright-java": {
       // Playwright-Java rides the JVM runner's reports; trace dir is conventionally test-results.
       const reportDir = ctx.buildTool === "gradle" ? "./build/reports/tests" : "./target/surefire-reports";
-      return { "playwright-results": filesystem([reportDir, "./test-results"]) };
+      return { name: "playwright-results", dirs: [reportDir, "./test-results"] };
     }
     case "pytest":
       // pytest writes where configured; the common conventions are a pytest-html
       // report + a JUnit XML (`--junitxml`) under ./reports, with artifacts in
       // ./test-results. Expose both read-only so qa-rca/qa-test-automate read outcomes.
-      return { "pytest-results": filesystem(["./reports", "./test-results"]) };
+      return { name: "pytest-results", dirs: ["./reports", "./test-results"] };
     case "restassured":
     case "junit5":
     case "testng":
       // JVM runners write Surefire/Failsafe XML (or Gradle's test reports) plus a
       // Serenity site when used; conventional dirs differ by build tool.
-      return { "jvm-results": filesystem(jvmReportDirs(ctx.buildTool)) };
+      return { name: "jvm-results", dirs: jvmReportDirs(ctx.buildTool) };
     default:
-      return {};
+      return null;
   }
 }
 

@@ -13,7 +13,7 @@ export function detectPython(root: string): DetectorResult {
   const setupPy = readIfExists(root, "setup.py");
 
   if (pyproject === null && requirements === null && setupPy === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
   }
 
   const manifests: string[] = [];
@@ -33,5 +33,9 @@ export function detectPython(root: string): DetectorResult {
     if (text.includes(tool)) linters.push(tool);
   }
 
-  return { matched: true, buildTool, frameworks, linters, manifests };
+  // allure-pytest → durable cross-run history for qa-metrics trends/flakiness.
+  const observability: string[] = [];
+  if (text.includes("allure")) observability.push("allure");
+
+  return { matched: true, buildTool, frameworks, linters, observability, manifests };
 }

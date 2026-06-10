@@ -11,6 +11,7 @@ const stack: DetectedStack = {
   frameworks: ["playwright-ts"],
   primaryFramework: "playwright-ts",
   linters: ["eslint", "prettier"],
+  observability: [],
   manifests: ["package.json"],
 };
 
@@ -113,6 +114,22 @@ describe("scaffold (Claude)", () => {
     expect(skill).toContain("@faker-js/faker");
     expect(skill).toContain("Playwright (TypeScript)");
     expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+  });
+
+  it("ships qa-metrics as a read-only observability/metrics digest skill (R-012)", () => {
+    const metrics = SKILLS.find((s) => s.name === "qa-metrics");
+    expect(metrics, "qa-metrics registered").toBeDefined();
+    expect(metrics!.readOnly).toBe(true);
+    expect(metrics!.bucket).toBe("analysis");
+    expect(metrics!.writes).toEqual([]);
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-metrics/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob");
+    expect(skill).not.toContain("Write, Edit, Bash");
+    // Aggregates run health + coverage, and reaches past a single static report dir.
+    expect(skill).toMatch(/flak/i);
+    expect(skill).toContain("Allure");
   });
 
   it("ships qa-coverage-gap as a read-only AC↔case↔test traceability skill (R-022)", () => {

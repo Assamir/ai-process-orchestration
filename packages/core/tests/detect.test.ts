@@ -75,6 +75,23 @@ ruff = "^0.4"`,
     expect(stack.manifests).toEqual(expect.arrayContaining(["package.json", "pom.xml"]));
   });
 
+  it("detects Allure as a cross-run observability tool (R-012)", () => {
+    project.write(
+      "package.json",
+      JSON.stringify({ devDependencies: { "@playwright/test": "^1.44", "allure-playwright": "^3" } }),
+    );
+    const withAllure = detectStack(project.dir);
+    expect(withAllure.observability).toContain("allure");
+
+    const clean = tempProject();
+    try {
+      clean.write("package.json", JSON.stringify({ devDependencies: { "@playwright/test": "^1.44" } }));
+      expect(detectStack(clean.dir).observability).toEqual([]);
+    } finally {
+      clean.cleanup();
+    }
+  });
+
   it("returns null language and unknown framework for an empty directory", () => {
     const stack = detectStack(project.dir);
     expect(stack.language).toBeNull();
