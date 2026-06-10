@@ -238,7 +238,7 @@ To establish or evolve the durable, cross-work-item test plan.
 After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
-1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path.
+1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
 2. Write each case to \`context/changes/<work-id>/cases.md\` with: id, title, preconditions, steps, expected result, test level, and the criterion it traces to.
 3. Note required test data; hand off to \`qa-test-data-gen\` if it must be produced.
 4. Keep cases automation-ready (deterministic, independent).
@@ -316,7 +316,7 @@ A test failed or a bug was reported and you need the real cause, not a symptom. 
 
 ## Procedure
 1. Gather artifacts: for Playwright, read the HTML report, traces, and screenshots through the \`playwright-results\` MCP server; otherwise use the paths in \`tools.md\` (logs, trace, JUnit XML). What is not in context does not exist — pull the evidence in.
-2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect.
+2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect. If a \`playwright-browser\` MCP server is configured, re-drive the failing path interactively to confirm the reproduction rather than guessing.
 3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity.
 4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`qa-test-automate\` to fix a test, or a bug report for a product defect).
 

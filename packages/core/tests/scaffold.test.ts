@@ -21,6 +21,7 @@ const answers: WizardAnswers = {
   autonomyLevel: "medium",
   qaConventions: "Independent, deterministic tests.",
   atlassianMcp: false,
+  playwrightMcp: false,
 };
 
 describe("scaffold (Claude)", () => {

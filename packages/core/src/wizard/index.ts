@@ -24,6 +24,7 @@ export function defaultAnswers(stack: DetectedStack): WizardAnswers {
     autonomyLevel: "medium",
     qaConventions: defaultQaConventions(automationFramework, stack.linters),
     atlassianMcp: false,
+    playwrightMcp: false,
   };
 }
 
@@ -86,12 +87,19 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
   });
   if (isCancel(atlassianMcp)) return abort();
 
+  const playwrightMcp = await confirm({
+    message: "Wire the Playwright browser MCP server (@playwright/mcp) for qa-test-case-design / qa-rca?",
+    initialValue: seed.playwrightMcp,
+  });
+  if (isCancel(playwrightMcp)) return abort();
+
   return {
     automationFramework,
     reportLanguage,
     autonomyLevel,
     qaConventions: qaConventions.trim(),
     atlassianMcp,
+    playwrightMcp,
   };
 }
 

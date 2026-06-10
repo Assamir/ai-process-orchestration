@@ -19,6 +19,8 @@ export interface McpContext {
    * so legibility extends past a single static report directory (R-012).
    */
   observability?: string[];
+  /** Wire the official Playwright browser MCP server (`@playwright/mcp`). */
+  playwrightMcp?: boolean;
 }
 
 /**
@@ -108,7 +110,25 @@ export function ticketingServers(ctx: McpContext): Record<string, McpServer> {
   };
 }
 
-/** Every MCP server a scaffold wires: result-legibility plus optional ticketing. */
+/**
+ * Optional official **Playwright browser** MCP server (`@playwright/mcp`). When
+ * opted in, it gives `qa-test-case-design` / `qa-rca` interactive browser
+ * exploration (navigate, snapshot, inspect) — distinct from `playwright-results`,
+ * which only reads static report artifacts. Off unless the wizard opts in, since
+ * it launches a real browser. No secrets, so it renders identically on both
+ * platforms (only the JSON envelope differs).
+ */
+export function browserServers(ctx: McpContext): Record<string, McpServer> {
+  if (!ctx.playwrightMcp) return {};
+  return {
+    "playwright-browser": {
+      command: "npx",
+      args: ["-y", "@playwright/mcp@latest"],
+    },
+  };
+}
+
+/** Every MCP server a scaffold wires: result-legibility, optional browser + ticketing. */
 export function mcpServers(ctx: McpContext): Record<string, McpServer> {
-  return { ...resultServers(ctx), ...ticketingServers(ctx) };
+  return { ...resultServers(ctx), ...browserServers(ctx), ...ticketingServers(ctx) };
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeAdapter, copilotAdapter, resultServers, ticketingServers, scaffold } from "../src/index.js";
+import { claudeAdapter, copilotAdapter, resultServers, browserServers, ticketingServers, scaffold } from "../src/index.js";
 import type { DetectedStack, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -81,6 +81,26 @@ describe("ticketingServers (optional Atlassian MCP)", () => {
   });
 });
 
+describe("browserServers (optional Playwright browser MCP)", () => {
+  it("wires nothing unless opted in (R-023)", () => {
+    expect(browserServers({ framework: "playwright-ts", buildTool: "npm" })).toEqual({});
+    expect(browserServers({ framework: "playwright-ts", buildTool: "npm", playwrightMcp: false })).toEqual({});
+  });
+
+  it("wires the official @playwright/mcp browser server when opted in (R-023)", () => {
+    const s = browserServers({ framework: "playwright-ts", buildTool: "npm", playwrightMcp: true })["playwright-browser"];
+    expect(s).toBeDefined();
+    expect(s!.command).toBe("npx");
+    expect(s!.args).toEqual(["-y", "@playwright/mcp@latest"]);
+    // No secrets/env — renders identically on both platforms.
+    expect(s!.env).toBeUndefined();
+  });
+
+  it("is offered regardless of the detected framework (browser MCP is stack-agnostic)", () => {
+    expect(browserServers({ framework: "pytest", buildTool: "pip", playwrightMcp: true })["playwright-browser"]).toBeDefined();
+  });
+});
+
 describe("scaffold wires MCP results into the platform config", () => {
   const stack: DetectedStack = {
     language: "node",
@@ -97,6 +117,7 @@ describe("scaffold wires MCP results into the platform config", () => {
     autonomyLevel: "medium",
     qaConventions: "x",
     atlassianMcp: false,
+    playwrightMcp: false,
   };
 
   let project: ReturnType<typeof tempProject>;
@@ -156,6 +177,29 @@ describe("scaffold wires MCP results into the platform config", () => {
     expect(mcp.mcpServers["playwright-results"].args).toEqual(
       expect.arrayContaining(["./allure-results", "./allure-report"]),
     );
+  });
+
+  it("renders the Playwright browser server on both platforms when opted in, omits it when off (R-023)", () => {
+    // Off by default → absent from both envelopes.
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    expect(JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8")).mcpServers["playwright-browser"]).toBeUndefined();
+
+    // Opted in → present in both, with the platform-correct envelope key.
+    const optIn: WizardAnswers = { ...answers, playwrightMcp: true };
+    const claudeProject = tempProject();
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: claudeProject.dir, adapter: claudeAdapter, stack, answers: optIn });
+      const claude = JSON.parse(readFileSync(join(claudeProject.dir, ".mcp.json"), "utf8"));
+      expect(claude.mcpServers["playwright-browser"].args).toEqual(["-y", "@playwright/mcp@latest"]);
+
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers: optIn });
+      const copilot = JSON.parse(readFileSync(join(copilotProject.dir, ".vscode/mcp.json"), "utf8"));
+      expect(copilot.servers["playwright-browser"].args).toEqual(["-y", "@playwright/mcp@latest"]);
+    } finally {
+      claudeProject.cleanup();
+      copilotProject.cleanup();
+    }
   });
 
   it("omits the Atlassian server when the wizard opt-in is off (R-009)", () => {

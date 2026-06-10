@@ -44,6 +44,7 @@
 | 0.10.0 | **R-022** `qa-coverage-gap` skill (read-only) — maps acceptance criteria ↔ cases ↔ automated tests, classifies each criterion covered/partial/uncovered, flags orphan cases/tests; emits a traceability report, wired into `qa-review` / `qa-test-case-design` `## Next` | `ffa4330` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 | 0.11.0 | **R-010** Richer test-data generation — `qa-test-data-gen` now emits reusable, schema-valid **factories/fixtures** (not inline literals) with stack-aware tooling (`@faker-js/faker`, `factory_boy`, `datafaker`/`instancio`), boundary/invalid variants as overrides, each referenced by name from `cases.md` for traceability | `96d1df0` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md`, `TECH.md` |
 | 0.12.0 | **R-012** Metrics dashboard + observability — read-only `qa-metrics` skill aggregates pass/fail/flakiness + acceptance-criterion coverage across `context/` and runs into a digest; result-legibility extended past static report dirs by detecting **Allure** (`DetectedStack.observability`) and wiring its `allure-results`/`allure-report` (durable cross-run history) into the result MCP server | `f20c580` | `model/skills.ts`, `model/mcp.ts`, `detect/*`, `types.ts`, `scaffold/index.ts`, `tests/*`, `PRD.md`, `TECH.md`, READMEs |
+| 0.13.0 | **R-023** Playwright browser MCP wiring — opt-in (default off, CI-safe) wizard question wires the official `@playwright/mcp` browser server for interactive exploration in `qa-test-case-design` / `qa-rca`; both adapters render it (platform-correct envelope), `qa-rca`/`qa-test-case-design` bodies reference it | `_pending_` | `model/mcp.ts`, `types.ts`, `wizard/index.ts`, `scaffold/index.ts`, `model/skills.ts`, `index.ts`, `tests/mcp.test.ts`, `PRD.md`, `TECH.md`, READMEs |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -58,17 +59,12 @@ PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 
 
 _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R-019/R-020/R-021
 (two new skills, `## Next` orchestration, `qa-gardening` sharpening) in **v0.9.0**, R-022
-(`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, and R-012
-(`qa-metrics` + Allure observability) in **v0.12.0**. The next stack/feature work lives in the backlog
-below._
+(`qa-coverage-gap`) in **v0.10.0**, R-010 (richer test-data factories) in **v0.11.0**, R-012
+(`qa-metrics` + Allure observability) in **v0.12.0**, and R-023 (Playwright browser MCP) in **v0.13.0**.
+The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
 
-- **🧊 R-023 — Playwright MCP (browser) wiring.** Wire the official Playwright MCP server into
-  `.mcp.json` / `.vscode/mcp.json` for interactive browser exploration in `qa-test-case-design` /
-  `qa-rca`. Lands: `model/mcp.ts`, `adapters/*`, `tests/mcp.test.ts`. **Done when:** both adapters
-  render the server (platform-correct envelope), opt-in is wizard-controlled, parity test green.
-  Traces: TECH §11 (result/observability legibility).
 - **🧊 R-024 — `qa-playwright-cli` skill.** Wraps the Playwright CLI (`codegen`, `show-report`,
   `trace`, `--ui`, `--update-snapshots`) as support for `qa-test-automate` / `qa-rca`. Lands:
   `model/skills.ts`, `tests/scaffold.test.ts`. **Done when:** the skill exists in both packages with

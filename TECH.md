@@ -258,7 +258,10 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   in R-012:** detection of **Allure** (`DetectedStack.observability`) appends its durable cross-run history
   (`allure-report/history`) + results dirs to the result server, lifting legibility past a single static
   report dir; the read-only **`qa-metrics`** skill then aggregates pass/fail/flakiness + criterion-coverage
-  across runs into a digest.
+  across runs into a digest. **R-023** adds an opt-in (default off) official `@playwright/mcp` **browser**
+  server (`browserServers` in `core/src/model/mcp.ts`) for *interactive* exploration in
+  `qa-test-case-design` / `qa-rca` — distinct from the read-only result servers, which only read static
+  artifacts. No secrets, so it renders identically on both platforms (only the envelope key differs).
 - **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`qa-ticket-review`,
   `qa-review`, `qa-rca`, `qa-gardening`) or write (`qa-test-case-design`, `qa-test-automate`,
   `qa-automation-bootstrapper`, …); the adapter encodes this as Claude `allowed-tools` and as Copilot agent

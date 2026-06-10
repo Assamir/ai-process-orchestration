@@ -66,6 +66,12 @@ export interface WizardAnswers {
    * (and under `--yes`/CI) — opt-in, since it needs a local server + secrets.
    */
   atlassianMcp: boolean;
+  /**
+   * Wire the official Playwright **browser** MCP server (`@playwright/mcp`) for
+   * interactive browser exploration in `qa-test-case-design` / `qa-rca`. Off by
+   * default (and under `--yes`/CI) — opt-in, since it launches a real browser.
+   */
+  playwrightMcp: boolean;
 }
 
 /** A single platform we can scaffold for. */
