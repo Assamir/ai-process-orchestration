@@ -215,6 +215,24 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
   }
 
+  // 8. Environment-management guideline (R-035) — must keep its core contract:
+  // configuration via environment variables, never a secret committed to the repo.
+  // Content check parallel to the docs-as-code and grounding checks.
+  const envMgmtRel = adapter.guidelineRel("environment-management");
+  const envMgmtAbs = join(root, envMgmtRel);
+  if (existsSync(envMgmtAbs)) {
+    const text = readFileSync(envMgmtAbs, "utf8").toLowerCase();
+    if (!text.includes("secret") || !text.includes("environment variable")) {
+      findings.push({
+        id: "ENVMGMT:contract",
+        severity: "error",
+        message: `The environment-management guideline (${envMgmtRel}) no longer states its core contract (configuration via environment variables; never commit secrets).`,
+        remediation:
+          "Restore the contract: per-environment config (base URLs, accounts, seeds) flows through environment variables; secrets are never committed to the repo. It must not be weakened.",
+      });
+    }
+  }
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };

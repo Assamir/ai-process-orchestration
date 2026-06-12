@@ -331,6 +331,7 @@ Current set:
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025), incl. the **C4 architecture mapping** (R-032) | the standard + a ✅/❌ example diagram + the C4 level→type table | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
+| `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -388,6 +389,18 @@ Standard each guideline follows:
   examples (kept link-free so they don't trip the broken-link check) and phase-2 `SPEC_DRIVEN_PATTERNS`
   / `PROJECT_SPEC_WORKFLOW` slots; `doctor` expects the file to exist and to carry both example markers
   (no extra content-contract check, as with `diagram-conventions` — the standard is the guideline body).
+
+- **Environment & secrets management (R-035).** An `environment-management` guideline codifies how tests
+  reach each environment: a local/CI/staging **matrix** (recorded once in `context/foundation/environments.md`),
+  per-environment base URLs / test accounts / data seeds, and — load-bearing — configuration through
+  **environment variables**, never a secret committed to the repo. It is the same `${VAR}` / `${env:VAR}`
+  indirection the `atlassian` and Playwright browser MCP servers already use for their credentials, generalized
+  to all run config; CI is just another environment in the matrix (its values come from the pipeline secret
+  store wired by `qa-ci-pipeline`). `doctor` enforces its **content contract** (separate from the
+  file-existence and examples checks): if the guideline no longer mentions both *secret* and *environment
+  variable*, that is an **error** (`ENVMGMT:contract`, parallel to `DOCASCODE:contract` / `GROUNDING:contract`).
+  Like every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check) and
+  phase-2 `ENV_MGMT_PATTERNS` / `PROJECT_ENV_WORKFLOW` slots.
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 

@@ -112,6 +112,18 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "GROUNDING:contract" && f.severity === "error")).toBe(true);
   });
 
+  it("flags a gutted environment-management guideline that drops its secrets/env-var contract (R-035)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Keep the ✅/❌ markers but drop the env-var indirection + no-committed-secrets contract.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/environment-management.md"),
+      "# Environment management\n\nUse environments. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "ENVMGMT:contract" && f.severity === "error")).toBe(true);
+  });
+
   it("warns (not errors) when the read-before-you-write rule is dropped from the root config (R-033)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     // Rewrite the root config keeping the load-bearing rules but dropping the read-first rule.

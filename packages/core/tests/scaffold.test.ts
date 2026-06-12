@@ -42,6 +42,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/diagram-conventions.md",
       ".ai/guidelines/documentation-as-code.md",
       ".ai/guidelines/spec-driven-development.md",
+      ".ai/guidelines/environment-management.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       ".claude/skills/qa-init/SKILL.md",
@@ -264,6 +265,33 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the environment-management guideline on both platforms; doctor expects it (R-035)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/environment-management.md"), "utf8");
+    // The load-bearing contract: env-var indirection, never an in-repo secret.
+    expect(claude.toLowerCase()).toContain("environment variable");
+    expect(claude.toLowerCase()).toContain("secret");
+    // Composes with the MCP ${VAR}/${env:VAR} indirection pattern.
+    expect(claude).toContain("${env:");
+    // Phase-2 slots per the R-026 guideline standard.
+    expect(claude).toContain("{{ENV_MGMT_PATTERNS}}");
+    expect(claude).toContain("{{PROJECT_ENV_WORKFLOW}}");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/environment-management.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("environment variable");
+      expect(copilot.toLowerCase()).toContain("secret");
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("ships the read-before-you-write rule in the root config; every write skill's procedure opens with it (R-033)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
 
@@ -300,7 +328,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development"]) {
+      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");
