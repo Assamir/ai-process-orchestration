@@ -259,6 +259,15 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   config (`GROUNDING:missing`) and its content contract in the guideline (`GROUNDING:contract`) — the
   same mechanical-enforcement shape as the iron-QA-rule and docs-as-code checks. This makes result
   legibility *honest*: the agent must read the artifact, not recall a plausible value.
+- **Read before you write (R-033).** A standing procedural rule in the lean root config: before any
+  **write** skill changes a file, it reads the guidelines/standards bearing on the task (`qa-conventions`,
+  `test-naming`, and whichever of `spec-driven-development` / `grounding` / `documentation-as-code` /
+  `diagram-conventions` apply). It composes with grounding (read, don't recall) and docs-as-code, so work
+  conforms *by construction* instead of being corrected after. The rule lives once in
+  `rootConfigMarkdown` and is injected at the top of every write skill's procedure (`READ_FIRST_STEP` in
+  `core/src/model/skills.ts`; read-only skills are left untouched since they change nothing). `doctor`
+  checks the rule is present (`READFIRST:missing`) — a **warn**, not an error: its absence is a
+  process-quality gap, not a correctness defect, so unlike the iron-QA/grounding rules it won't fail CI.
 - **Mechanical enforcement + remediation-carrying errors.** A deterministic validator (the QA analog
   of `vscode/auditskill`) checks structure, cross-links, and placeholders **outside the agent loop**;
   its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the

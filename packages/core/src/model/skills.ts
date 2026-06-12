@@ -572,5 +572,18 @@ To understand an existing application before planning tests, or to onboard onto 
   },
 ];
 
+/**
+ * R-033 — standing "read related guidelines before acting" step. Injected at the
+ * top of every **write** skill's procedure so the rule lives once here and stays
+ * in lock-step across the suite (read-only skills don't change files, so they are
+ * left untouched). Mirrors the "Read before you write" rule in the lean root map.
+ */
+const READ_FIRST_STEP =
+  "> **Read first (standing rule):** before changing anything, read the guidelines/standards related to this task — at minimum `qa-conventions` and `test-naming`, plus any that apply (`spec-driven-development`, `grounding`, `documentation-as-code`, `diagram-conventions`). See \"Read before you write\" in the root map.";
+
 /** The full MVP skill suite, in workflow order. */
-export const SKILLS: LogicalSkill[] = [...backbone, ...design, ...automation, ...analysis];
+export const SKILLS: LogicalSkill[] = [...backbone, ...design, ...automation, ...analysis].map((s) =>
+  s.readOnly
+    ? s
+    : { ...s, body: s.body.replace("## Procedure\n", `## Procedure\n${READ_FIRST_STEP}\n\n`) },
+);

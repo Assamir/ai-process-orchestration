@@ -146,6 +146,17 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
           "Restore it — every claim must cite a real artifact (file:line / ticket id / result-MCP output) and uncertainty must be flagged, not invented. It must not be removed or weakened.",
       });
     }
+    // 4c. Read-before-you-write rule (R-033) — a standing procedural rule. Optional
+    // (warn, not error): its absence is a process-quality gap, not a correctness defect.
+    if (!/read before you write/i.test(rootText)) {
+      findings.push({
+        id: "READFIRST:missing",
+        severity: "warn",
+        message: `The "Read before you write" standing rule is missing from ${adapter.rootConfigRel}.`,
+        remediation:
+          "Restore it — every write skill should read the related guidelines/standards before changing files, so work conforms by construction.",
+      });
+    }
   }
 
   // 5. Every guideline must carry good/bad examples (R-026) — show the pattern, don't just describe it.

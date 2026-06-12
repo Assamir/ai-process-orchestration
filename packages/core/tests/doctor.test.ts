@@ -112,6 +112,21 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "GROUNDING:contract" && f.severity === "error")).toBe(true);
   });
 
+  it("warns (not errors) when the read-before-you-write rule is dropped from the root config (R-033)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Rewrite the root config keeping the load-bearing rules but dropping the read-first rule.
+    writeFileSync(
+      join(project.dir, "CLAUDE.md"),
+      "# QA orchestration\n\n## Iron QA rule\n\nTests in the framework.\n\n## Grounding rule\n\nCite file:line.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    const finding = report.findings.find((f) => f.id === "READFIRST:missing");
+    expect(finding, "READFIRST:missing present").toBeDefined();
+    expect(finding!.severity).toBe("warn");
+    // Optional check: it must not, on its own, make the scaffold fail.
+    expect(report.findings.some((f) => f.id === "READFIRST:missing" && f.severity === "error")).toBe(false);
+  });
+
   it("detects a platform mismatch via the manifest", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const report = runDoctor(project.dir, copilotAdapter);

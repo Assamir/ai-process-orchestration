@@ -55,6 +55,16 @@ export function rootConfigMarkdown(skills: LogicalSkill[], invoke: string): stri
 > test you didn't observe pass is not evidence. What's not in context doesn't
 > exist. See the \`grounding\` guideline.
 
+## Read before you write (standing rule)
+
+> Before any **write** skill changes a file, read the guidelines/standards that
+> bear on the task — at minimum \`qa-conventions\` and \`test-naming\`, plus any that
+> apply (\`spec-driven-development\`, \`grounding\`, \`documentation-as-code\`,
+> \`diagram-conventions\`). Don't act from memory: the standards live in the
+> guideline files; pull them in first so the work conforms by construction
+> instead of being corrected after. Composes with the grounding rule (read, don't
+> recall) and documentation-as-code.
+
 ## How to work
 
 1. Open or create a work-item with \`qa-new\` (id = \`<stream>-<slug>\`, stable).

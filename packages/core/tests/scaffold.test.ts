@@ -264,6 +264,37 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the read-before-you-write rule in the root config; every write skill's procedure opens with it (R-033)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+
+    // Standing procedural rule lives in the lean root config.
+    const root = readFileSync(join(project.dir, "CLAUDE.md"), "utf8");
+    expect(root).toMatch(/read before you write/i);
+
+    // Every write skill opens its Procedure with the read-first step; read-only skills do not.
+    const marker = "**Read first (standing rule):**";
+    for (const s of SKILLS) {
+      const procedure = s.body.slice(s.body.indexOf("## Procedure"));
+      if (s.readOnly) {
+        expect(s.body, `${s.name} (read-only) has no read-first step`).not.toContain(marker);
+      } else {
+        expect(procedure.startsWith(`## Procedure\n> ${marker}`), `${s.name} opens with read-first`).toBe(true);
+      }
+    }
+
+    // Parity: the rule ships on Copilot too, and a write prompt carries the step.
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilotRoot = readFileSync(join(copilotProject.dir, ".github/copilot-instructions.md"), "utf8");
+      expect(copilotRoot).toMatch(/read before you write/i);
+      const writePrompt = readFileSync(join(copilotProject.dir, ".github/prompts/qa-test-automate.prompt.md"), "utf8");
+      expect(writePrompt).toContain(marker);
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const copilotProject = tempProject();
