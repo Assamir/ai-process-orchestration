@@ -126,13 +126,26 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
 
   // 4. Iron QA rule must be present in the lean root config.
   const rootAbs = join(root, adapter.rootConfigRel);
-  if (existsSync(rootAbs) && !/iron qa rule/i.test(readFileSync(rootAbs, "utf8"))) {
-    findings.push({
-      id: "IRONQA:missing",
-      severity: "error",
-      message: `The iron QA rule is missing from ${adapter.rootConfigRel}.`,
-      remediation: "Restore it — it must not be removed or weakened.",
-    });
+  if (existsSync(rootAbs)) {
+    const rootText = readFileSync(rootAbs, "utf8");
+    if (!/iron qa rule/i.test(rootText)) {
+      findings.push({
+        id: "IRONQA:missing",
+        severity: "error",
+        message: `The iron QA rule is missing from ${adapter.rootConfigRel}.`,
+        remediation: "Restore it — it must not be removed or weakened.",
+      });
+    }
+    // 4b. Grounding rule (R-029) — equally load-bearing, must survive compaction.
+    if (!/grounding rule/i.test(rootText)) {
+      findings.push({
+        id: "GROUNDING:missing",
+        severity: "error",
+        message: `The grounding rule is missing from ${adapter.rootConfigRel}.`,
+        remediation:
+          "Restore it — every claim must cite a real artifact (file:line / ticket id / result-MCP output) and uncertainty must be flagged, not invented. It must not be removed or weakened.",
+      });
+    }
   }
 
   // 5. Every guideline must carry good/bad examples (R-026) — show the pattern, don't just describe it.
@@ -169,6 +182,24 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
         message: `The documentation-as-code guideline (${docAsCodeRel}) no longer states its core contract (deterministic \`doctor\` validation kept in sync via CI).`,
         remediation:
           "Restore the contract: docs live in-repo, are versioned and reviewed in PR, validated by `doctor`, and kept in sync via CI. It must not be weakened.",
+      });
+    }
+  }
+
+  // 7. Grounding guideline (R-029) — must keep its anti-hallucination contract:
+  // cite real sources and flag uncertainty rather than invent. Content check
+  // parallel to the iron-QA-rule and docs-as-code checks, so gutting it fails.
+  const groundingRel = adapter.guidelineRel("grounding");
+  const groundingAbs = join(root, groundingRel);
+  if (existsSync(groundingAbs)) {
+    const text = readFileSync(groundingAbs, "utf8").toLowerCase();
+    if (!text.includes("cite") || !text.includes("uncertain")) {
+      findings.push({
+        id: "GROUNDING:contract",
+        severity: "error",
+        message: `The grounding guideline (${groundingRel}) no longer states its core contract (cite real sources; flag uncertainty instead of inventing).`,
+        remediation:
+          "Restore the contract: cite `file:line` / ticket id / result-MCP output for every claim, never invent paths/APIs/results, and flag uncertainty explicitly. It must not be weakened.",
       });
     }
   }

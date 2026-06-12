@@ -88,6 +88,30 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "DOCASCODE:contract" && f.severity === "error")).toBe(true);
   });
 
+  it("flags a root config that drops the grounding rule (R-029)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Rewrite the root config without the grounding rule (keep the iron QA rule).
+    writeFileSync(
+      join(project.dir, "CLAUDE.md"),
+      "# QA orchestration\n\n## Iron QA rule\n\nTests in the framework.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "GROUNDING:missing" && f.severity === "error")).toBe(true);
+  });
+
+  it("flags a gutted grounding guideline that drops its cite/uncertainty contract (R-029)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Keep the ✅/❌ markers but drop the cite + uncertainty contract.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/grounding.md"),
+      "# Grounding\n\nGround claims. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "GROUNDING:contract" && f.severity === "error")).toBe(true);
+  });
+
   it("detects a platform mismatch via the manifest", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const report = runDoctor(project.dir, copilotAdapter);

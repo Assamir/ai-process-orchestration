@@ -50,6 +50,7 @@
 | 0.16.0 | **R-026** Guideline-standard upgrade — every guideline now carries a mandatory `## Examples (✅ good / ❌ bad)` section + an encouraged `## Applicable patterns` section (phase-2 `*_PATTERNS` slots); `doctor` enforces the good/bad examples (`GUIDELINE:examples:<name>`, error); TECH §12.1 documents the rule | `8851a91` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1 |
 | 0.17.0 | **R-027** `qa-ci-pipeline` skill (write) — generates or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs `{{AUTOMATION_FRAMEWORK}}`, fails on test failure, and publishes the result dirs wired into the result MCP (Playwright/pytest/Surefire-Serenity/Allure); wired from `qa-test-automate` + `qa-automation-bootstrapper` `## Next`; closes the test → report → legibility loop at the CI boundary | `72ea232` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md` §5, `TECH.md` §5, `ROADMAP.md` |
 | 0.18.0 | **R-028** `documentation-as-code` guideline + `doctor` enforcement — codifies what the product embodies (docs versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI per R-027); ships on both platforms via `GUIDELINES` (with ✅/❌ examples + `DOCS_AS_CODE_PATTERNS`/`PROJECT_DOC_WORKFLOW` phase-2 slots); `doctor` adds a content-contract check (`DOCASCODE:contract`, error) parallel to the iron-QA-rule check | `49b2881` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1, `PRD.md` §8 |
+| 0.19.0 | **R-029** Anti-Hallucination (grounding) rule — a second load-bearing rule in the lean root config (next to the iron QA rule, survives compaction) + a `grounding` guideline: every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing is invented, uncertainty is flagged. Referenced by the claim-producing skill procedures (`qa-rca`, `qa-bug-report`, `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-review`, `qa-ticket-review`); `doctor` enforces the root-config presence (`GROUNDING:missing`, parallel to `IRONQA:missing`) and the guideline contract (`GROUNDING:contract`, parallel to `DOCASCODE:contract`) | _pending_ | `model/context.ts` (root config + `GUIDELINES`), `model/skills.ts`, `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §11/§12.1, `PRD.md` §8 |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -68,18 +69,11 @@ _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R
 (`qa-metrics` + Allure observability) in **v0.12.0**, R-023 (Playwright browser MCP) in **v0.13.0**, and
 R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in **v0.15.0**, and R-026
 (guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, R-027 (`qa-ci-pipeline` skill)
-in **v0.17.0**, and R-028 (`documentation-as-code` guideline + `doctor` enforcement) in **v0.18.0**. The
+in **v0.17.0**, R-028 (`documentation-as-code` guideline + `doctor` enforcement) in **v0.18.0**, and
+R-029 (anti-hallucination / grounding rule + guideline + `doctor` enforcement) in **v0.19.0**. The
 next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-029 — Anti-Hallucination (grounding) rule.** A load-bearing rule in the lean root config (so
-  it survives compaction) plus a guideline: every skill grounds claims in real artifacts (file:line,
-  ticket IDs, result-MCP output), cites its sources, and explicitly flags uncertainty instead of
-  inventing facts/paths/APIs. Lands: `model/context.ts` (root config + `GUIDELINES`),
-  `model/skills.ts` (procedure preambles), `doctor/index.ts`, TECH §11. **Done when:** the rule is in
-  the root config and a guideline, referenced by skill procedures, and `doctor` checks its presence;
-  parity green. Traces: TECH §11 (harness engineering).
 
 - **🧊 R-030 — Documentation-Driven / Spec-Driven Development guideline.** Codify spec-first flow: a
   documented spec / acceptance criteria precede case design, automation and code; every test traces

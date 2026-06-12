@@ -44,8 +44,9 @@ npx copilot-qa-orchestrator doctor --root ./path/to/repo
 ```
 
 A deterministic check (no LLM) that runs **outside the agent loop**: verifies structure, the handoff
-manifest, that no phase-1 placeholders leaked, that relative links resolve, and that the iron QA rule
-is present. Findings carry remediation text; it exits non-zero on errors (CI-friendly).
+manifest, that no phase-1 placeholders leaked, that relative links resolve, that every guideline carries
+its good/bad examples, and that the load-bearing rules — the iron QA rule and the grounding /
+anti-hallucination rule — are present. Findings carry remediation text; it exits non-zero on errors (CI-friendly).
 
 Requires Node.js ≥ 20.
 

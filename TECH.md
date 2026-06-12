@@ -249,6 +249,16 @@ which tools it calls, how it validates, when it stops). The patterns below come 
 - **Invariants over micromanagement.** Enforce a small set of inviolable rules, not implementation
   detail: the iron QA rule (tests in the detected framework), every test case traces to an acceptance
   criterion, every automated test carries a stable ID, deterministic work-item IDs. Leave *how* to the agent.
+- **Grounding / anti-hallucination (R-029).** A second load-bearing rule in the lean root config
+  (alongside the iron QA rule, so it survives compaction): every claim cites a real, checkable artifact
+  — `file:line`, a ticket id, or result-MCP output — and uncertainty is flagged, never papered over with
+  an invented path/API/result. A "passing" test the agent didn't observe pass is not evidence. It ships
+  as the **`grounding`** guideline (`GUIDELINES` in `core/src/model/context.ts`), is referenced by the
+  claim-producing skill procedures (`qa-rca`, `qa-bug-report`, `qa-reverse-engineer`, `qa-coverage-gap`,
+  `qa-metrics`, `qa-review`, `qa-ticket-review`), and `doctor` enforces both its presence in the root
+  config (`GROUNDING:missing`) and its content contract in the guideline (`GROUNDING:contract`) — the
+  same mechanical-enforcement shape as the iron-QA-rule and docs-as-code checks. This makes result
+  legibility *honest*: the agent must read the artifact, not recall a plausible value.
 - **Mechanical enforcement + remediation-carrying errors.** A deterministic validator (the QA analog
   of `vscode/auditskill`) checks structure, cross-links, and placeholders **outside the agent loop**;
   its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the
@@ -287,6 +297,7 @@ Current set:
 | Guideline | Purpose | Phase-1 seeded | Phase-2 `{{PLACEHOLDER}}` |
 |---|---|---|---|
 | `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`), ✅/❌ examples | `PROJECT_SPECIFIC_CONVENTIONS`, `CONVENTIONS_PATTERNS` |
+| `grounding` | cite real sources, flag uncertainty, never invent paths/APIs/results (R-029) | the anti-hallucination contract + a ✅/❌ example | `GROUNDING_PATTERNS`, `PROJECT_GROUNDING_SOURCES` |
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + a ✅/❌ example diagram | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
@@ -315,6 +326,15 @@ Standard each guideline follows:
   `guidelineRel`; `doctor` then expects it to exist **and to carry both example markers**
   (`doctor/index.ts` builds its file set from `GUIDELINES`). Keep the body platform-agnostic so parity
   holds.
+- **Grounding / anti-hallucination (R-029).** A first-class `grounding` guideline pairs with a
+  load-bearing **grounding rule** in the lean root config (next to the iron QA rule, so it survives
+  compaction): every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing
+  is invented, and uncertainty is flagged explicitly. The claim-producing skill procedures reference it
+  by name. `doctor` enforces it on two axes — the root-config rule must be present (`GROUNDING:missing`,
+  parallel to `IRONQA:missing`) and the guideline must keep its contract: if it no longer mentions both
+  *cite* and *uncertainty*, that is an **error** (`GROUNDING:contract`, parallel to `DOCASCODE:contract`).
+  Like every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check)
+  and phase-2 `GROUNDING_PATTERNS` / `PROJECT_GROUNDING_SOURCES` slots.
 - **Documentation-as-code (R-028).** A first-class `documentation-as-code` guideline codifies what the
   product already embodies: QA knowledge is treated like source — docs live in-repo, are versioned with
   the code they describe, reviewed in the same PR, validated deterministically by `doctor`, and kept in

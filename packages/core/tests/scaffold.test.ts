@@ -162,12 +162,44 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the grounding rule in the root config + a grounding guideline, referenced by skill procedures (R-029)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+
+    // Load-bearing rule lives in the lean root config so it survives compaction.
+    const root = readFileSync(join(project.dir, "CLAUDE.md"), "utf8");
+    expect(root).toMatch(/grounding rule/i);
+    expect(root).toContain("file:line");
+
+    // A grounding guideline ships on both platforms; only the path differs.
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/grounding.md"), "utf8");
+    expect(claude.toLowerCase()).toContain("cite");
+    expect(claude.toLowerCase()).toContain("uncertain");
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/grounding.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("cite");
+    } finally {
+      copilotProject.cleanup();
+    }
+
+    // The claim-producing skills reference the grounding rule in their procedures.
+    for (const name of ["qa-rca", "qa-bug-report", "qa-reverse-engineer", "qa-coverage-gap", "qa-metrics", "qa-review", "qa-ticket-review"]) {
+      const skill = SKILLS.find((s) => s.name === name);
+      expect(skill, `${name} registered`).toBeDefined();
+      expect(skill!.body, `${name} references grounding`).toContain("grounding");
+    }
+  });
+
   it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "test-naming", "diagram-conventions", "documentation-as-code"]) {
+      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

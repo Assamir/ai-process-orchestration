@@ -142,7 +142,7 @@ Before archiving a work-item. Read-only: report findings, do not modify files.
 ## Procedure
 1. Check every acceptance criterion in \`work.md\` traces to at least one test case in \`cases.md\`.
 2. Check automated tests follow the QA conventions and the chosen framework **{{AUTOMATION_FRAMEWORK}}**.
-3. Flag gaps: uncovered criteria, missing edge cases, flaky patterns, missing trace/screenshot on failure.
+3. Flag gaps: uncovered criteria, missing edge cases, flaky patterns, missing trace/screenshot on failure. Per the \`grounding\` rule, cite the file/case/run behind each finding — never claim a criterion is covered without pointing at the case and the passing test.
 4. Write the review summary to the chat in **{{REPORT_LANGUAGE_NAME}}**; recommend approve / changes-needed.
 
 ## Done when
@@ -195,7 +195,7 @@ When a ticket arrives and you need to know if it can be tested as written. Read-
 2. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
 3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable.
 4. Identify risk areas, edge cases, and required test data and environments.
-5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly.
+5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly. Per the \`grounding\` rule, ground every criterion in the ticket/spec text you cite — never infer requirements that are not written, and mark anything you inferred as an open question.
 
 ## Done when
 The reviewer has a clear testability verdict and a list of open questions.
@@ -371,7 +371,7 @@ A test failed or a bug was reported and you need the real cause, not a symptom. 
 ## Procedure
 1. Gather artifacts: for Playwright, read the HTML report, traces, and screenshots through the \`playwright-results\` MCP server; otherwise use the paths in \`tools.md\` (logs, trace, JUnit XML). What is not in context does not exist — pull the evidence in.
 2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect. If a \`playwright-browser\` MCP server is configured, re-drive the failing path interactively to confirm the reproduction rather than guessing.
-3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity.
+3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity. Per the \`grounding\` rule, every link in the chain cites a real artifact (\`file:line\`, trace, result-MCP output); if the evidence is inconclusive, say so rather than asserting a cause you cannot trace.
 4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`qa-test-automate\` to fix a test, or a bug report for a product defect).
 
 ## Done when
@@ -460,7 +460,7 @@ Scope it to a single work-item (the default) or, given a list of work-ids, acros
 2. Read \`context/changes/<work-id>/cases.md\`: for each case, follow the criterion it traces to. A case that traces to no criterion, or a criterion with no case, is a gap.
 3. Read \`context/changes/<work-id>/automation.md\` and reconcile cases against the automated tests in **{{AUTOMATION_FRAMEWORK}}**: a designed case with no automated test, or a test traceable to no case/criterion, is a gap. Pull the real test outcomes through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) where available — a case "covered" by a skipped or perpetually-failing test is not truly covered; flag it.
 4. Build the **AC ↔ case ↔ test** traceability table and classify each criterion: *covered* (case + passing test), *partial* (case but no/failing test), or *uncovered* (no case). Note orphans (cases/tests tracing to nothing).
-5. Output a coverage-gap report in **{{REPORT_LANGUAGE_NAME}}**: the traceability table, a coverage count (covered / partial / uncovered), and a prioritized list of the gaps with the single next action for each. Reinforce the iron QA rule — never propose weakening it.
+5. Output a coverage-gap report in **{{REPORT_LANGUAGE_NAME}}**: the traceability table, a coverage count (covered / partial / uncovered), and a prioritized list of the gaps with the single next action for each. Reinforce the iron QA rule — never propose weakening it. Per the \`grounding\` rule, every "covered" cell cites the real case/test it traces to (and the run that proves it passed) — when in doubt, classify it *partial* or *uncovered* rather than assuming coverage.
 
 ## Done when
 A coverage-gap report exists with an AC ↔ case ↔ test traceability table, a covered/partial/uncovered tally, and a prioritized gap list. No files were modified.
@@ -492,7 +492,7 @@ This is the **observability dashboard** over the suite: \`qa-coverage-gap\` answ
 1. Pull outcomes through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`): the JUnit XML / JSON results and, where present, the **Allure** results/report. Allure keeps durable cross-run history (\`allure-report/history\`), so prefer it for **flakiness and trend** rather than the single latest run — result legibility here is not limited to one static report dir. What is not in context does not exist; read the artifacts in.
 2. Compute run metrics: total / passed / failed / skipped, pass rate, and the **flaky** set (tests that both pass and fail across runs or retries). Note the trend vs the previous run when history is available.
 3. Compute **criterion coverage** across \`context/changes/\` (and \`context/archive/\` for the baseline): how many acceptance criteria trace to a case and to a passing automated test — reuse the AC ↔ case ↔ test traceability from \`qa-coverage-gap\`. Fold in open items from \`tech-debt-tracker.md\` and known-flaky areas from \`lessons.md\`.
-4. Emit a digest in **{{REPORT_LANGUAGE_NAME}}**: a metrics table (pass rate, flake count, coverage %), the top flaky tests, the biggest coverage gaps, and the trend direction. Keep it a dashboard, not prose. Reinforce the iron QA rule — never propose weakening it.
+4. Emit a digest in **{{REPORT_LANGUAGE_NAME}}**: a metrics table (pass rate, flake count, coverage %), the top flaky tests, the biggest coverage gaps, and the trend direction. Keep it a dashboard, not prose. Reinforce the iron QA rule — never propose weakening it. Per the \`grounding\` rule, every number comes from a real result artifact you read — never estimate a pass rate or coverage %; if a source is missing, report the metric as unknown rather than guessing.
 
 ## Done when
 A read-only metrics digest exists with pass/fail/flake counts, criterion-coverage %, the flaky-test list, and (when history is available) a trend. No files were modified.
@@ -514,7 +514,7 @@ A read-only metrics digest exists with pass/fail/flake counts, criterion-coverag
 After \`qa-rca\` concludes the failure is a product defect (not a test defect) and you need a structured, reproducible report. Reads evidence; writes only the report.
 
 ## Procedure
-1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist.
+1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist; per the \`grounding\` rule, every field below cites real evidence — never invent steps, an environment, or a result you did not observe.
 2. Confirm reproducibility: minimal, ordered steps from a known state; note environment and the test data used.
 3. Fill the template below into \`context/changes/<work-id>/bug-report.md\`. Link the affected acceptance criterion and the work-id; carry the suspected area from \`qa-rca\`.
 4. If an \`atlassian\` MCP server is configured, propose filing it as a Jira issue — mirror the template, do not invent fields.
@@ -560,7 +560,7 @@ To understand an existing application before planning tests, or to onboard onto 
 1. Recon first: from \`context/.scaffold/manifest.json\` and a light scan, identify the language(s), build tool, frameworks, and the obvious entry points (HTTP routes, CLI, jobs, message consumers).
 2. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
 3. Fill \`context/reference/\` (index in \`system-overview.md\`, linking out): business context, architecture, data flow, integrations (external systems, APIs, queues, DBs), entry points, and the test surface (what is risky / untested).
-4. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable.
+4. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path/symbol by opening it before documenting it — never invent an architecture; mark anything you could not verify as an assumption.
 
 ## Done when
 \`context/reference/\` holds the agreed structure with no unresolved \`{{PLACEHOLDER}}\` markers, and the map traces to real source paths. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
