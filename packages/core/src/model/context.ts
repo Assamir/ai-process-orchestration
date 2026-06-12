@@ -236,6 +236,32 @@ Diagrams in \`context/\` and in reports use **Mermaid** fenced code blocks, so t
 - **\`sequenceDiagram\`** — interactions over time (a request across services, an auth handshake); ideal for \`qa-rca\` reproductions and integration-test design.
 - **\`stateDiagram-v2\`** — the lifecycle of an entity under test (order, session, work-item).
 - **\`erDiagram\`** — data shapes when test data must match a schema (pairs with \`qa-test-data-gen\`).
+- **C4 (\`C4Context\`/\`C4Container\`/\`C4Component\`)** — system architecture in \`context/reference/\` (produced by \`qa-reverse-engineer\`); see the C4 mapping below.
+
+## Architecture diagrams — the C4 model
+Architecture docs in \`context/reference/\` use the **C4 model**: four levels of zoom, each its own
+diagram, so a reader picks the altitude the testing question needs. Map each level to a diagram type:
+
+| C4 level | Scope | Mermaid diagram |
+|---|---|---|
+| **L1 — System Context** | the system as one box + its users and the external systems it talks to | \`C4Context\` (portable fallback: \`flowchart\`) |
+| **L2 — Container** | the deployable/runnable units inside the system boundary (apps, services, data stores, queues) | \`C4Container\` (fallback: \`flowchart\`) |
+| **L3 — Component** | the components inside one (testing-critical) container + their entry points | \`C4Component\` (fallback: \`flowchart\`) |
+| **L4 — Code** | classes/functions inside a component — usually skipped; generate on demand | \`classDiagram\` (a few key types only) |
+
+- Zoom in only as far as the testing question needs — most QA work lives at **L1–L3**.
+- Mermaid's \`C4*\` blocks are the native fit; if a renderer lacks C4 support, fall back to a labeled \`flowchart\` with the same boxes/edges.
+- **Don't hand-maintain L4** — it drifts from the code. Link to the source instead (per the \`grounding\` rule).
+
+\`\`\`mermaid
+C4Context
+  title System context — checkout
+  Person(customer, "Customer", "Buys items")
+  System(shop, "Shop", "Sells items online")
+  System_Ext(psp, "Payment provider", "Charges cards")
+  Rel(customer, shop, "Browses & buys")
+  Rel(shop, psp, "Authorizes payment")
+\`\`\`
 
 ## Rules
 - Fence as \`\`\`mermaid; one diagram per block; declare direction (\`TD\`/\`LR\`) explicitly.
@@ -458,14 +484,76 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/reference/system-overview.md",
-    body: `# System reference
+    body: `# System reference — C4 index
 
-> Durable. Produced by \`qa-reverse-engineer\` in phase 2 from the application source.
-> For a large/monolith codebase the skill first proposes how to split this, then fills it.
-> Covers: business context, architecture, data flow, integrations, entry points, test surface.
-> Links out to real source paths — it does not duplicate code.
+> Durable. Produced by \`qa-reverse-engineer\` in phase 2 from the application source, following the
+> **C4 model** (L1 Context → L2 Container → L3 Component → L4 Code) rendered with Mermaid — see the
+> \`diagram-conventions\` guideline. For a large/monolith codebase the skill first proposes how to split
+> this, then fills it. Links out to real source paths — it does not duplicate code.
 
-{{REVERSE_ENGINEERED_MAP}}
+## Architecture (C4)
+- **L1 — System context:** [c4-context.md](./c4-context.md)
+- **L2 — Containers:** [c4-container.md](./c4-container.md)
+- **L3 — Components:** [c4-component.md](./c4-component.md)
+- *L4 — Code:* generated on demand for a specific component; not kept as a standing doc (link to source).
+
+## Business context
+> What the system is for, who uses it, and the value it delivers.
+
+{{BUSINESS_CONTEXT}}
+
+## Test surface
+> The QA lens over the architecture: what is risky, what is untested, and where the integration seams are.
+
+{{TEST_SURFACE}}
+`,
+  },
+  {
+    rel: "context/reference/c4-context.md",
+    body: `# C4 L1 — System context
+
+> Durable. Filled by \`qa-reverse-engineer\` (phase 2). One \`C4Context\` (or \`flowchart\` fallback) Mermaid
+> diagram per the \`diagram-conventions\` guideline: the system as one box, its users, and the external
+> systems it talks to. Confirm every integration in the source before drawing it (\`grounding\`).
+
+{{C4_CONTEXT_DIAGRAM}}
+
+## Users & external systems
+> Each actor / external system, what it exchanges with the system, and the integration point in the code.
+
+{{C4_CONTEXT_NOTES}}
+`,
+  },
+  {
+    rel: "context/reference/c4-container.md",
+    body: `# C4 L2 — Containers
+
+> Durable. Filled by \`qa-reverse-engineer\` (phase 2). A \`C4Container\` (fallback: \`flowchart\`) diagram of
+> the deployable/runnable units inside the system boundary (apps, services, data stores, queues) and how
+> they communicate. Link each container to its source root.
+
+{{C4_CONTAINER_DIAGRAM}}
+
+## Containers & data flow
+> Each container: responsibility, technology, source root, and the data that flows in and out.
+
+{{C4_CONTAINER_NOTES}}
+`,
+  },
+  {
+    rel: "context/reference/c4-component.md",
+    body: `# C4 L3 — Components
+
+> Durable. Filled by \`qa-reverse-engineer\` (phase 2), zooming into the testing-critical container(s). A
+> \`C4Component\` (fallback: \`flowchart\`) diagram of the components inside a container plus the entry
+> points (HTTP routes, CLI, jobs, consumers) that exercise them. Skip L4 (code) unless a component needs it.
+
+{{C4_COMPONENT_DIAGRAM}}
+
+## Components & entry points
+> Each component: responsibility, key source paths, and the entry point(s) that reach it.
+
+{{C4_COMPONENT_NOTES}}
 `,
   },
   {

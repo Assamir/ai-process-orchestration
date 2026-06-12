@@ -51,6 +51,7 @@
 | 0.17.0 | **R-027** `qa-ci-pipeline` skill (write) — generates or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs `{{AUTOMATION_FRAMEWORK}}`, fails on test failure, and publishes the result dirs wired into the result MCP (Playwright/pytest/Surefire-Serenity/Allure); wired from `qa-test-automate` + `qa-automation-bootstrapper` `## Next`; closes the test → report → legibility loop at the CI boundary | `72ea232` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md` §5, `TECH.md` §5, `ROADMAP.md` |
 | 0.18.0 | **R-028** `documentation-as-code` guideline + `doctor` enforcement — codifies what the product embodies (docs versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI per R-027); ships on both platforms via `GUIDELINES` (with ✅/❌ examples + `DOCS_AS_CODE_PATTERNS`/`PROJECT_DOC_WORKFLOW` phase-2 slots); `doctor` adds a content-contract check (`DOCASCODE:contract`, error) parallel to the iron-QA-rule check | `49b2881` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1, `PRD.md` §8 |
 | 0.20.0 | **R-030** Spec-driven development guideline — a documented spec / acceptance criteria precede case design, automation, and code; every case derives from (traces to) the spec (the iron QA rule read from the authoring direction). Ships on both platforms via `GUIDELINES` (✅/❌ examples + `SPEC_DRIVEN_PATTERNS`/`PROJECT_SPEC_WORKFLOW` phase-2 slots); the authoring-chain skills (`qa-ticket-review`, `qa-test-case-design`, `qa-test-automate`) reference it by name; `doctor` expects the guideline file + its examples (no extra content-contract check, as with `diagram-conventions`) | `cbac2c6` | `model/context.ts` (`GUIDELINES`), `model/skills.ts`, `tests/scaffold.test.ts`, `TECH.md` §12.1, `PRD.md` §5/§8, `ROADMAP.md` |
+| 0.22.0 | **R-032** C4 (4-level) architecture-documentation standard — `qa-reverse-engineer` now documents architecture with the **C4 model** (L1 Context → L2 Container → L3 Component → L4 Code) rendered through the Mermaid `diagram-conventions` guideline (level→diagram-type table: `C4Context`/`C4Container`/`C4Component`, `flowchart` fallback). Phase 1 scaffolds the C4 skeleton under `context/reference/` (`system-overview.md` index + `c4-context`/`c4-container`/`c4-component` templates); L4 is generated on demand, not a standing file | `PENDING` | `packages/core/src/model/context.ts` (`GUIDELINES` + `FOUNDATION` reference templates), `model/skills.ts` (`qa-reverse-engineer`), `tests/scaffold.test.ts`, `TECH.md` §12.2.1, `PRD.md` §5, `ROADMAP.md` |
 | 0.21.0 | **R-031** `doctor --fix` — optional, still-deterministic repair of broken relative links (dry-run preview by default, `--write` to apply); fixes unique-basename relocations + disambiguates Playwright report/trace links (`playwright-report/index.html`, `test-results/**/trace.zip`); unfixable links stay findings, mirroring auditskill's `apply-step` dry-run/write contract | `5d8588b` | `packages/core/src/doctor/index.ts` (`fixLinks`), `cli.ts`, `index.ts`, `tests/doctor-fix.test.ts`, `TECH.md` §11, `PRD.md` §8, `ROADMAP.md` |
 | 0.19.0 | **R-029** Anti-Hallucination (grounding) rule — a second load-bearing rule in the lean root config (next to the iron QA rule, survives compaction) + a `grounding` guideline: every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing is invented, uncertainty is flagged. Referenced by the claim-producing skill procedures (`qa-rca`, `qa-bug-report`, `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-review`, `qa-ticket-review`); `doctor` enforces the root-config presence (`GROUNDING:missing`, parallel to `IRONQA:missing`) and the guideline contract (`GROUNDING:contract`, parallel to `DOCASCODE:contract`) | `7fb116d` | `model/context.ts` (root config + `GUIDELINES`), `model/skills.ts`, `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §11/§12.1, `PRD.md` §8 |
 
@@ -73,18 +74,11 @@ R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in 
 (guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, R-027 (`qa-ci-pipeline` skill)
 in **v0.17.0**, R-028 (`documentation-as-code` guideline + `doctor` enforcement) in **v0.18.0**, and
 R-029 (anti-hallucination / grounding rule + guideline + `doctor` enforcement) in **v0.19.0**,
-R-030 (spec-driven-development guideline) in **v0.20.0**, and R-031 (`doctor --fix` deterministic
-broken-link repair) in **v0.21.0**. The next stack/feature work lives in the backlog below._
+R-030 (spec-driven-development guideline) in **v0.20.0**, R-031 (`doctor --fix` deterministic
+broken-link repair) in **v0.21.0**, and R-032 (C4 architecture-documentation standard) in **v0.22.0**.
+The next stack/feature work lives in the backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-032 — C4 (4-level) architecture-documentation standard.** Adopt the C4 model (L1 Context →
-  L2 Container → L3 Component → L4 Code) as the architecture-doc standard for `context/reference/`
-  produced by `qa-reverse-engineer` (R-019), rendered through the Mermaid `diagram-conventions`
-  guideline (R-025). Lands: `model/context.ts` (`GUIDELINES` + reference templates),
-  `model/skills.ts` (`qa-reverse-engineer`), TECH §12. **Done when:** reverse-engineer emits
-  C4-structured architecture docs, `diagram-conventions` maps each C4 level to a diagram type, parity
-  green. Traces: R-019, R-025, TECH §12.
 
 - **🧊 R-033 — "Review related guidelines before work" rule.** A standing procedural rule in the lean
   root config: every write skill's first step is to read all related guidelines/standards before

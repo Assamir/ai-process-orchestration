@@ -140,6 +140,46 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("adopts the C4 architecture standard: reference templates + diagram-conventions mapping + skill (R-032)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+
+    // C4-structured reference templates are scaffolded and the index links to them.
+    for (const rel of [
+      "context/reference/system-overview.md",
+      "context/reference/c4-context.md",
+      "context/reference/c4-container.md",
+      "context/reference/c4-component.md",
+    ]) {
+      expect(existsSync(join(project.dir, rel)), rel).toBe(true);
+    }
+    const index = readFileSync(join(project.dir, "context/reference/system-overview.md"), "utf8");
+    expect(index).toContain("C4");
+    expect(index).toContain("[c4-context.md](./c4-context.md)");
+
+    // diagram-conventions maps each C4 level to a Mermaid diagram type.
+    const diagrams = readFileSync(join(project.dir, ".ai/guidelines/diagram-conventions.md"), "utf8");
+    for (const t of ["C4Context", "C4Container", "C4Component"]) expect(diagrams).toContain(t);
+
+    // qa-reverse-engineer emits C4 docs and references the guideline.
+    const re = SKILLS.find((s) => s.name === "qa-reverse-engineer");
+    expect(re!.body).toContain("C4");
+    expect(re!.body).toContain("diagram-conventions");
+
+    // Parity: the C4 mapping ships on Copilot too (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/diagram-conventions.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("C4Container");
+      expect(existsSync(join(copilotProject.dir, "context/reference/c4-container.md"))).toBe(true);
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("ships the documentation-as-code guideline on both platforms; doctor expects it (R-028)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const claude = readFileSync(join(project.dir, ".ai/guidelines/documentation-as-code.md"), "utf8");

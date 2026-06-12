@@ -304,7 +304,7 @@ Current set:
 | `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`), ✅/❌ examples | `PROJECT_SPECIFIC_CONVENTIONS`, `CONVENTIONS_PATTERNS` |
 | `grounding` | cite real sources, flag uncertainty, never invent paths/APIs/results (R-029) | the anti-hallucination contract + a ✅/❌ example | `GROUNDING_PATTERNS`, `PROJECT_GROUNDING_SOURCES` |
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
-| `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + a ✅/❌ example diagram | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
+| `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025), incl. the **C4 architecture mapping** (R-032) | the standard + a ✅/❌ example diagram + the C4 level→type table | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 
@@ -378,6 +378,29 @@ traceability — it never displaces the rule that every case traces to an accept
 guideline ships an example flowchart (AC → case → test → `qa-rca`/`qa-review`) and a phase-2
 `{{PROJECT_DIAGRAMS}}` slot for the product's canonical diagrams. As with any guideline, it is added by
 appending to `GUIDELINES`; both adapters render it and `doctor` then expects it.
+
+#### 12.2.1 Architecture standard — C4 (R-032)
+
+Architecture documentation in `context/reference/` (produced by `qa-reverse-engineer`, R-019) follows the
+**C4 model** — four levels of zoom, rendered through the Mermaid `diagram-conventions` standard. The
+guideline carries a level→diagram-type table so an agent reaches for the right shape:
+
+| C4 level | Scope | Mermaid diagram |
+|---|---|---|
+| L1 — System Context | system as one box + users + external systems | `C4Context` (fallback `flowchart`) |
+| L2 — Container | deployable/runnable units inside the boundary (apps, services, stores, queues) | `C4Container` (fallback `flowchart`) |
+| L3 — Component | components inside a testing-critical container + their entry points | `C4Component` (fallback `flowchart`) |
+| L4 — Code | classes inside a component — usually skipped, generated on demand | `classDiagram` (a few key types) |
+
+Phase 1 scaffolds the C4 skeleton under `context/reference/` (`model/context.ts`, `FOUNDATION`):
+`system-overview.md` is the **C4 index** (links to each level + holds the business-context and the
+QA-specific *test-surface* sections), and `c4-context.md` / `c4-container.md` / `c4-component.md` each hold
+one Mermaid diagram slot plus prose (phase-2 `{{C4_*}}` placeholders). L4 is not a standing file — it is
+generated on demand and links to source (so it can't drift). `qa-reverse-engineer` fills L1→L3 top-down,
+zooming in only as far as the testing question needs (most QA work lives at L1–L3), and confirms every
+integration in the source before drawing it (the `grounding` rule). The standard is the guideline body
+plus the templates — there is no extra `doctor` content-contract check (as with `diagram-conventions`
+itself); the C4 index's intra-`reference/` links are validated by `doctor`'s broken-link check.
 
 ### 12.3 Flow reference (phase 1 → phase 2 → daily loop)
 

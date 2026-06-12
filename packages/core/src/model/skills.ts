@@ -558,12 +558,13 @@ To understand an existing application before planning tests, or to onboard onto 
 
 ## Procedure
 1. Recon first: from \`context/.scaffold/manifest.json\` and a light scan, identify the language(s), build tool, frameworks, and the obvious entry points (HTTP routes, CLI, jobs, message consumers).
-2. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
-3. Fill \`context/reference/\` (index in \`system-overview.md\`, linking out): business context, architecture, data flow, integrations (external systems, APIs, queues, DBs), entry points, and the test surface (what is risky / untested).
-4. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path/symbol by opening it before documenting it — never invent an architecture; mark anything you could not verify as an assumption.
+2. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context / C4 container) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
+3. Document the architecture with the **C4 model** (see the \`diagram-conventions\` guideline), top-down: L1 system context in \`c4-context.md\`, L2 containers in \`c4-container.md\`, L3 components (for the testing-critical containers) in \`c4-component.md\`. Skip L4 (code) unless a specific component needs it — link to source instead. Index everything from \`system-overview.md\` and fill its business-context + test-surface (risky / untested) sections.
+4. Each C4 level carries one Mermaid diagram (\`C4Context\` / \`C4Container\` / \`C4Component\`, or the \`flowchart\` fallback) plus supporting prose. Zoom in only as far as the testing question needs — most QA work lives at L1–L3.
+5. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path / symbol / integration by opening it before documenting it — never invent an architecture; mark anything you could not verify as an assumption.
 
 ## Done when
-\`context/reference/\` holds the agreed structure with no unresolved \`{{PLACEHOLDER}}\` markers, and the map traces to real source paths. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+\`context/reference/\` holds the agreed C4-structured docs (L1–L3 as needed) with no unresolved \`{{PLACEHOLDER}}\` markers, indexed from \`system-overview.md\` and tracing to real source paths. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
 
 ## Next
 - \`qa-ticket-review\` / \`qa-test-plan\` — now informed by the system map.
