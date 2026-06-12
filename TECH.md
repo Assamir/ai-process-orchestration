@@ -264,7 +264,12 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   its findings carry fix instructions so they can be fed back into agent context. **Shipped** as the
   **`doctor`** command (`core/src/doctor/index.ts`, `runDoctor`; exits non-zero on errors) and the
   recurring read-only **`qa-gardening`** skill (shipped R-004) that folds in `doctor`'s findings and hands
-  each targeted fix to the right write skill.
+  each targeted fix to the right write skill. **Extended in R-031:** `doctor --fix` adds optional,
+  still-deterministic *remediation* for broken relative links (`core/src/doctor/index.ts`, `fixLinks`) —
+  dry-run preview by default, `--write` to apply — repairing unique-basename relocations and
+  disambiguating Playwright report/trace links (`playwright-report/index.html`,
+  `test-results/**/trace.zip`) surfaced by `qa-playwright-cli` / the result MCP; anything not provably
+  unique is left as a finding, mirroring auditskill's `apply-step` dry-run/write contract.
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,

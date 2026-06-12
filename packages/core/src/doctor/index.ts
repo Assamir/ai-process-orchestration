@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join, posix } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, posix, relative } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
 import { FOUNDATION, GUIDELINES } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
@@ -223,20 +223,190 @@ function expectedFiles(adapter: PlatformAdapter): string[] {
   return [...files];
 }
 
-/** Extract relative markdown link targets (skips http/mailto/anchors). */
+/** Extract relative markdown link target paths (skips http/mailto/anchors). */
 function relativeLinks(md: string): string[] {
-  const out: string[] = [];
-  const re = /\[[^\]]*\]\(([^)]+)\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(md)) !== null) {
-    let target = m[1]!.trim();
-    if (/^(https?:|mailto:|#)/i.test(target)) continue;
-    target = (target.split("#")[0] ?? "").trim();
-    if (target !== "") out.push(target);
-  }
-  return out;
+  return scanLinks(md).map((l) => l.path);
 }
 
 function toPosix(p: string): string {
   return p.split("\\").join("/");
+}
+
+// --- R-031: deterministic broken-relative-link repair (`doctor --fix`) -------
+//
+// `runDoctor` only *detects* broken links. `fixLinks` is the optional, still
+// deterministic, repair step — the QA analog of auditskill's `apply-step`
+// dry-run/write pattern. It repairs the classes it can prove safe and leaves
+// everything else as a finding; it never invents a target.
+
+/** The repair class a broken link was matched against. */
+export type LinkFixClass = "relocated" | "playwright-report" | "playwright-trace";
+
+export interface LinkFix {
+  /** Markdown file (root-relative posix) whose link is repaired. */
+  file: string;
+  /** Original link target as written, including any `#anchor`. */
+  oldTarget: string;
+  /** Repaired target — path part rewritten, anchor preserved. */
+  newTarget: string;
+  /** Root-relative posix path of the file the link now resolves to. */
+  resolved: string;
+  class: LinkFixClass;
+}
+
+export interface DoctorFixReport {
+  mode: "dry-run" | "write";
+  /** Repairs that can be applied deterministically. */
+  fixes: LinkFix[];
+  /** Broken links with no unique target — left for a human (still doctor errors). */
+  unfixable: { file: string; target: string }[];
+}
+
+interface ScannedLink {
+  /** Whole target inside the parens, e.g. `./x.md#sec`. */
+  raw: string;
+  /** Path part (anchor stripped). */
+  path: string;
+  /** `#anchor` or "". */
+  anchor: string;
+}
+
+/**
+ * Repair broken relative links in the scaffold. Dry-run unless `opts.write`.
+ *
+ * A link is repairable when its basename resolves to exactly one file in the
+ * tree (a relocated file), or — for Playwright report/trace links surfaced by
+ * `qa-playwright-cli` / the result MCP — when the Playwright-conventional
+ * candidate (`playwright-report/index.html`, `test-results/**\/trace.zip`)
+ * uniquely disambiguates several same-named candidates. Anything else is
+ * reported as unfixable so `doctor` keeps failing on it.
+ */
+export function fixLinks(
+  root: string,
+  adapter: PlatformAdapter,
+  opts: { write?: boolean } = {},
+): DoctorFixReport {
+  const write = opts.write === true;
+  const index = basenameIndex(root);
+
+  const fixes: LinkFix[] = [];
+  const unfixable: { file: string; target: string }[] = [];
+  const editsByFile = new Map<string, Array<{ from: string; to: string }>>();
+
+  const mdFiles = expectedFiles(adapter).filter((r) => r.endsWith(".md") && existsSync(join(root, r)));
+  for (const rel of mdFiles) {
+    const filePosix = toPosix(rel);
+    const text = readFileSync(join(root, rel), "utf8");
+    for (const link of scanLinks(text)) {
+      const resolved = posix.normalize(posix.join(posix.dirname(filePosix), link.path));
+      if (existsSync(join(root, resolved))) continue; // not broken
+
+      const choice = chooseTarget(posix.basename(link.path), index.get(posix.basename(link.path)) ?? []);
+      if (choice === null) {
+        unfixable.push({ file: rel, target: link.raw });
+        continue;
+      }
+      const newPath = relativePosix(filePosix, choice.resolved);
+      const fix: LinkFix = {
+        file: rel,
+        oldTarget: link.raw,
+        newTarget: newPath + link.anchor,
+        resolved: choice.resolved,
+        class: choice.class,
+      };
+      fixes.push(fix);
+      const edits = editsByFile.get(rel) ?? [];
+      edits.push({ from: `](${link.raw})`, to: `](${fix.newTarget})` });
+      editsByFile.set(rel, edits);
+    }
+  }
+
+  if (write) {
+    for (const [rel, edits] of editsByFile) {
+      const abs = join(root, rel);
+      let text = readFileSync(abs, "utf8");
+      for (const e of edits) text = text.split(e.from).join(e.to);
+      writeFileSync(abs, text, "utf8");
+    }
+  }
+
+  return { mode: write ? "write" : "dry-run", fixes, unfixable };
+}
+
+/** Pick the unique repair target for a broken basename, or null if ambiguous. */
+function chooseTarget(
+  basename: string,
+  candidates: string[],
+): { resolved: string; class: LinkFixClass } | null {
+  if (candidates.length === 1) {
+    return { resolved: candidates[0]!, class: classify(basename, candidates[0]!) };
+  }
+  // Several same-named files: Playwright conventions can still disambiguate.
+  if (basename === "index.html") {
+    const pw = candidates.filter((c) => c.split("/").includes("playwright-report"));
+    if (pw.length === 1) return { resolved: pw[0]!, class: "playwright-report" };
+  }
+  if (basename === "trace.zip") {
+    const tr = candidates.filter((c) => c.split("/").includes("test-results"));
+    if (tr.length === 1) return { resolved: tr[0]!, class: "playwright-trace" };
+  }
+  return null;
+}
+
+function classify(basename: string, resolved: string): LinkFixClass {
+  if (basename === "index.html" && resolved.split("/").includes("playwright-report")) {
+    return "playwright-report";
+  }
+  if (basename === "trace.zip") return "playwright-trace";
+  return "relocated";
+}
+
+/** Map every file's basename → its root-relative posix path(s). */
+function basenameIndex(root: string): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  const skip = new Set(["node_modules", ".git"]);
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (!skip.has(e.name)) stack.push(abs);
+      } else if (e.isFile()) {
+        const rel = toPosix(relative(root, abs));
+        const list = index.get(e.name);
+        if (list) list.push(rel);
+        else index.set(e.name, [rel]);
+      }
+    }
+  }
+  return index;
+}
+
+/** Relative posix link from `fromFile` to `toFile` (both root-relative), `./`-prefixed. */
+function relativePosix(fromFile: string, toFile: string): string {
+  const rel = posix.relative(posix.dirname(fromFile), toFile);
+  return rel.startsWith(".") ? rel : `./${rel}`;
+}
+
+/** Scan markdown for relative links, capturing the raw target, path part, and anchor. */
+function scanLinks(md: string): ScannedLink[] {
+  const out: ScannedLink[] = [];
+  const re = /\[[^\]]*\]\(([^)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(md)) !== null) {
+    const raw = m[1]!.trim();
+    if (/^(https?:|mailto:|#)/i.test(raw)) continue;
+    const hash = raw.indexOf("#");
+    const path = (hash === -1 ? raw : raw.slice(0, hash)).trim();
+    const anchor = hash === -1 ? "" : raw.slice(hash);
+    if (path !== "") out.push({ raw, path, anchor });
+  }
+  return out;
 }

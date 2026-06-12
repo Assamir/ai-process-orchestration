@@ -39,12 +39,19 @@ generated config to regenerate.
 ```bash
 npx claude-qa-orchestrator doctor            # validate the scaffold in the current repo
 npx claude-qa-orchestrator doctor --root ./path/to/repo
+npx claude-qa-orchestrator doctor --fix      # preview deterministic broken-link repairs (dry-run)
+npx claude-qa-orchestrator doctor --fix --write   # apply them
 ```
 
 A deterministic check (no LLM) that runs **outside the agent loop**: verifies structure, the handoff
 manifest, that no phase-1 placeholders leaked, that relative links resolve, that every guideline carries
 its good/bad examples, and that the load-bearing rules — the iron QA rule and the grounding /
 anti-hallucination rule — are present. Findings carry remediation text; it exits non-zero on errors (CI-friendly).
+
+`doctor --fix` adds optional, still-deterministic repair of broken relative links — dry-run preview by
+default, `--write` to apply. It fixes links whose target uniquely relocated and disambiguates Playwright
+report/trace links (`playwright-report/index.html`, `test-results/**/trace.zip`); links with no unique
+target are left as findings to fix by hand.
 
 Requires Node.js ≥ 20.
 

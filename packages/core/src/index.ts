@@ -16,5 +16,13 @@ export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";
 export { scaffold, type ScaffoldInput, PHASE1_VAR_NAMES } from "./scaffold/index.js";
-export { runDoctor, type DoctorFinding, type DoctorReport } from "./doctor/index.js";
+export {
+  runDoctor,
+  fixLinks,
+  type DoctorFinding,
+  type DoctorReport,
+  type DoctorFixReport,
+  type LinkFix,
+  type LinkFixClass,
+} from "./doctor/index.js";
 export { runCli, type CliMeta } from "./cli.js";

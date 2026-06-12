@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { intro, log, note, outro } from "@clack/prompts";
 import type { PlatformAdapter } from "./adapters/types.js";
 import { detectStack } from "./detect/index.js";
-import { runDoctor } from "./doctor/index.js";
+import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WriteResult } from "./types.js";
 import { defaultAnswers, runWizard } from "./wizard/index.js";
@@ -28,6 +28,8 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
       root: { type: "string", default: "." },
       yes: { type: "boolean", short: "y", default: false },
       help: { type: "boolean", short: "h", default: false },
+      fix: { type: "boolean", default: false },
+      write: { type: "boolean", default: false },
     },
   });
 
@@ -39,7 +41,10 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
 
   const root = resolve(values.root);
   if (command === "init") return doInit(adapter, meta, root, values.yes);
-  if (command === "doctor") return doDoctor(adapter, meta, root);
+  if (command === "doctor") {
+    if (values.fix) return doDoctorFix(adapter, meta, root, values.write);
+    return doDoctor(adapter, meta, root);
+  }
 
   process.stderr.write(`Unknown command: ${command}\n\n${help(meta.binName)}`);
   return 1;
@@ -103,6 +108,51 @@ function doDoctor(adapter: PlatformAdapter, meta: CliMeta, root: string): number
   return 0;
 }
 
+/**
+ * `doctor --fix` — deterministic broken-relative-link repair. Dry-run by
+ * default (previews proposed repairs); `--write` applies them. Unfixable links
+ * are left as findings, so a follow-up `doctor` keeps failing on them.
+ */
+function doDoctorFix(adapter: PlatformAdapter, meta: CliMeta, root: string, write: boolean): number {
+  intro(`${meta.binName} doctor --fix${write ? " --write" : ""}`);
+  log.step(`${write ? "Repairing" : "Checking"} broken relative links in ${root} (${meta.toolName})`);
+
+  const fix = fixLinks(root, adapter, { write });
+
+  if (fix.fixes.length === 0 && fix.unfixable.length === 0) {
+    log.success("No broken relative links found.");
+    outro("Healthy.");
+    return 0;
+  }
+
+  if (fix.fixes.length > 0) {
+    const lines = fix.fixes.map(
+      (f) => `${write ? "fixed" : "would fix"} [${f.class}] ${f.file}: ${f.oldTarget} -> ${f.newTarget}`,
+    );
+    note(lines.join("\n"), write ? "Repaired links" : "Proposed repairs (dry-run)");
+  }
+  if (fix.unfixable.length > 0) {
+    const lines = fix.unfixable.map((u) => `x ${u.file}: ${u.target} (no unique target found)`);
+    note(lines.join("\n"), "Unfixable links — repair manually");
+  }
+
+  if (!write) {
+    log.warn(`${fix.fixes.length} repairable, ${fix.unfixable.length} unfixable. Re-run with --write to apply.`);
+    outro("Dry-run — nothing written.");
+    return 0;
+  }
+
+  log.success(`Applied ${fix.fixes.length} link repair(s).`);
+  const after = runDoctor(root, adapter);
+  if (after.errorCount > 0) {
+    log.error(`${after.errorCount} error(s) remain (incl. ${fix.unfixable.length} unfixable link(s)).`);
+    outro("Doctor still found errors.");
+    return 1;
+  }
+  outro("Healthy.");
+  return 0;
+}
+
 function help(binName: string): string {
   return `${binName} — QA-process orchestration scaffolder
 
@@ -116,6 +166,8 @@ Commands:
 Options:
   --root <dir>    Target project directory (default: current directory)
   -y, --yes       (init) Skip the wizard and accept detected defaults (non-interactive / CI)
+  --fix           (doctor) Repair broken relative links deterministically; dry-run preview by default
+  --write         (doctor --fix) Apply the proposed link repairs (otherwise dry-run only)
   -h, --help      Show this help
 `;
 }
