@@ -41,6 +41,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/test-naming.md",
       ".ai/guidelines/diagram-conventions.md",
       ".ai/guidelines/documentation-as-code.md",
+      ".ai/guidelines/spec-driven-development.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       ".claude/skills/qa-init/SKILL.md",
@@ -194,12 +195,41 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the spec-driven-development guideline on both platforms; authoring skills reference it (R-030)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/spec-driven-development.md"), "utf8");
+    // The spec-first contract: a documented spec precedes case design, and cases trace to it.
+    expect(claude.toLowerCase()).toContain("spec");
+    expect(claude).toContain("acceptance criteria");
+    expect(claude).toContain("traces to");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/spec-driven-development.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("spec");
+    } finally {
+      copilotProject.cleanup();
+    }
+
+    // The authoring-chain skills reference the spec-driven flow in their procedures.
+    for (const name of ["qa-ticket-review", "qa-test-case-design", "qa-test-automate"]) {
+      const skill = SKILLS.find((s) => s.name === name);
+      expect(skill, `${name} registered`).toBeDefined();
+      expect(skill!.body, `${name} references spec-driven-development`).toContain("spec-driven-development");
+    }
+  });
+
   it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code"]) {
+      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

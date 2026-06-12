@@ -193,7 +193,7 @@ When a ticket arrives and you need to know if it can be tested as written. Read-
 ## Procedure
 1. Pull the source: if an \`atlassian\` MCP server is configured (Jira + Confluence), read the ticket and any linked Confluence specs directly through it — what's not in context doesn't exist. Otherwise work from the ticket text in \`work.md\`.
 2. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
-3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable.
+3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable. Per the \`spec-driven-development\` guideline, these agreed criteria are the spec the downstream cases will trace to — sharpen every not-yet-testable criterion now, before any case design begins.
 4. Identify risk areas, edge cases, and required test data and environments.
 5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly. Per the \`grounding\` rule, ground every criterion in the ticket/spec text you cite — never infer requirements that are not written, and mark anything you inferred as an open question.
 
@@ -238,7 +238,7 @@ To establish or evolve the durable, cross-work-item test plan.
 After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
-1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
+1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path. Per the \`spec-driven-development\` guideline, derive cases from the documented criteria in \`work.md\`, not from the current code — a case that traces to no criterion is undocumented scope. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
 2. Write each case to \`context/changes/<work-id>/cases.md\` with: id, title, preconditions, steps, expected result, test level, and the criterion it traces to.
 3. Note required test data; hand off to \`qa-test-data-gen\` if it must be produced.
 4. Keep cases automation-ready (deterministic, independent).
@@ -290,7 +290,7 @@ A smoke test passes and result-artifact paths are recorded in \`tools.md\`.
 After cases are designed and the framework is bootstrapped.
 
 ## Procedure
-1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions.
+1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions. Per the \`spec-driven-development\` guideline, automate from the designed cases (which trace to the spec) in spec → case → test order — never write a test ahead of its recorded criterion.
 2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure.
 3. Run the new tests; record the command and result location in \`context/changes/<work-id>/automation.md\`.
 4. On failure, hand off to \`qa-rca\` rather than blindly retrying.

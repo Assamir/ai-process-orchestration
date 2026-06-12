@@ -301,6 +301,7 @@ Current set:
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025) | the standard + a ✅/❌ example diagram | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
+| `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -344,6 +345,20 @@ Standard each guideline follows:
   (`DOCASCODE:contract`), parallel to the iron-QA-rule content check so gutting the standard fails. Like
   every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check) and
   a phase-2 `DOCS_AS_CODE_PATTERNS` / `PROJECT_DOC_WORKFLOW` slot.
+
+- **Spec-driven development (R-030).** A `spec-driven-development` guideline codifies the spec-first
+  flow: a documented spec — acceptance criteria, expected behavior, edge conditions — precedes case
+  design, automation, and code, and every case derives from (traces to) the spec. It is the iron QA
+  rule read from the *authoring* direction: the iron rule says every test traces *back* to a criterion;
+  this one says the criterion must exist and be agreed *first*, so there is something to trace to (no
+  spec ⇒ no cases ⇒ no automation; spec changes ripple forward `work.md` → cases → automation, never the
+  reverse). It composes with `grounding` (cite the spec text a criterion derives from) and reinforces
+  the iron QA rule. The authoring-chain skill procedures reference it by name — `qa-ticket-review`
+  (agree testable criteria first), `qa-test-case-design` (derive cases from the spec, not the code),
+  `qa-test-automate` (automate in spec → case → test order). Like every guideline it carries ✅/❌
+  examples (kept link-free so they don't trip the broken-link check) and phase-2 `SPEC_DRIVEN_PATTERNS`
+  / `PROJECT_SPEC_WORKFLOW` slots; `doctor` expects the file to exist and to carry both example markers
+  (no extra content-contract check, as with `diagram-conventions` — the standard is the guideline body).
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 

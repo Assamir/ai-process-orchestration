@@ -50,6 +50,7 @@
 | 0.16.0 | **R-026** Guideline-standard upgrade — every guideline now carries a mandatory `## Examples (✅ good / ❌ bad)` section + an encouraged `## Applicable patterns` section (phase-2 `*_PATTERNS` slots); `doctor` enforces the good/bad examples (`GUIDELINE:examples:<name>`, error); TECH §12.1 documents the rule | `8851a91` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1 |
 | 0.17.0 | **R-027** `qa-ci-pipeline` skill (write) — generates or audits a CI pipeline (GitHub Actions / GitLab CI / Azure Pipelines) that runs `{{AUTOMATION_FRAMEWORK}}`, fails on test failure, and publishes the result dirs wired into the result MCP (Playwright/pytest/Surefire-Serenity/Allure); wired from `qa-test-automate` + `qa-automation-bootstrapper` `## Next`; closes the test → report → legibility loop at the CI boundary | `72ea232` | `model/skills.ts`, `tests/scaffold.test.ts`, `PRD.md` §5, `TECH.md` §5, `ROADMAP.md` |
 | 0.18.0 | **R-028** `documentation-as-code` guideline + `doctor` enforcement — codifies what the product embodies (docs versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI per R-027); ships on both platforms via `GUIDELINES` (with ✅/❌ examples + `DOCS_AS_CODE_PATTERNS`/`PROJECT_DOC_WORKFLOW` phase-2 slots); `doctor` adds a content-contract check (`DOCASCODE:contract`, error) parallel to the iron-QA-rule check | `49b2881` | `model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §12.1, `PRD.md` §8 |
+| 0.20.0 | **R-030** Spec-driven development guideline — a documented spec / acceptance criteria precede case design, automation, and code; every case derives from (traces to) the spec (the iron QA rule read from the authoring direction). Ships on both platforms via `GUIDELINES` (✅/❌ examples + `SPEC_DRIVEN_PATTERNS`/`PROJECT_SPEC_WORKFLOW` phase-2 slots); the authoring-chain skills (`qa-ticket-review`, `qa-test-case-design`, `qa-test-automate`) reference it by name; `doctor` expects the guideline file + its examples (no extra content-contract check, as with `diagram-conventions`) | `_pending_` | `model/context.ts` (`GUIDELINES`), `model/skills.ts`, `tests/scaffold.test.ts`, `TECH.md` §12.1, `PRD.md` §5/§8, `ROADMAP.md` |
 | 0.19.0 | **R-029** Anti-Hallucination (grounding) rule — a second load-bearing rule in the lean root config (next to the iron QA rule, survives compaction) + a `grounding` guideline: every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing is invented, uncertainty is flagged. Referenced by the claim-producing skill procedures (`qa-rca`, `qa-bug-report`, `qa-reverse-engineer`, `qa-coverage-gap`, `qa-metrics`, `qa-review`, `qa-ticket-review`); `doctor` enforces the root-config presence (`GROUNDING:missing`, parallel to `IRONQA:missing`) and the guideline contract (`GROUNDING:contract`, parallel to `DOCASCODE:contract`) | `7fb116d` | `model/context.ts` (root config + `GUIDELINES`), `model/skills.ts`, `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, `TECH.md` §11/§12.1, `PRD.md` §8 |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
@@ -70,17 +71,11 @@ _All scheduled items are shipped: R-013/R-014/R-015/R-017 in **v0.8.0**, R-018/R
 R-024 (`qa-playwright-cli`) in **v0.14.0**, R-025 (Mermaid diagram standard) in **v0.15.0**, and R-026
 (guideline-standard upgrade — mandatory ✅/❌ examples) in **v0.16.0**, R-027 (`qa-ci-pipeline` skill)
 in **v0.17.0**, R-028 (`documentation-as-code` guideline + `doctor` enforcement) in **v0.18.0**, and
-R-029 (anti-hallucination / grounding rule + guideline + `doctor` enforcement) in **v0.19.0**. The
-next stack/feature work lives in the backlog below._
+R-029 (anti-hallucination / grounding rule + guideline + `doctor` enforcement) in **v0.19.0**, and
+R-030 (spec-driven-development guideline) in **v0.20.0**. The next stack/feature work lives in the
+backlog below._
 
 ## Backlog (unscheduled)
-
-- **🧊 R-030 — Documentation-Driven / Spec-Driven Development guideline.** Codify spec-first flow: a
-  documented spec / acceptance criteria precede case design, automation and code; every test traces
-  back to the spec (extends the iron QA rule from the authoring direction). Lands:
-  `model/context.ts` (`GUIDELINES`), `model/skills.ts` (`## Next` wiring, e.g. `qa-ticket-review` →
-  `qa-test-case-design`), TECH §12. **Done when:** the guideline ships on both platforms, the skill
-  flow references it, parity green. Traces: PRD §5, TECH §11/§12.
 
 - **🧊 R-031 — Auto-fix broken relative links (`doctor --fix`), incl. Playwright report/trace links.**
   Extend `doctor` from detect-only to optional, deterministic repair of broken relative links in
