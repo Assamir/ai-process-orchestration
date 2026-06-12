@@ -100,16 +100,23 @@ npm run build       # tsup -> dist/index.js (shebang bin) in each leaf
 node packages/claude-qa-orchestrator/dist/index.js init --root <target> --yes
 node packages/copilot-qa-orchestrator/dist/index.js init --root <target> --yes
 node packages/claude-qa-orchestrator/dist/index.js doctor --root <target>   # validate a scaffold
+node packages/claude-qa-orchestrator/dist/index.js update --root <target>          # dry-run migrate to current templates
+node packages/claude-qa-orchestrator/dist/index.js update --root <target> --write  # apply the migration
 ```
 
-### Commands: `init` and `doctor`
+### Commands: `init`, `doctor`, and `update`
 
 The shared CLI (`core/src/cli.ts`, `runCli`) routes the first positional. `init` is the phase-1
 installer. **`doctor`** (`core/src/doctor/index.ts`, `runDoctor`) is a deterministic, read-only
 validator — the QA analog of `vscode/auditskill`, run **outside the agent loop**: it checks structure,
 the manifest, leftover phase-1 placeholders, broken relative links, and the iron QA rule, emits
-findings with remediation, and exits non-zero on errors. Both commands live in `core` (parity); the
-leaves only pick the adapter.
+findings with remediation, and exits non-zero on errors. **`update`** (`core/src/update/index.ts`,
+`runUpdate`) is a deterministic, no-LLM migration that pulls newer `core` templates into an
+already-initialized repo: it re-renders the current templates with the manifest's saved choices and
+*creates* missing files + *updates* provably-pristine ones (matched against the sha256 baseline recorded
+in `manifest.files`), while *drift* (user-edited) and *orphan* files are reported but **never
+clobbered/deleted**. Dry-run by default, `--write` applies — mirroring `doctor --fix`. All three commands
+live in `core` (parity); the leaves only pick the adapter.
 
 ## Working in this repo
 

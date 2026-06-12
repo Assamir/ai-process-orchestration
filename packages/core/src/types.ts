@@ -81,11 +81,21 @@ export type PlatformId = "claude" | "copilot";
 export interface ScaffoldManifest {
   schemaVersion: 1;
   generatedAt: string;
+  /** Set by `update --write` (R-034) when this scaffold was last migrated. */
+  updatedAt?: string;
   platform: PlatformId;
   stack: DetectedStack;
   choices: WizardAnswers;
   /** Logical skill names that were rendered, for phase-2 reference. */
   skills: string[];
+  /**
+   * Backward-compatible (R-034): map of root-relative path → sha256 of the
+   * canonical rendered content written at scaffold/update time. Lets `update`
+   * prove a file is *pristine* (byte-identical to what we wrote, i.e. untouched
+   * by the user) before refreshing it to a newer template. Absent in manifests
+   * written before R-034, in which case `update` falls back to additive-only.
+   */
+  files?: Record<string, string>;
 }
 
 /** A file an adapter wants written, relative to the target repo root. */

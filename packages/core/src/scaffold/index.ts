@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
@@ -40,9 +41,52 @@ export const PHASE1_VAR_NAMES = [
  */
 export function scaffold(input: ScaffoldInput): WriteResult[] {
   const { root, adapter, stack, answers } = input;
-  const vars = buildVars(stack, answers);
+  const generatedAt = new Date().toISOString();
+  const vars = buildVars(stack, answers, generatedAt);
 
-  const files: WriteFile[] = [
+  const files = scaffoldFiles(adapter, stack, answers);
+
+  const results: WriteResult[] = [];
+  const fileHashes: Record<string, string> = {};
+  for (const f of files) {
+    const content = render(f.content, vars);
+    results.push(writeFileIfAbsent(join(root, f.rel), content));
+    // Record the canonical content hash regardless of created/skipped, so
+    // `update` (R-034) has a pristine baseline to compare against later.
+    fileHashes[f.rel] = hashContent(content);
+  }
+
+  const manifest: ScaffoldManifest = {
+    schemaVersion: 1,
+    generatedAt,
+    platform: adapter.id,
+    stack,
+    choices: answers,
+    skills: SKILLS.map((s) => s.name),
+    files: fileHashes,
+  };
+  results.push(
+    writeFileIfAbsent(join(root, MANIFEST_REL), `${JSON.stringify(manifest, null, 2)}\n`),
+  );
+
+  return results;
+}
+
+/** Canonical scaffold path of the phase-2 handoff manifest, repo-root-relative. */
+export const MANIFEST_REL = "context/.scaffold/manifest.json";
+
+/**
+ * The full set of template files phase 1 writes for one platform, *unrendered*
+ * (placeholders intact). Single source of truth shared by `scaffold` (writes
+ * them) and `update` (diffs them against an initialized repo). Excludes the
+ * generated manifest, which is not a template.
+ */
+export function scaffoldFiles(
+  adapter: PlatformAdapter,
+  stack: DetectedStack,
+  answers: WizardAnswers,
+): WriteFile[] {
+  return [
     { rel: adapter.rootConfigRel, content: rootConfigMarkdown(SKILLS, adapter.invokeNoun) },
     ...GUIDELINES.map((g) => ({ rel: adapter.guidelineRel(g.name), content: g.body })),
     ...FOUNDATION.map((f) => ({ rel: f.rel, content: f.body })),
@@ -56,32 +100,20 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
       observability: stack.observability,
     }),
   ];
-
-  const results: WriteResult[] = files.map((f) =>
-    writeFileIfAbsent(join(root, f.rel), render(f.content, vars)),
-  );
-
-  const manifest: ScaffoldManifest = {
-    schemaVersion: 1,
-    generatedAt: vars.GENERATED_AT!,
-    platform: adapter.id,
-    stack,
-    choices: answers,
-    skills: SKILLS.map((s) => s.name),
-  };
-  results.push(
-    writeFileIfAbsent(
-      join(root, "context/.scaffold/manifest.json"),
-      `${JSON.stringify(manifest, null, 2)}\n`,
-    ),
-  );
-
-  return results;
 }
 
-function buildVars(stack: DetectedStack, answers: WizardAnswers): Record<string, string> {
+/** sha256 hex of UTF-8 content — the pristine-baseline fingerprint for `update`. */
+export function hashContent(content: string): string {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+export function buildVars(
+  stack: DetectedStack,
+  answers: WizardAnswers,
+  generatedAt: string,
+): Record<string, string> {
   return {
-    GENERATED_AT: new Date().toISOString(),
+    GENERATED_AT: generatedAt,
     PROJECT_LANGUAGE: stack.language ?? "unknown",
     BUILD_TOOL: stack.buildTool,
     AUTOMATION_FRAMEWORK: frameworkLabel(answers.automationFramework),

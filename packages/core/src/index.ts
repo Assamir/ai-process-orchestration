@@ -17,6 +17,12 @@ export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";
 export { scaffold, type ScaffoldInput, PHASE1_VAR_NAMES } from "./scaffold/index.js";
 export {
+  runUpdate,
+  type UpdateAction,
+  type UpdateItem,
+  type UpdateReport,
+} from "./update/index.js";
+export {
   runDoctor,
   fixLinks,
   type DoctorFinding,

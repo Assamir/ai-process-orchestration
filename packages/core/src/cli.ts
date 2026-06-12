@@ -6,6 +6,7 @@ import { detectStack } from "./detect/index.js";
 import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WriteResult } from "./types.js";
+import { runUpdate } from "./update/index.js";
 import { defaultAnswers, runWizard } from "./wizard/index.js";
 
 export interface CliMeta {
@@ -20,6 +21,7 @@ export interface CliMeta {
  * (functional parity). Routes the first positional to a command:
  *   init    — phase-1 installer (default)
  *   doctor  — deterministic validator of a scaffolded orchestration
+ *   update  — deterministic migration of an existing scaffold to current templates
  */
 export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -45,6 +47,7 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
     if (values.fix) return doDoctorFix(adapter, meta, root, values.write);
     return doDoctor(adapter, meta, root);
   }
+  if (command === "update") return doUpdate(adapter, meta, root, values.write);
 
   process.stderr.write(`Unknown command: ${command}\n\n${help(meta.binName)}`);
   return 1;
@@ -153,6 +156,63 @@ function doDoctorFix(adapter: PlatformAdapter, meta: CliMeta, root: string, writ
   return 0;
 }
 
+/**
+ * `update` — deterministic, no-LLM migration of an already-initialized repo to
+ * the current `core` templates. Dry-run by default (previews additive/updated
+ * changes); `--write` applies them. Drifted (user-edited) and orphaned files are
+ * reported, never clobbered or deleted.
+ */
+function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: boolean): number {
+  intro(`${meta.binName} update${write ? " --write" : ""}`);
+  log.step(`${write ? "Migrating" : "Checking"} ${root} against current templates (${meta.toolName})`);
+
+  const report = runUpdate(root, adapter, { write });
+
+  if (report.fatal) {
+    log.error(report.fatal);
+    outro("Nothing to update.");
+    return 1;
+  }
+
+  const { create, update, drift, orphan, unchanged } = report.counts;
+  const actionable = report.items.filter((i) => i.action !== "unchanged");
+
+  if (actionable.length === 0) {
+    log.success(`Already up to date (${unchanged} file(s) match current templates).`);
+    outro("Healthy.");
+    return 0;
+  }
+
+  const symbol: Record<string, string> = {
+    create: write ? "+" : "would create",
+    update: write ? "~" : "would update",
+    drift: "!",
+    orphan: "·",
+  };
+  const lines = actionable.map(
+    (i) => `${symbol[i.action]} [${i.action}] ${i.rel}${i.detail ? ` (${i.detail})` : ""}`,
+  );
+  note(lines.join("\n"), write ? "Applied" : "Proposed changes (dry-run)");
+
+  if (!write) {
+    log.warn(
+      `${create} to create, ${update} to update, ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write to apply.`,
+    );
+    outro("Dry-run — nothing written.");
+    return 0;
+  }
+
+  log.success(`Applied: ${create} created, ${update} updated. ${drift} drifted, ${orphan} orphaned (left in place).`);
+  if (drift > 0 || orphan > 0) {
+    note(
+      "Drifted files carry your edits or filled-in placeholders and were not overwritten; orphaned files are no longer part of the scaffold. Reconcile them by hand if needed.",
+      "Review",
+    );
+  }
+  outro("Migration complete.");
+  return 0;
+}
+
 function help(binName: string): string {
   return `${binName} — QA-process orchestration scaffolder
 
@@ -162,12 +222,13 @@ Usage:
 Commands:
   init            Detect the test stack, run the wizard, and scaffold the QA orchestration (default)
   doctor          Validate an existing scaffold (structure, manifest, placeholders, links, iron QA rule)
+  update          Migrate an existing scaffold to the current templates (additive + pristine-file refresh; never clobbers edits)
 
 Options:
   --root <dir>    Target project directory (default: current directory)
   -y, --yes       (init) Skip the wizard and accept detected defaults (non-interactive / CI)
   --fix           (doctor) Repair broken relative links deterministically; dry-run preview by default
-  --write         (doctor --fix) Apply the proposed link repairs (otherwise dry-run only)
+  --write         (doctor --fix / update) Apply the proposed changes (otherwise dry-run only)
   -h, --help      Show this help
 `;
 }

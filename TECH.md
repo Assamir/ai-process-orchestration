@@ -279,6 +279,21 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   disambiguating Playwright report/trace links (`playwright-report/index.html`,
   `test-results/**/trace.zip`) surfaced by `qa-playwright-cli` / the result MCP; anything not provably
   unique is left as a finding, mirroring auditskill's `apply-step` dry-run/write contract.
+- **Migration when `core` changes (`update`).** ✅ **Shipped (R-034).** A third deterministic, no-LLM CLI
+  verb (`core/src/update/index.ts`, `runUpdate`; sibling of `init`/`doctor`) closes the maintenance gap
+  where new skills, guidelines, MCP wiring, and root-config rules added to `core` never reach repos that
+  ran an older installer. It re-renders the current templates (`scaffold/index.ts:scaffoldFiles`, with
+  the manifest's saved `stack`/`choices` and original `generatedAt`, so unchanged templates render
+  byte-identical) and classifies each expected file: `create` (absent → additive write), `update`
+  (present **and provably pristine** — its on-disk sha256 matches the baseline recorded in
+  `manifest.files`, so the user never touched it → safe refresh to the new template), `drift`
+  (user-edited, filled-in phase-2 content, or no recorded baseline → **reported, never clobbered**),
+  `unchanged`, and `orphan` (recorded in the baseline but no longer scaffolded → **reported, never
+  deleted**). Dry-run by default; `--write` applies `create`+`update` and rewrites the manifest baseline
+  (`updatedAt` + refreshed `files` hashes). The pristine baseline is the load-bearing idea: `scaffold`
+  now records a sha256 of every file's canonical rendered content in the (backward-compatible, still
+  `schemaVersion: 1`) manifest; manifests written before R-034 lack it and `update` degrades safely to
+  additive-only. Mirrors the `doctor --fix` / auditskill `apply-step` dry-run/write contract.
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
@@ -429,3 +444,9 @@ fill their own placeholders as they run.
 hands off to `qa-bug-report`. Out of band: `qa-reverse-engineer` builds `context/reference/` to understand
 an app before testing; `qa-gardening` sweeps drift on a cadence; `doctor` validates structure outside the
 agent loop. Each skill's `## Next` section names its recommended successors (R-020).
+
+**Out-of-band: keeping a scaffold current (`update`, R-034).** When `core` ships new skills/guidelines/MCP
+wiring/root-config rules, run `npx <pkg> update` (dry-run) then `--write` in an already-initialized repo to
+pull them in — additive files are created and pristine (untouched) files are refreshed to the new template,
+while user-edited and orphaned files are reported, never overwritten. Like `doctor`, it runs **outside the
+agent loop** and is 100% deterministic (no LLM).
