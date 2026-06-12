@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
+import { repoMapMarkdown } from "../detect/repo-map.js";
 import { frameworkLabel } from "../labels.js";
 import { FOUNDATION, GUIDELINES, rootConfigMarkdown } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
@@ -29,6 +30,7 @@ export const PHASE1_VAR_NAMES = [
   "AUTONOMY_LEVEL",
   "LINTERS",
   "QA_CONVENTIONS",
+  "REPO_MAP_INVENTORY",
 ] as const;
 
 /**
@@ -42,7 +44,9 @@ export const PHASE1_VAR_NAMES = [
 export function scaffold(input: ScaffoldInput): WriteResult[] {
   const { root, adapter, stack, answers } = input;
   const generatedAt = new Date().toISOString();
-  const vars = buildVars(stack, answers, generatedAt);
+  // Inventory the repo *before* writing the scaffold, so the phase-1 repo map
+  // reflects the application's own layout, not our own generated files.
+  const vars = buildVars(stack, answers, generatedAt, repoMapMarkdown(root));
 
   const files = scaffoldFiles(adapter, stack, answers);
 
@@ -111,6 +115,13 @@ export function buildVars(
   stack: DetectedStack,
   answers: WizardAnswers,
   generatedAt: string,
+  /**
+   * Pre-rendered phase-1 repo-map inventory (R-037). Computed fresh from the
+   * target repo by `scaffold`/`update` (both have the root) and passed in here so
+   * `buildVars` itself stays a pure transform. Defaults to "" for callers that
+   * don't render the repo map.
+   */
+  repoMapInventory = "",
 ): Record<string, string> {
   return {
     GENERATED_AT: generatedAt,
@@ -121,6 +132,7 @@ export function buildVars(
     AUTONOMY_LEVEL: answers.autonomyLevel,
     LINTERS: stack.linters.length > 0 ? stack.linters.join(", ") : "none detected",
     QA_CONVENTIONS: answers.qaConventions,
+    REPO_MAP_INVENTORY: repoMapInventory,
   };
 }
 

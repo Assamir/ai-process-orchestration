@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claudeAdapter, copilotAdapter, scaffold, SKILLS } from "../src/index.js";
@@ -45,6 +45,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/environment-management.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
+      "context/foundation/repo-map.md",
       ".claude/skills/qa-init/SKILL.md",
       ".claude/skills/qa-rca/SKILL.md",
       ".mcp.json",
@@ -287,6 +288,63 @@ describe("scaffold (Claude)", () => {
       );
       expect(copilot.toLowerCase()).toContain("environment variable");
       expect(copilot.toLowerCase()).toContain("secret");
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
+  it("scaffolds a fresh phase-1 repo-map inventory of the application layout (R-037)", () => {
+    // Lay down a representative multi-module repo *before* scaffolding so the
+    // deterministic phase-1 inventory has a real layout to map.
+    const mk = (rel: string, content = "") => {
+      mkdirSync(join(project.dir, rel, ".."), { recursive: true });
+      writeFileSync(join(project.dir, rel), content, "utf8");
+    };
+    mk("package.json", "{}");
+    mk("playwright.config.ts", "export default {}");
+    mk("tests/login.spec.ts", "test('x', () => {});");
+    mk("services/api/pom.xml", "<project/>");
+    mk("src/index.ts", "export {};");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const map = readFileSync(join(project.dir, "context/foundation/repo-map.md"), "utf8");
+
+    // Phase-1 inventory is rendered (no leftover phase-1 placeholder) and captures the layout.
+    expect(map).not.toContain("{{REPO_MAP_INVENTORY}}");
+    expect(map).toContain("### Modules (build roots)");
+    expect(map).toContain("package.json");
+    expect(map).toContain("`services/api` — pom.xml");
+    expect(map).toContain("### Test directories");
+    expect(map).toContain("`tests`");
+    expect(map).toContain("### Test & CI configuration");
+    expect(map).toContain("`playwright.config.ts`");
+    // Phase-2 enrichment slots remain for qa-reverse-engineer.
+    expect(map).toContain("{{REPO_MAP_TEST_SOURCE_LINKS}}");
+    expect(map).toContain("{{REPO_MAP_ENTRY_POINTS}}");
+    // No relative markdown links in the inventory, so it can't trip doctor's link check.
+    expect(map).not.toMatch(/\]\(\.\.?\//);
+
+    // qa-reverse-engineer owns the phase-2 sections of the repo map.
+    const re = SKILLS.find((s) => s.name === "qa-reverse-engineer");
+    expect(re!.writes).toContain("context/foundation/repo-map.md");
+    expect(re!.body).toContain("repo-map.md");
+
+    // Parity: the same repo-map content ships on Copilot (platform-agnostic foundation).
+    const copilotProject = tempProject();
+    try {
+      // Identical input layout → identical inventory.
+      const mkB = (rel: string, content = "") => {
+        mkdirSync(join(copilotProject.dir, rel, ".."), { recursive: true });
+        writeFileSync(join(copilotProject.dir, rel), content, "utf8");
+      };
+      mkB("package.json", "{}");
+      mkB("playwright.config.ts", "export default {}");
+      mkB("tests/login.spec.ts", "test('x', () => {});");
+      mkB("services/api/pom.xml", "<project/>");
+      mkB("src/index.ts", "export {};");
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilotMap = readFileSync(join(copilotProject.dir, "context/foundation/repo-map.md"), "utf8");
+      expect(copilotMap).toBe(map);
     } finally {
       copilotProject.cleanup();
     }

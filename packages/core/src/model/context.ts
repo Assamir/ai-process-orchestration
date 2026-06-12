@@ -77,7 +77,7 @@ ${skillList}
 
 ## Where things live
 
-- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons, tech-debt tracker.
+- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons, tech-debt tracker, repo map (test surface ↔ source).
 - \`context/changes/<work-id>/\` — in-flight work (work.md, plan.md, cases.md, automation.md).
 - \`context/archive/<work-id>/\` — completed work (read-only history).
 - \`context/reference/\` — reverse-engineered system docs (produced by \`qa-reverse-engineer\`).
@@ -541,6 +541,40 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 > Tests or areas that fail intermittently — the quarantine reason and a link to the tracking work-item.
 
 {{FLAKY_AREAS}}
+`,
+  },
+  {
+    rel: "context/foundation/repo-map.md",
+    body: `# Repo map — test surface ↔ source
+
+> Durable navigation aid for large / multi-module / polyglot repos: find the right
+> place fast instead of blind-searching. **Two-phase.** Phase 1 wrote the
+> deterministic **path inventory** below (build roots, test directories, test/CI
+> configs) by scanning the repo — always fresh, no LLM. Phase 2
+> (\`qa-reverse-engineer\`) enriches the test↔source map and entry points, reusing the
+> C4 L2/L3 container/component names from \`context/reference/\` (see the
+> \`diagram-conventions\` guideline). Paths are shown as inline code, not links, so
+> this file never breaks the \`doctor\` link check; confirm each before relying on it
+> (\`grounding\`).
+
+## Path inventory (phase 1 — auto-generated, no LLM)
+
+{{REPO_MAP_INVENTORY}}
+
+## Test ↔ source map (phase 2)
+
+> For each test directory above, the application module / C4 container it exercises
+> and where that source lives. Reuse the container/component names from
+> \`context/reference/\` so the two maps agree.
+
+{{REPO_MAP_TEST_SOURCE_LINKS}}
+
+## Entry points (phase 2)
+
+> The ways into the system tests target — HTTP routes, CLI, scheduled jobs, message
+> consumers — each linked to the test directory that covers it, or flagged uncovered.
+
+{{REPO_MAP_ENTRY_POINTS}}
 `,
   },
   {

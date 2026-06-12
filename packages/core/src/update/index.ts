@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
+import { repoMapMarkdown } from "../detect/repo-map.js";
 import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
 import { buildVars, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
@@ -108,7 +109,10 @@ export function runUpdate(
   // Reproduce the original phase-1 vars from the manifest. Reusing the recorded
   // generatedAt is what makes unchanged templates render byte-identical (so they
   // classify as `unchanged`, not churn), leaving only genuine template changes.
-  const vars = buildVars(manifest.stack, manifest.choices, manifest.generatedAt);
+  // The repo-map inventory (R-037) is re-walked fresh from the repo — "always
+  // fresh": on a pristine repo-map it refreshes to match the current layout; a
+  // phase-2-enriched repo-map is drift and is preserved untouched, as ever.
+  const vars = buildVars(manifest.stack, manifest.choices, manifest.generatedAt, repoMapMarkdown(root));
   const baseline = manifest.files ?? {};
   const expected = scaffoldFiles(adapter, manifest.stack, manifest.choices);
   const expectedRels = new Set(expected.map((f) => f.rel));

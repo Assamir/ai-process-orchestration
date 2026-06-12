@@ -439,6 +439,36 @@ integration in the source before drawing it (the `grounding` rule). The standard
 plus the templates — there is no extra `doctor` content-contract check (as with `diagram-conventions`
 itself); the C4 index's intra-`reference/` links are validated by `doctor`'s broken-link check.
 
+#### 12.2.2 Repo map — test surface ↔ source (R-037)
+
+Large, multi-module/polyglot repos are where "give the agent a map, not a manual" (PRD §1) pays off
+most: without one, the agent blind-searches for where tests, fixtures, and the code-under-test live.
+`context/foundation/repo-map.md` is that map, built by the product's **two-phase** flow:
+
+- **Phase 1 — deterministic path inventory, no LLM** (`detect/repo-map.ts`, `repoMapMarkdown(root)`). A
+  bounded, fully-sorted filesystem walk inventories the **build roots** (dirs holding a
+  `package.json` / `pom.xml` / `build.gradle(.kts)` / `pyproject.toml` / … manifest), the **test
+  directories** (by conventional name — `tests`, `e2e`, `spec`, … — or by containing test files
+  `*.spec.*` / `*Test.java` / `test_*.py` / `*.feature`), and the **test/CI configs**
+  (`playwright.config.*`, `pytest.ini`, `testng.xml`, `.gitlab-ci.yml`, `.github/workflows/`, …). It skips
+  build-output/cache/VCS noise dirs, caps depth and per-section item count (a lean map, not a file dump),
+  and writes paths as **inline code, never `[..](..)` links**, so it can't trip `doctor`'s broken-link
+  check. Rendered into the `{{REPO_MAP_INVENTORY}}` phase-1 slot — a new `PHASE1_VAR_NAMES` entry, so
+  `doctor` flags an unrendered inventory as an error like any phase-1 marker.
+- **Phase 2 — semantic enrichment by `qa-reverse-engineer`.** It fills the `{{REPO_MAP_TEST_SOURCE_LINKS}}`
+  and `{{REPO_MAP_ENTRY_POINTS}}` slots — mapping each test directory to the **C4 L2/L3 container/component**
+  it exercises (reusing the names from `context/reference/` so the two maps agree) and listing the entry
+  points (routes/CLI/jobs/consumers) tests target, each linked to its covering test dir or flagged
+  uncovered. No new skill — the map belongs to reverse-engineering and reuses its C4 model.
+
+The inventory is **always fresh**: `scaffold` computes it *before* writing its own files (so the map
+reflects the application, not the scaffold), and `update` (R-034) re-walks it each run. On a *pristine*
+repo-map a layout change (a new module appears) therefore classifies as `update` and refreshes; once
+phase 2 has enriched the file it is `drift` and is preserved untouched — exactly the R-034 contract.
+`buildVars` stays a pure transform: both call sites pass the pre-rendered inventory string in. `doctor`
+expects the file via the structure + phase-1-render checks (no bespoke content-contract check, as with
+`tech-debt-tracker.md`).
+
 ### 12.3 Flow reference (phase 1 → phase 2 → daily loop)
 
 **Phase 1 — installer (`npx <pkg> init`), deterministic, no LLM** (`cli.ts` → `scaffold/index.ts`):
