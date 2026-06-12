@@ -332,6 +332,7 @@ Current set:
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 | `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
+| `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -401,6 +402,21 @@ Standard each guideline follows:
   variable*, that is an **error** (`ENVMGMT:contract`, parallel to `DOCASCODE:contract` / `GROUNDING:contract`).
   Like every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check) and
   phase-2 `ENV_MGMT_PATTERNS` / `PROJECT_ENV_WORKFLOW` slots.
+
+- **Test-data management (R-036).** A `test-data-management` guideline governs the **lifecycle** of test
+  data, complementing the R-010 factories/fixtures (which *produce* schema-valid data; this governs how it
+  is *managed*): isolation between tests and runs (no reliance on pre-existing rows or execution order;
+  namespace data per test), setup/teardown so each test cleans up what it creates (transactional rollback /
+  ephemeral DB where the stack allows), deterministic/pinned-and-logged seeds so a failure reproduces,
+  freshness over hand-maintained stale dumps, and no real PII (synthetic or anonymized only — the same leak
+  class as a committed secret). It composes with `environment-management` (each environment owns its
+  disposable seed) and reinforces the iron QA rule (a test you can't re-run cleanly is not evidence). The
+  data skills reference it by name — `qa-test-data-gen` (lifecycle when producing data) and
+  `qa-test-automate` (each test owns setup/teardown). Like every guideline it carries ✅/❌ examples (kept
+  link-free so they don't trip the broken-link check) and phase-2 `TEST_DATA_PATTERNS` /
+  `PROJECT_TEST_DATA_WORKFLOW` slots; `doctor` expects the file to exist and to carry both example markers
+  (no extra content-contract check, as with `diagram-conventions` / `spec-driven-development` — the
+  standard is the guideline body).
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 

@@ -43,6 +43,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/documentation-as-code.md",
       ".ai/guidelines/spec-driven-development.md",
       ".ai/guidelines/environment-management.md",
+      ".ai/guidelines/test-data-management.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       "context/foundation/repo-map.md",
@@ -293,6 +294,41 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the test-data-management guideline on both platforms; data skills reference it (R-036)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/test-data-management.md"), "utf8");
+    // The data-lifecycle contract: isolation between tests/runs and cleanup.
+    expect(claude.toLowerCase()).toContain("isolat");
+    expect(claude.toLowerCase()).toContain("clean");
+    expect(claude.toLowerCase()).toContain("seed");
+    // Composes with environment-management (no real PII, like a committed secret).
+    expect(claude).toContain("environment-management");
+    // Phase-2 slots per the R-026 guideline standard.
+    expect(claude).toContain("{{TEST_DATA_PATTERNS}}");
+    expect(claude).toContain("{{PROJECT_TEST_DATA_WORKFLOW}}");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/test-data-management.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("isolat");
+      expect(copilot.toLowerCase()).toContain("clean");
+    } finally {
+      copilotProject.cleanup();
+    }
+
+    // The data skills reference the guideline by name in their procedures.
+    for (const name of ["qa-test-data-gen", "qa-test-automate"]) {
+      const skill = SKILLS.find((s) => s.name === name);
+      expect(skill, `${name} registered`).toBeDefined();
+      expect(skill!.body, `${name} references test-data-management`).toContain("test-data-management");
+    }
+  });
+
   it("scaffolds a fresh phase-1 repo-map inventory of the application layout (R-037)", () => {
     // Lay down a representative multi-module repo *before* scaffolding so the
     // deterministic phase-1 inventory has a real layout to map.
@@ -386,7 +422,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management"]) {
+      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

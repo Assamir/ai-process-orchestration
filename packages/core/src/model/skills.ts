@@ -291,7 +291,7 @@ After cases are designed and the framework is bootstrapped.
 
 ## Procedure
 1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions. Per the \`spec-driven-development\` guideline, automate from the designed cases (which trace to the spec) in spec → case → test order — never write a test ahead of its recorded criterion.
-2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure.
+2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure. Per the \`test-data-management\` guideline, each test owns its data lifecycle — set up and tear down its own isolated, uniquely-named data so the suite gives the same result run alone or in parallel, on a clean or full database.
 3. Run the new tests; record the command and result location in \`context/changes/<work-id>/automation.md\`.
 4. On failure, hand off to \`qa-rca\` rather than blindly retrying.
 
@@ -400,7 +400,7 @@ When cases need specific data (valid, invalid, boundary) that does not exist yet
    - RestAssured/JUnit/TestNG (JVM): \`datafaker\`/\`instancio\` + builder or object-mother factories.
    If no data library is available, fall back to plain typed builder functions — the pattern (named, overridable, schema-valid defaults) matters more than the tool. Mock external dependencies at the seam, not the data.
 3. Validate generated shapes against the real contract — a typed SDK, JSON Schema/OpenAPI, or the DB model. Never invent shapes; a factory that drifts from the schema is worse than none.
-4. Reference each factory/fixture **by name from the case in \`cases.md\`** (and import it from the test) so data use is traceable to the criterion. Note any data that must be cleaned up after a run.
+4. Reference each factory/fixture **by name from the case in \`cases.md\`** (and import it from the test) so data use is traceable to the criterion. Per the \`test-data-management\` guideline, govern the data's lifecycle: each test sets up and tears down its own uniquely-named data (no reliance on pre-existing rows or run order), randomized data uses a pinned/logged seed, and no real PII is ever seeded — note the cleanup mechanism for any data a run leaves behind.
 
 ## Done when
 Every case is backed by a named, reusable, schema-valid factory/fixture (not inline literals), referenced from \`cases.md\`, with boundary/invalid variants expressed as overrides.
