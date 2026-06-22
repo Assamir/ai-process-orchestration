@@ -112,6 +112,18 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "GROUNDING:contract" && f.severity === "error")).toBe(true);
   });
 
+  it("flags a grounding guideline that drops the evidence-collection standard (R-045)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Keep the ✅/❌ markers plus cite + uncertainty, but drop the evidence standard.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/grounding.md"),
+      "# Grounding\n\nCite sources and flag uncertainty. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "GROUNDING:contract" && f.severity === "error")).toBe(true);
+  });
+
   it("flags a gutted environment-management guideline that drops its secrets/env-var contract (R-035)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     // Keep the ✅/❌ markers but drop the env-var indirection + no-committed-secrets contract.

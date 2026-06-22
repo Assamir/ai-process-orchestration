@@ -38,6 +38,8 @@ describe("scaffold (Claude)", () => {
     const expected = [
       "CLAUDE.md",
       ".ai/guidelines/qa-conventions.md",
+      ".ai/guidelines/grounding.md",
+      ".ai/guidelines/assumptions.md",
       ".ai/guidelines/test-naming.md",
       ".ai/guidelines/diagram-conventions.md",
       ".ai/guidelines/documentation-as-code.md",
@@ -238,6 +240,76 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the assumptions guideline on both platforms; claim-producing skills reference it (R-044)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/assumptions.md"), "utf8");
+    // The protocol contract: inference is legal only inside a `## Assumptions` table.
+    expect(claude).toContain("## Assumptions");
+    // The required columns, the inline reference convention, and calibration.
+    for (const col of ["ID", "Claim", "Basis", "Impact", "Verification", "Confidence"]) {
+      expect(claude, `assumptions column ${col}`).toContain(col);
+    }
+    expect(claude).toContain("(A1)");
+    expect(claude.toLowerCase()).toContain("high confidence is rare");
+    // It complements grounding, not duplicates it.
+    expect(claude).toContain("grounding");
+    // Phase-2 slots per the R-026 guideline standard.
+    expect(claude).toContain("{{ASSUMPTIONS_PATTERNS}}");
+    expect(claude).toContain("{{PROJECT_ASSUMPTIONS_WORKFLOW}}");
+
+    // Parity: the same guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/assumptions.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("## Assumptions");
+      expect(copilot).toContain("(A1)");
+    } finally {
+      copilotProject.cleanup();
+    }
+
+    // The claim-producing skills reference the assumptions protocol by name.
+    for (const name of ["qa-ticket-review", "qa-rca", "qa-bug-report", "qa-coverage-gap", "qa-reverse-engineer"]) {
+      const skill = SKILLS.find((s) => s.name === name);
+      expect(skill, `${name} registered`).toBeDefined();
+      expect(skill!.body, `${name} references assumptions`).toContain("assumptions");
+    }
+  });
+
+  it("upgrades grounding into the evidence-collection standard: ranked types, min-context, identifier scrub (R-045)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/grounding.md"), "utf8");
+    // The ranked evidence-type table — source code is the strongest.
+    expect(claude).toContain("Evidence types (ranked");
+    expect(claude).toContain("Strongest");
+    // The minimum-context rule for code citations.
+    expect(claude.toLowerCase()).toContain("minimum context");
+    expect(claude).toContain("10 lines");
+    // The identifier scrub checklist.
+    expect(claude.toLowerCase()).toContain("identifier scrub");
+    // It still keeps the original cite/uncertainty contract (doctor enforces all three).
+    expect(claude.toLowerCase()).toContain("cite");
+    expect(claude.toLowerCase()).toContain("uncertain");
+    expect(claude.toLowerCase()).toContain("evidence");
+
+    // Parity on Copilot.
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/grounding.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("Evidence types (ranked");
+      expect(copilot.toLowerCase()).toContain("identifier scrub");
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("ships the spec-driven-development guideline on both platforms; authoring skills reference it (R-030)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const claude = readFileSync(join(project.dir, ".ai/guidelines/spec-driven-development.md"), "utf8");
@@ -422,7 +494,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management"]) {
+      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

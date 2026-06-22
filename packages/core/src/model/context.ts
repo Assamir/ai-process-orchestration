@@ -59,8 +59,8 @@ export function rootConfigMarkdown(skills: LogicalSkill[], invoke: string): stri
 
 > Before any **write** skill changes a file, read the guidelines/standards that
 > bear on the task — at minimum \`qa-conventions\` and \`test-naming\`, plus any that
-> apply (\`spec-driven-development\`, \`grounding\`, \`documentation-as-code\`,
-> \`diagram-conventions\`). Don't act from memory: the standards live in the
+> apply (\`spec-driven-development\`, \`grounding\`, \`assumptions\`,
+> \`documentation-as-code\`, \`diagram-conventions\`). Don't act from memory: the standards live in the
 > guideline files; pull them in first so the work conforms by construction
 > instead of being corrected after. Composes with the grounding rule (read, don't
 > recall) and documentation-as-code.
@@ -155,9 +155,40 @@ Every claim an agent makes about this system — a path, an API, a schema, a req
 ## Rules
 - **Cite the source of every factual claim.** Reference \`file:line\`, a ticket id (e.g. Jira \`PROJ-123\`), or the result-MCP output you read it from. A claim with no citable source is a hypothesis — label it as one.
 - **Never invent files, paths, APIs, schemas, or results.** If a path or symbol might exist, open it and confirm before relying on it; don't assert a test passed without reading the run's result artifact.
-- **Flag uncertainty explicitly.** Write "I could not find…", "unverified", or "assumption:" rather than filling the gap with a confident guess. Surfacing a gap is a finding; hiding it is a defect.
+- **Flag uncertainty explicitly.** Write "I could not find…" or "unverified" rather than filling the gap with a confident guess. When you must infer, legalize it in a \`## Assumptions\` table (see the \`assumptions\` guideline) — inference outside that table is a hallucination. Surfacing a gap is a finding; hiding it is a defect.
 - **Prefer reading over recalling.** Pull the artifact in (source, ticket, trace, JUnit XML via the result MCP) instead of relying on memory or training priors — especially for versions, paths, and API shapes that drift.
 - This reinforces, never weakens, the iron QA rule: a "passing" test you did not actually observe pass is not evidence.
+
+## Evidence types (ranked — strongest first)
+
+Not all citations are equal. Prefer the strongest available source; reach down the list only when nothing higher exists, and mark the weaker ones as such.
+
+| Rank | Evidence type | Citation form | Strength |
+|---|---|---|---|
+| 1 | Source code | \`path/file.ext#L120-L140\` | Strongest — deterministic, the system's own truth |
+| 2 | Config / infrastructure | \`path/application.yml#L10-L20\` | Strong — deterministic |
+| 3 | Test evidence | \`path/SomeTest.ext#L45-L60\` | Strong — documents intended behavior |
+| 4 | Result-MCP / run artifact | \`playwright-results: test-results/auth-login\`, a JUnit XML row | Strong — the only truth about a *run* |
+| 5 | Ticket / spec (MCP) | Jira \`PROJ-123\`, a Confluence page | Strong — authoritative for requirements |
+| 6 | Existing doc in \`context/\` | \`context/reference/…#L-L\` | Medium — secondary, may be stale |
+| 7 | Git history | \`git log <file>\` excerpt | Medium — historical context |
+| 8 | External doc (URL) | \`https://…\` | Weak — volatile; verify before relying |
+| 9 | User quote | "User said: …" | Authoritative *only* for user-provided facts |
+
+## Minimum context for code citations (≥ 10 lines)
+
+A citation must let a reader verify the claim **without reopening the file**. When citing code for a non-trivial claim, give a line *range* covering at least ~10 lines (or the whole method if shorter) — not a bare filename, not a single line ripped from its context. \`src/auth/login.ts#L42-L58\` is verifiable; \`login.ts\` is not. Trim a long method to the relevant 10–40 lines rather than pasting the whole file.
+
+## Identifier scrub (before anything ships)
+
+Before finalizing any output, list every proper noun and identifier in it and confirm each is real — this is where hallucinations hide:
+- [ ] **Class / method / function names** — a search returns a match.
+- [ ] **Endpoint paths** — match a controller annotation / route / OpenAPI entry.
+- [ ] **Environment variables** — present in config or documented.
+- [ ] **Ticket / test keys** (Jira, Xray) — fetched via MCP, never guessed.
+- [ ] **File paths** — confirmed to exist (the broken-link check and \`doctor\` catch these in \`context/\`).
+
+An identifier you cannot confirm is either an assumption (move it to the \`assumptions\` table) or a hallucination (drop it).
 
 ## Examples (✅ good / ❌ bad — required)
 
@@ -188,6 +219,99 @@ Login is handled in src/auth/AuthService.login() and all auth tests pass.
 > Record where this project's ground truth lives (the schema/SDK of record, the ticket system, the canonical result dirs) so agents read it instead of guessing.
 
 {{PROJECT_GROUNDING_SOURCES}}
+`,
+  },
+  {
+    name: "assumptions",
+    title: "Assumptions protocol",
+    body: `# Assumptions protocol
+
+> Phase 1 seeded this standard. Phase 2 records this project's assumption workflow in the \`{{PLACEHOLDER}}\` section.
+
+The \`grounding\` rule says cite a real artifact for every claim. This guideline covers the other half: what to do when you *must* infer something you cannot yet cite. Inference is **allowed only** inside an explicit \`## Assumptions\` table, where each row carries its basis, impact, a way to verify it, and a calibrated confidence — so the reader can accept, challenge, or verify it. Any inferred content **outside** the table is treated as a hallucination, exactly as the \`grounding\` rule treats an uncited claim. This legalizes the unavoidable guess by making it visible and checkable, instead of letting it masquerade as fact.
+
+## The Assumptions table
+
+Every document or report that contains any inferred claim MUST include a \`## Assumptions\` table:
+
+\`\`\`markdown
+## Assumptions
+
+| ID | Claim | Basis | Impact | Verification | Confidence |
+|----|-------|-------|--------|--------------|------------|
+| A1 | partnerKey follows a "COUNTRY-BRAND" format | \`ServiceImpl.java:44\` calls \`extractValuesFromKey(partnerKey).get("country")\` | Test-data shape; invalid format ⇒ failing integration tests | Read \`extractValuesFromKey\` impl; ask the dev team for the validation rule | medium |
+\`\`\`
+
+### Column rules
+
+| Column | Required content |
+|---|---|
+| **ID** | \`A1\`, \`A2\`, … sequential per document. |
+| **Claim** | One sentence stating exactly what is being assumed. |
+| **Basis** | Concrete evidence (\`file:line\`, MCP source, user quote) that *suggested* the inference. **Never** "common practice" / "typical pattern" / "usually" — those are red flags, not a basis. |
+| **Impact** | The downstream decision that depends on this assumption (what breaks if it's wrong). |
+| **Verification** | A specific action — a file to read, a command to run, a person to ask — that would confirm or refute it. |
+| **Confidence** | \`low\` / \`medium\` / \`high\`, calibrated (see below), not optimistic. |
+
+## Confidence calibration
+
+| Confidence | Meaning |
+|---|---|
+| **high** | A single missing fact, strongly implied by the surrounding evidence; verification would take under five minutes. |
+| **medium** | Several plausible readings; you chose one with documented reasoning. |
+| **low** | Speculative; the work proceeds but the reader is warned. |
+
+If you would mark **high** for half your rows or more, recalibrate — **high confidence is rare**.
+
+## Reference convention
+
+When the body relies on an assumption, cite it inline as \`(A1)\` so the assumption and its use stay linked:
+
+\`\`\`markdown
+The lead service exposes a bulk endpoint (A1) the ticket must extend with retry logic (A3).
+\`\`\`
+
+Every inline \`(An)\` must resolve to a row in the table, and every row should be referenced at least once.
+
+## When NOT to use an assumption
+
+The table legalizes *grounded inference*, not laundering. Do **not** use it for:
+- A pure guess with no basis → write \`[Required input — not provided]\` and stop, don't invent a basis.
+- Something the user actually told you → cite the user, it is not an assumption.
+- Something already in a workspace file → cite \`file:line\`, it is a fact, not an assumption.
+- Conflicting sources → write \`[Conflicting sources: A says X, B says Y]\`, don't silently pick one.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — the inference is in the table with a concrete basis and a calibrated confidence, and the body references it:
+\`\`\`markdown
+Auth is delegated to the gateway (A2), so the service has no login test surface.
+
+## Assumptions
+| ID | Claim | Basis | Impact | Verification | Confidence |
+|----|-------|-------|--------|--------------|------------|
+| A2 | The service delegates auth to the API gateway | No \`SecurityConfig\` and no \`@PreAuthorize\` in \`src/main/java\` | No auth cases needed for this service | Check the gateway config; ask DevOps | medium |
+\`\`\`
+
+❌ **Avoid** — an unmarked inference stated as fact, justified by "common practice", no way to verify:
+\`\`\`markdown
+The service uses a 30-second timeout (Spring's default) and authenticates via the gateway.
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: the assumption practices this project relies on (a single \`## Assumptions\` table per report,
+> \`(An)\` inline references, a review step that rejects uncited inference) so agents follow them.
+
+{{ASSUMPTIONS_PATTERNS}}
+
+## Project-specific assumptions workflow
+
+> Record where this project tracks assumptions and how they're validated (the doc/section assumptions live in, who signs off on a \`high\`, how a refuted assumption is retired) once known.
+
+{{PROJECT_ASSUMPTIONS_WORKFLOW}}
 `,
   },
   {

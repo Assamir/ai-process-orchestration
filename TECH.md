@@ -408,7 +408,8 @@ Current set:
 | Guideline | Purpose | Phase-1 seeded | Phase-2 `{{PLACEHOLDER}}` |
 |---|---|---|---|
 | `qa-conventions` | how tests are written here | framework, linters, wizard QA rules (`QA_CONVENTIONS`), ✅/❌ examples | `PROJECT_SPECIFIC_CONVENTIONS`, `CONVENTIONS_PATTERNS` |
-| `grounding` | cite real sources, flag uncertainty, never invent paths/APIs/results (R-029) | the anti-hallucination contract + a ✅/❌ example | `GROUNDING_PATTERNS`, `PROJECT_GROUNDING_SOURCES` |
+| `grounding` | cite real sources, flag uncertainty, never invent paths/APIs/results (R-029); the **evidence-collection standard** — a ranked evidence-type table, ≥10-line minimum-context rule, identifier-scrub checklist (R-045) | the anti-hallucination contract + the ranked evidence table + scrub checklist + a ✅/❌ example | `GROUNDING_PATTERNS`, `PROJECT_GROUNDING_SOURCES` |
+| `assumptions` | inference is legal only inside a `## Assumptions` table (`ID \| Claim \| Basis \| Impact \| Verification \| Confidence`), referenced inline as `(A1)`; complements `grounding` (R-044) | the protocol + the table format + confidence calibration + a ✅/❌ example | `ASSUMPTIONS_PATTERNS`, `PROJECT_ASSUMPTIONS_WORKFLOW` |
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025), incl. the **C4 architecture mapping** (R-032) | the standard + a ✅/❌ example diagram + the C4 level→type table | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
@@ -445,10 +446,31 @@ Standard each guideline follows:
   compaction): every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing
   is invented, and uncertainty is flagged explicitly. The claim-producing skill procedures reference it
   by name. `doctor` enforces it on two axes — the root-config rule must be present (`GROUNDING:missing`,
-  parallel to `IRONQA:missing`) and the guideline must keep its contract: if it no longer mentions both
-  *cite* and *uncertainty*, that is an **error** (`GROUNDING:contract`, parallel to `DOCASCODE:contract`).
-  Like every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check)
-  and phase-2 `GROUNDING_PATTERNS` / `PROJECT_GROUNDING_SOURCES` slots.
+  parallel to `IRONQA:missing`) and the guideline must keep its contract. **Evidence-collection standard
+  (R-045):** the guideline was upgraded in place from "cite something" to a graded standard — a **ranked
+  evidence-type table** (source code `file#L-L` > config > test > result-MCP > ticket > existing doc > git
+  > web > user-quote: prefer the strongest available, mark the weaker ones), a **minimum-context rule**
+  (≥10 lines / the whole method for code citations, so a reader verifies without reopening the file), and
+  an **identifier scrub checklist** (every class/method/endpoint/env-var/ticket-key confirmed present
+  before it ships — an unconfirmable identifier becomes an `assumptions` row or is dropped). The
+  `GROUNDING:contract` check was strengthened accordingly: if the guideline no longer mentions *cite*,
+  *uncertainty*, **and** *evidence*, that is an **error** (parallel to `DOCASCODE:contract`), so gutting
+  the evidence standard fails the build. Like every guideline it carries ✅/❌ examples (kept link-free so
+  they don't trip the broken-link check) and phase-2 `GROUNDING_PATTERNS` / `PROJECT_GROUNDING_SOURCES` slots.
+- **Assumptions protocol (R-044).** An `assumptions` guideline covers the half of grounding that grounding
+  itself can't: what to do when the agent *must* infer something it cannot yet cite. Inference is legal
+  **only** inside an explicit `## Assumptions` table (`ID | Claim | Basis | Impact | Verification |
+  Confidence`), referenced inline as `(A1)`; any inferred claim *outside* the table is treated as a
+  hallucination, exactly as `grounding` treats an uncited claim. `Basis` must be concrete evidence
+  (`file:line` / MCP / user quote), never "common practice"; confidence is calibrated (`low`/`medium`/`high`,
+  with "high is rare"). It does **not** launder pure guesses (those become `[Required input — not provided]`),
+  user-provided facts (cite the user), or workspace facts (cite `file:line`). It complements R-029 grounding
+  and is referenced by name from the claim-producing skills — `qa-ticket-review`, `qa-rca`, `qa-bug-report`,
+  `qa-coverage-gap`, `qa-reverse-engineer` — and added to the read-before-you-write list. Like every guideline
+  it carries ✅/❌ examples (kept link-free) and phase-2 `ASSUMPTIONS_PATTERNS` / `PROJECT_ASSUMPTIONS_WORKFLOW`
+  slots; `doctor` expects the file to exist and to carry both example markers (no extra content-contract check,
+  as with `diagram-conventions` / `spec-driven-development` — the standard is the guideline body). Both R-044
+  and R-045 are adapted from a sibling `.external` Copilot QA-analysis system.
 - **Documentation-as-code (R-028).** A first-class `documentation-as-code` guideline codifies what the
   product already embodies: QA knowledge is treated like source — docs live in-repo, are versioned with
   the code they describe, reviewed in the same PR, validated deterministically by `doctor`, and kept in

@@ -195,7 +195,7 @@ When a ticket arrives and you need to know if it can be tested as written. Read-
 2. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
 3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable. Per the \`spec-driven-development\` guideline, these agreed criteria are the spec the downstream cases will trace to — sharpen every not-yet-testable criterion now, before any case design begins.
 4. Identify risk areas, edge cases, and required test data and environments.
-5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly. Per the \`grounding\` rule, ground every criterion in the ticket/spec text you cite — never infer requirements that are not written, and mark anything you inferred as an open question.
+5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly. Per the \`grounding\` rule, ground every criterion in the ticket/spec text you cite — never infer requirements that are not written. Per the \`assumptions\` guideline, any criterion you had to infer goes in a \`## Assumptions\` table (with its basis, impact, verification, and a calibrated confidence) and is referenced inline as \`(A1)\` — an inferred requirement stated as fact is a hallucination.
 
 ## Done when
 The reviewer has a clear testability verdict and a list of open questions.
@@ -371,7 +371,7 @@ A test failed or a bug was reported and you need the real cause, not a symptom. 
 ## Procedure
 1. Gather artifacts: for Playwright, read the HTML report, traces, and screenshots through the \`playwright-results\` MCP server; otherwise use the paths in \`tools.md\` (logs, trace, JUnit XML). What is not in context does not exist — pull the evidence in.
 2. Reproduce mentally from the trace; separate test defect (flaky/wrong assertion/data) from product defect. If a \`playwright-browser\` MCP server is configured, re-drive the failing path interactively to confirm the reproduction rather than guessing.
-3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity. Per the \`grounding\` rule, every link in the chain cites a real artifact (\`file:line\`, trace, result-MCP output); if the evidence is inconclusive, say so rather than asserting a cause you cannot trace.
+3. State the root cause, the evidence chain, and a minimal fix or guard. Distinguish essential vs accidental complexity. Per the \`grounding\` rule, every link in the chain cites a real artifact (\`file:line\`, trace, result-MCP output); if the evidence is inconclusive, say so rather than asserting a cause you cannot trace. Per the \`assumptions\` guideline, any inferred link (a cause the trace only implies) goes in a \`## Assumptions\` table with a concrete basis, its verification step, and a calibrated confidence — never present a suspected cause as a proven one.
 4. Output the analysis in **{{REPORT_LANGUAGE_NAME}}**; recommend the next skill (\`qa-test-automate\` to fix a test, or a bug report for a product defect).
 
 ## Done when
@@ -460,7 +460,7 @@ Scope it to a single work-item (the default) or, given a list of work-ids, acros
 2. Read \`context/changes/<work-id>/cases.md\`: for each case, follow the criterion it traces to. A case that traces to no criterion, or a criterion with no case, is a gap.
 3. Read \`context/changes/<work-id>/automation.md\` and reconcile cases against the automated tests in **{{AUTOMATION_FRAMEWORK}}**: a designed case with no automated test, or a test traceable to no case/criterion, is a gap. Pull the real test outcomes through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) where available — a case "covered" by a skipped or perpetually-failing test is not truly covered; flag it.
 4. Build the **AC ↔ case ↔ test** traceability table and classify each criterion: *covered* (case + passing test), *partial* (case but no/failing test), or *uncovered* (no case). Note orphans (cases/tests tracing to nothing).
-5. Output a coverage-gap report in **{{REPORT_LANGUAGE_NAME}}**: the traceability table, a coverage count (covered / partial / uncovered), and a prioritized list of the gaps with the single next action for each. Reinforce the iron QA rule — never propose weakening it. Per the \`grounding\` rule, every "covered" cell cites the real case/test it traces to (and the run that proves it passed) — when in doubt, classify it *partial* or *uncovered* rather than assuming coverage.
+5. Output a coverage-gap report in **{{REPORT_LANGUAGE_NAME}}**: the traceability table, a coverage count (covered / partial / uncovered), and a prioritized list of the gaps with the single next action for each. Reinforce the iron QA rule — never propose weakening it. Per the \`grounding\` rule, every "covered" cell cites the real case/test it traces to (and the run that proves it passed) — when in doubt, classify it *partial* or *uncovered* rather than assuming coverage. Per the \`assumptions\` guideline, if you must infer a trace link the artifacts don't make explicit, record it in a \`## Assumptions\` table with its verification step rather than marking the cell *covered* on a guess.
 
 ## Done when
 A coverage-gap report exists with an AC ↔ case ↔ test traceability table, a covered/partial/uncovered tally, and a prioritized gap list. No files were modified.
@@ -514,7 +514,7 @@ A read-only metrics digest exists with pass/fail/flake counts, criterion-coverag
 After \`qa-rca\` concludes the failure is a product defect (not a test defect) and you need a structured, reproducible report. Reads evidence; writes only the report.
 
 ## Procedure
-1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist; per the \`grounding\` rule, every field below cites real evidence — never invent steps, an environment, or a result you did not observe.
+1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist; per the \`grounding\` rule, every field below cites real evidence — never invent steps, an environment, or a result you did not observe. Per the \`assumptions\` guideline, anything you had to infer (a step the trace only implies, an unconfirmed environment detail) goes in a \`## Assumptions\` table and is referenced inline as \`(A1)\`, never blended into the reproduction as fact.
 2. Confirm reproducibility: minimal, ordered steps from a known state; note environment and the test data used.
 3. Fill the template below into \`context/changes/<work-id>/bug-report.md\`. Link the affected acceptance criterion and the work-id; carry the suspected area from \`qa-rca\`.
 4. If an \`atlassian\` MCP server is configured, propose filing it as a Jira issue — mirror the template, do not invent fields.
@@ -563,7 +563,7 @@ To understand an existing application before planning tests, or to onboard onto 
 4. Document the architecture with the **C4 model** (see the \`diagram-conventions\` guideline), top-down: L1 system context in \`c4-context.md\`, L2 containers in \`c4-container.md\`, L3 components (for the testing-critical containers) in \`c4-component.md\`. Skip L4 (code) unless a specific component needs it — link to source instead. Index everything from \`system-overview.md\` and fill its business-context + test-surface (risky / untested) sections.
 5. Each C4 level carries one Mermaid diagram (\`C4Context\` / \`C4Container\` / \`C4Component\`, or the \`flowchart\` fallback) plus supporting prose. Zoom in only as far as the testing question needs — most QA work lives at L1–L3.
 6. Enrich \`repo-map.md\`'s phase-2 sections: fill **Test ↔ source map** (map each test directory from the inventory to the C4 container/component it exercises, reusing those names so the two maps agree) and **Entry points** (each route/CLI/job/consumer linked to the test directory that covers it, or flagged uncovered). Leave the phase-1 inventory section as the auto-generated map — don't hand-edit it.
-7. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path / symbol / integration by opening it before documenting it — never invent an architecture; mark anything you could not verify as an assumption.
+7. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path / symbol / integration by opening it before documenting it — never invent an architecture. Per the \`assumptions\` guideline, record anything you could not verify in a \`## Assumptions\` table (basis, impact, verification, calibrated confidence) and reference it inline as \`(A1)\` — inferred architecture stated as fact is a hallucination.
 
 ## Done when
 \`context/reference/\` holds the agreed C4-structured docs (L1–L3 as needed) and \`repo-map.md\`'s phase-2 test↔source / entry-point sections are filled, with no unresolved \`{{PLACEHOLDER}}\` markers, indexed from \`system-overview.md\` and tracing to real source paths. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
@@ -581,7 +581,7 @@ To understand an existing application before planning tests, or to onboard onto 
  * left untouched). Mirrors the "Read before you write" rule in the lean root map.
  */
 const READ_FIRST_STEP =
-  "> **Read first (standing rule):** before changing anything, read the guidelines/standards related to this task — at minimum `qa-conventions` and `test-naming`, plus any that apply (`spec-driven-development`, `grounding`, `documentation-as-code`, `diagram-conventions`). See \"Read before you write\" in the root map.";
+  "> **Read first (standing rule):** before changing anything, read the guidelines/standards related to this task — at minimum `qa-conventions` and `test-naming`, plus any that apply (`spec-driven-development`, `grounding`, `assumptions`, `documentation-as-code`, `diagram-conventions`). See \"Read before you write\" in the root map.";
 
 /** The full MVP skill suite, in workflow order. */
 export const SKILLS: LogicalSkill[] = [...backbone, ...design, ...automation, ...analysis].map((s) =>

@@ -197,20 +197,22 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
   }
 
-  // 7. Grounding guideline (R-029) — must keep its anti-hallucination contract:
-  // cite real sources and flag uncertainty rather than invent. Content check
-  // parallel to the iron-QA-rule and docs-as-code checks, so gutting it fails.
+  // 7. Grounding guideline (R-029, evidence-collection standard R-045) — must keep
+  // its anti-hallucination contract: cite real *evidence* and flag uncertainty
+  // rather than invent. The "evidence" term (R-045) keeps the ranked evidence-type
+  // table / identifier-scrub standard load-bearing. Content check parallel to the
+  // iron-QA-rule and docs-as-code checks, so gutting it fails.
   const groundingRel = adapter.guidelineRel("grounding");
   const groundingAbs = join(root, groundingRel);
   if (existsSync(groundingAbs)) {
     const text = readFileSync(groundingAbs, "utf8").toLowerCase();
-    if (!text.includes("cite") || !text.includes("uncertain")) {
+    if (!text.includes("cite") || !text.includes("uncertain") || !text.includes("evidence")) {
       findings.push({
         id: "GROUNDING:contract",
         severity: "error",
-        message: `The grounding guideline (${groundingRel}) no longer states its core contract (cite real sources; flag uncertainty instead of inventing).`,
+        message: `The grounding guideline (${groundingRel}) no longer states its core contract (cite ranked evidence; flag uncertainty instead of inventing).`,
         remediation:
-          "Restore the contract: cite `file:line` / ticket id / result-MCP output for every claim, never invent paths/APIs/results, and flag uncertainty explicitly. It must not be weakened.",
+          "Restore the contract: cite `file:line` / ticket id / result-MCP output for every claim, prefer the strongest evidence type, never invent paths/APIs/results, and flag uncertainty explicitly. It must not be weakened.",
       });
     }
   }
