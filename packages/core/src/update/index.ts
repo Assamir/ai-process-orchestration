@@ -6,6 +6,7 @@ import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
 import { buildVars, fileBaseline, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
 import type { FileBaseline, ScaffoldManifest } from "../types.js";
+import { type Changelog, computeChangelog } from "./changelog.js";
 import { type MergeRegion, merge3 } from "./merge.js";
 
 /**
@@ -133,6 +134,15 @@ export interface UpdateReport {
    */
   version?: VersionInfo;
   /**
+   * (R-042) The machine-computed template delta from the scaffolded version to
+   * the running tool (added/changed/removed skills, guidelines, files), derived
+   * from the recorded baseline vs. the current templates — independent of the
+   * user's on-disk edits. Present on every non-fatal report once the manifest
+   * carries a baseline (R-034+); `undefined` for pre-R-034 manifests with no
+   * baseline to diff against, and empty (`entries: []`) when nothing changed.
+   */
+  changelog?: Changelog;
+  /**
    * Set when the target can't be migrated at all (no/invalid manifest, or the
    * manifest was generated for a different platform). When set, `items` is empty
    * and nothing is written.
@@ -225,6 +235,10 @@ export function runUpdate(
   // fresh": on a pristine repo-map it refreshes to match the current layout; a
   // phase-2-enriched repo-map is drift and is preserved untouched, as ever.
   const vars = buildVars(manifest.stack, manifest.choices, manifest.generatedAt, repoMapMarkdown(root));
+  // (R-042) The template-side delta from the scaffolded version to the running
+  // tool, computed from the same vars so unchanged templates render identically
+  // and don't show up as spurious changes. Independent of on-disk state below.
+  const changelog = computeChangelog(adapter, manifest, vars, opts.toolVersion);
   const baseline = manifest.files ?? {};
   const expected = scaffoldFiles(adapter, manifest.stack, manifest.choices);
   const expectedRels = new Set(expected.map((f) => f.rel));
@@ -351,5 +365,5 @@ export function runUpdate(
 
   const counts = { ...emptyCounts };
   for (const it of items) counts[it.action]++;
-  return { mode, platform: adapter.id, items, counts, version };
+  return { mode, platform: adapter.id, items, counts, version, changelog };
 }

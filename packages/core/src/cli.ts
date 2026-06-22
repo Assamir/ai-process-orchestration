@@ -6,6 +6,7 @@ import { detectStack } from "./detect/index.js";
 import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WriteResult } from "./types.js";
+import type { Changelog, ChangelogKind } from "./update/changelog.js";
 import { runUpdate, type UpdateReport } from "./update/index.js";
 import { resolveConflicts } from "./update/resolve.js";
 import { defaultAnswers, runWizard } from "./wizard/index.js";
@@ -219,6 +220,14 @@ async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, w
     }
   }
 
+  // Template changelog (R-042): what changed upstream between the scaffolded and
+  // running versions — independent of the user's edits. Shown before the
+  // repo-side plan so the user sees "what's new" before "what happens to me".
+  const cl = report.changelog;
+  if (cl && cl.entries.length > 0) {
+    note(changelogLines(cl).join("\n"), "Template changes (upstream delta)");
+  }
+
   const { create, update, merge, conflict, drift, orphan, unchanged } = report.counts;
   const actionable = report.items.filter((i) => i.action !== "unchanged");
 
@@ -287,4 +296,28 @@ Options:
 
 function rel(root: string, abs: string): string {
   return abs.startsWith(root) ? abs.slice(root.length).replace(/^[/\\]/, "") : abs;
+}
+
+/**
+ * Render the template changelog (R-042) as a compact, grouped summary: a header
+ * naming the version window, then one line per artifact kind listing
+ * `+ added` / `~ changed` / `- removed` names. Skill/guideline entries show
+ * their logical name; plain files show their path.
+ */
+function changelogLines(cl: Changelog): string[] {
+  const sym: Record<string, string> = { added: "+", changed: "~", removed: "-" };
+  const labels: Record<ChangelogKind, string> = {
+    skill: "Skills",
+    guideline: "Guidelines",
+    file: "Files",
+  };
+  const header = `Upstream template delta ${cl.fromVersion ?? "unknown"} -> ${cl.toVersion ?? "unknown"}:`;
+  const lines = [header];
+  for (const kind of ["skill", "guideline", "file"] as ChangelogKind[]) {
+    const inKind = cl.entries.filter((e) => e.kind === kind);
+    if (inKind.length === 0) continue;
+    const items = inKind.map((e) => `${sym[e.change]} ${e.name ?? e.rel}`).join(", ");
+    lines.push(`  ${labels[kind]}: ${items}`);
+  }
+  return lines;
 }

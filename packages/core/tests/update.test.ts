@@ -446,3 +446,100 @@ describe("runUpdate version awareness (R-038)", () => {
     expect(readManifest(project.dir).toolVersion).toBe("0.28.0");
   });
 });
+
+describe("runUpdate template changelog (R-042)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.28.0" });
+  });
+  afterEach(() => project.cleanup());
+
+  /** Overwrite one manifest baseline entry; pass `undefined` to drop it. */
+  function patchBaseline(rel: string, entry: string | FileBaseline | undefined) {
+    const m = readManifest(project.dir);
+    if (entry === undefined) delete m.files![rel];
+    else m.files![rel] = entry;
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+  }
+
+  it("is empty on a freshly scaffolded repo (no upstream delta)", () => {
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    expect(report.changelog).toBeDefined();
+    expect(report.changelog?.entries).toEqual([]);
+    expect(report.changelog?.fromVersion).toBe("0.28.0");
+    expect(report.changelog?.toVersion).toBe("0.30.0");
+  });
+
+  it("reports a changed guideline, classified by kind and name", () => {
+    // Recorded base differs from the current template → the template changed.
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8");
+    const base = ["# OLD HEADING", ...current.split("\n").slice(1)].join("\n");
+    patchBaseline(GUIDELINE, { hash: createHash("sha256").update(base, "utf8").digest("hex"), content: base });
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    const entry = report.changelog?.entries.find((e) => e.rel === GUIDELINE);
+    expect(entry).toEqual({ rel: GUIDELINE, change: "changed", kind: "guideline", name: "qa-conventions" });
+  });
+
+  it("is independent of the user's on-disk edits (template-side delta)", () => {
+    // Same changed-template setup, but ALSO delete the file on disk. The
+    // changelog still reports it changed — it tracks the template, not the repo.
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8");
+    const base = ["# OLD HEADING", ...current.split("\n").slice(1)].join("\n");
+    patchBaseline(GUIDELINE, { hash: createHash("sha256").update(base, "utf8").digest("hex"), content: base });
+    rmSync(abs);
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    expect(report.changelog?.entries.some((e) => e.rel === GUIDELINE && e.change === "changed")).toBe(true);
+  });
+
+  it("reports an added file when the baseline never recorded it", () => {
+    patchBaseline(GUIDELINE, undefined); // no recorded base → new since scaffolding
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    const entry = report.changelog?.entries.find((e) => e.rel === GUIDELINE);
+    expect(entry).toEqual({ rel: GUIDELINE, change: "added", kind: "guideline", name: "qa-conventions" });
+  });
+
+  it("reports a removed skill (baseline has it, the scaffold no longer does)", () => {
+    const gone = ".claude/skills/qa-removed/SKILL.md";
+    patchBaseline(gone, { hash: "deadbeef", content: "# gone\n" });
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    const entry = report.changelog?.entries.find((e) => e.rel === gone);
+    expect(entry).toEqual({ rel: gone, change: "removed", kind: "skill", name: "qa-removed" });
+  });
+
+  it("detects a change against a pre-R-039 hash-only baseline (by fingerprint)", () => {
+    patchBaseline(GUIDELINE, "0000000000000000000000000000000000000000000000000000000000000000");
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    expect(report.changelog?.entries.some((e) => e.rel === GUIDELINE && e.change === "changed")).toBe(true);
+  });
+
+  it("yields no changelog for a pre-R-034 manifest (no baseline to diff)", () => {
+    const m = readManifest(project.dir);
+    delete m.files;
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    expect(report.changelog).toBeUndefined();
+  });
+
+  it("sorts entries by kind then change (skills, guidelines, files)", () => {
+    // One removed skill, one changed guideline, one added file — expect that order.
+    patchBaseline(".claude/skills/qa-removed/SKILL.md", { hash: "x", content: "y" });
+    const gAbs = join(project.dir, GUIDELINE);
+    const gBase = ["# OLD", ...readFileSync(gAbs, "utf8").split("\n").slice(1)].join("\n");
+    patchBaseline(GUIDELINE, { hash: createHash("sha256").update(gBase, "utf8").digest("hex"), content: gBase });
+    patchBaseline(claudeAdapter.rootConfigRel, undefined); // root config now "added"
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    const kinds = report.changelog!.entries.map((e) => e.kind);
+    // skills before guidelines before files (stable, deterministic ordering).
+    expect(kinds).toEqual([...kinds].sort((a, b) => kindRank(a) - kindRank(b)));
+  });
+});
+
+function kindRank(k: string): number {
+  return { skill: 0, guideline: 1, file: 2 }[k as "skill" | "guideline" | "file"];
+}

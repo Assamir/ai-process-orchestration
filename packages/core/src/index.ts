@@ -26,6 +26,13 @@ export {
   type VersionInfo,
 } from "./update/index.js";
 export {
+  computeChangelog,
+  type Changelog,
+  type ChangelogEntry,
+  type ChangelogChange,
+  type ChangelogKind,
+} from "./update/changelog.js";
+export {
   merge3,
   applyResolutions,
   CONFLICT_MARKERS,

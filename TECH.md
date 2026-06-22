@@ -345,7 +345,23 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   untouched. To keep this clean, `update --write` runs **two passes** — classify (dry-run) to discover
   conflicts, prompt, then apply with the collected resolutions — and the interactive form only fires on a
   TTY, so non-interactive/CI runs behave exactly as in R-040 (conflicts reported, never written).
-  *Next: R-042 template changelog, R-043 `update --interactive` file-by-file walk.*
+  **Template changelog (R-042, v0.32.0).** `update` now reports the **upstream template delta** between
+  the scaffolded and running versions, so the user sees *what changed* before deciding what to apply.
+  `computeChangelog` (`core/src/update/changelog.ts`) diffs the recorded manifest baseline against the
+  current rendered templates — the same vars `runUpdate` builds, so unchanged templates render identically
+  and never show as spurious changes — and emits `UpdateReport.changelog` (`{ fromVersion, toVersion,
+  entries }`). It is **template-side and independent of the user's on-disk edits**: a file the user deleted
+  or rewrote still appears as `changed` iff the *template* changed (distinct from `update`'s per-file repo
+  actions, which describe "what happens to *my* repo"). Each entry is `added` (no recorded base), `changed`
+  (base content/hash differs from the current template), or `removed` (in the baseline, no longer
+  scaffolded), and is classified `skill`/`guideline`/`file` by a path-derived classifier built from the
+  adapter's *own* skill/guideline path shapes (a sentinel-name split of `guidelineRel`/`renderSkill`), so it
+  also names *removed* skills that are no longer in `SKILLS`. The `manifest.toolVersion` anchor (R-038)
+  labels the window (`fromVersion → toVersion`); after `update --write` advances the baseline the next run's
+  changelog is empty, and nothing is invented — every entry traces to a real base→template difference.
+  Pre-R-034 manifests (no baseline) yield no changelog (`undefined`). The CLI prints it as a grouped
+  "Upstream template delta X → Y" note before the repo-side plan.
+  *Next: R-043 `update --interactive` file-by-file walk.*
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
