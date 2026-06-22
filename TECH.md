@@ -294,6 +294,17 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   now records a sha256 of every file's canonical rendered content in the (backward-compatible, still
   `schemaVersion: 1`) manifest; manifests written before R-034 lack it and `update` degrades safely to
   additive-only. Mirrors the `doctor --fix` / auditskill `apply-step` dry-run/write contract.
+  **Version-aware (R-038, v0.28.0).** The manifest also records `toolVersion` — the package version
+  (`claude`/`copilot-qa-orchestrator`, sourced from the leaf's `package.json` and threaded through
+  `CliMeta.version`) that last wrote the scaffold (set by `init`, refreshed by `update --write`).
+  `update` compares it against the running tool (`compareToolVersions`, a dependency-free numeric
+  semver compare in `core/src/update/index.ts`) and surfaces a `VersionInfo`
+  (`scaffolded`/`running`/`direction`: `same`/`upgrade`/`downgrade`/`unknown`): the CLI prints
+  `scaffolded X → running Y` and **warns on a downgrade** (running an older tool would revert newer
+  templates). Pre-R-038 manifests have no `toolVersion` and report `unknown` while behaving exactly as
+  before. This is the foundation for the rest of the version-aware-`update` epic: the changelog (R-042)
+  computes its delta from `toolVersion`, and the 3-way merge (R-039 → R-041) needs to know *what
+  changed between versions* before it can merge.
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,

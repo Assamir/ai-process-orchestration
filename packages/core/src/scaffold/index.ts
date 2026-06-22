@@ -14,6 +14,12 @@ export interface ScaffoldInput {
   adapter: PlatformAdapter;
   stack: DetectedStack;
   answers: WizardAnswers;
+  /**
+   * (R-038) The running package version, recorded as `manifest.toolVersion` so
+   * `update` can later report `scaffolded X → running Y`. Optional: when omitted
+   * (e.g. a direct test call) the field is left off, matching pre-R-038 manifests.
+   */
+  toolVersion?: string;
 }
 
 /**
@@ -63,6 +69,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
   const manifest: ScaffoldManifest = {
     schemaVersion: 1,
     generatedAt,
+    ...(input.toolVersion ? { toolVersion: input.toolVersion } : {}),
     platform: adapter.id,
     stack,
     choices: answers,

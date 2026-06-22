@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeAdapter, copilotAdapter, runUpdate, scaffold } from "../src/index.js";
+import { claudeAdapter, compareToolVersions, copilotAdapter, runUpdate, scaffold } from "../src/index.js";
 import type { DetectedStack, ScaffoldManifest, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -166,5 +166,75 @@ describe("runUpdate (update command, R-034)", () => {
 
     const second = runUpdate(project.dir, claudeAdapter, { write: true });
     expect(second.items.every((i) => i.action === "unchanged")).toBe(true);
+  });
+});
+
+describe("compareToolVersions (R-038)", () => {
+  it("orders dotted-integer versions numerically", () => {
+    expect(compareToolVersions("0.27.0", "0.28.0")).toBe(-1);
+    expect(compareToolVersions("0.28.0", "0.27.0")).toBe(1);
+    expect(compareToolVersions("0.28.0", "0.28.0")).toBe(0);
+    // numeric, not lexicographic (so 0.9 < 0.10)
+    expect(compareToolVersions("0.9.0", "0.10.0")).toBe(-1);
+    expect(compareToolVersions("1.0.0", "0.99.99")).toBe(1);
+  });
+
+  it("ignores pre-release/build suffixes and missing components", () => {
+    expect(compareToolVersions("0.28.0-rc.1", "0.28.0")).toBe(0);
+    expect(compareToolVersions("0.28", "0.28.0")).toBe(0);
+  });
+
+  it("returns null for unparseable versions", () => {
+    expect(compareToolVersions("latest", "0.28.0")).toBeNull();
+    expect(compareToolVersions("0.28.0", "")).toBeNull();
+  });
+});
+
+describe("runUpdate version awareness (R-038)", () => {
+  let project: ReturnType<typeof tempProject>;
+  afterEach(() => project.cleanup());
+
+  it("records toolVersion in the manifest at scaffold time", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.28.0" });
+    expect(readManifest(project.dir).toolVersion).toBe("0.28.0");
+  });
+
+  it("reports scaffolded -> running and an upgrade direction", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.28.0" });
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.30.0" });
+    expect(report.version).toEqual({ scaffolded: "0.28.0", running: "0.30.0", direction: "upgrade" });
+  });
+
+  it("flags a downgrade when the running tool is older than the scaffolding one", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.30.0" });
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.28.0" });
+    expect(report.version?.direction).toBe("downgrade");
+  });
+
+  it("reports 'unknown' when the manifest predates R-038 (no toolVersion)", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers }); // no toolVersion
+    expect(readManifest(project.dir).toolVersion).toBeUndefined();
+    const report = runUpdate(project.dir, claudeAdapter, { write: false, toolVersion: "0.28.0" });
+    expect(report.version).toEqual({ scaffolded: undefined, running: "0.28.0", direction: "unknown" });
+  });
+
+  it("refreshes manifest.toolVersion to the running version on --write", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.28.0" });
+    runUpdate(project.dir, claudeAdapter, { write: true, toolVersion: "0.30.0" });
+    expect(readManifest(project.dir).toolVersion).toBe("0.30.0");
+  });
+
+  it("preserves the recorded toolVersion when --write supplies none", () => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers, toolVersion: "0.28.0" });
+    // Force a write by deleting a file so there is an actionable change.
+    rmSync(join(project.dir, GUIDELINE));
+    runUpdate(project.dir, claudeAdapter, { write: true }); // no toolVersion
+    expect(readManifest(project.dir).toolVersion).toBe("0.28.0");
   });
 });

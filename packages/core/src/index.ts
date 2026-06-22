@@ -18,9 +18,12 @@ export { copilotAdapter } from "./adapters/copilot.js";
 export { scaffold, type ScaffoldInput, PHASE1_VAR_NAMES } from "./scaffold/index.js";
 export {
   runUpdate,
+  compareToolVersions,
   type UpdateAction,
   type UpdateItem,
   type UpdateReport,
+  type VersionDirection,
+  type VersionInfo,
 } from "./update/index.js";
 export {
   runDoctor,

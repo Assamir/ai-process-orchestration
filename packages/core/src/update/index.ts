@@ -31,11 +31,72 @@ export interface UpdateItem {
   detail?: string;
 }
 
+/**
+ * How the version that scaffolded the repo relates to the running tool.
+ *
+ * - `same`      — identical versions.
+ * - `upgrade`   — running a newer tool than scaffolded (the normal `update`).
+ * - `downgrade` — running an older tool; migrating would revert newer templates.
+ * - `unknown`   — either side is missing (pre-R-038 manifest, or no running
+ *                 version supplied) or a version string is unparseable.
+ */
+export type VersionDirection = "same" | "upgrade" | "downgrade" | "unknown";
+
+export interface VersionInfo {
+  /** `manifest.toolVersion` — what last wrote this scaffold (R-038). */
+  scaffolded?: string;
+  /** The running package version, as supplied by the CLI. */
+  running?: string;
+  direction: VersionDirection;
+}
+
+/**
+ * Compare two `X.Y.Z[-pre]` version strings numerically by release component
+ * (pre-release/build suffixes are ignored). Returns -1 / 0 / 1, or `null` when
+ * either string isn't a parseable dotted-integer version.
+ */
+export function compareToolVersions(a: string, b: string): number | null {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  if (pa === null || pb === null) return null;
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+function parseVersion(v: string): number[] | null {
+  const release = v.trim().split(/[-+]/)[0] ?? "";
+  const parts = release.split(".");
+  if (parts.length === 0 || parts[0] === "") return null;
+  const nums = parts.map((p) => Number(p));
+  if (nums.some((n) => !Number.isInteger(n) || n < 0)) return null;
+  return nums;
+}
+
+function versionInfo(scaffolded: string | undefined, running: string | undefined): VersionInfo {
+  if (scaffolded === undefined || running === undefined) {
+    return { scaffolded, running, direction: "unknown" };
+  }
+  const cmp = compareToolVersions(scaffolded, running);
+  const direction: VersionDirection =
+    cmp === null ? "unknown" : cmp === 0 ? "same" : cmp < 0 ? "upgrade" : "downgrade";
+  return { scaffolded, running, direction };
+}
+
 export interface UpdateReport {
   mode: "dry-run" | "write";
   platform: string;
   items: UpdateItem[];
   counts: Record<UpdateAction, number>;
+  /**
+   * (R-038) How the scaffolded version relates to the running tool. Present on
+   * every non-fatal report; the CLI surfaces it as `scaffolded X → running Y`
+   * and warns on a downgrade.
+   */
+  version?: VersionInfo;
   /**
    * Set when the target can't be migrated at all (no/invalid manifest, or the
    * manifest was generated for a different platform). When set, `items` is empty
@@ -60,7 +121,7 @@ export interface UpdateReport {
 export function runUpdate(
   root: string,
   adapter: PlatformAdapter,
-  opts: { write?: boolean } = {},
+  opts: { write?: boolean; toolVersion?: string } = {},
 ): UpdateReport {
   const write = opts.write === true;
   const mode = write ? "write" : "dry-run";
@@ -105,6 +166,8 @@ export function runUpdate(
       fatal: `Scaffold was generated for "${manifest.platform}", but you ran the ${adapter.id} update. Use the ${manifest.platform} package.`,
     };
   }
+
+  const version = versionInfo(manifest.toolVersion, opts.toolVersion);
 
   // Reproduce the original phase-1 vars from the manifest. Reusing the recorded
   // generatedAt is what makes unchanged templates render byte-identical (so they
@@ -178,6 +241,9 @@ export function runUpdate(
       ...manifest,
       schemaVersion: 1,
       updatedAt: new Date().toISOString(),
+      // Record the version that produced the now-on-disk files; preserve the
+      // prior value when the CLI didn't supply one (e.g. a direct test call).
+      ...(opts.toolVersion ? { toolVersion: opts.toolVersion } : {}),
       skills: SKILLS.map((s) => s.name),
       files: newBaseline,
     };
@@ -186,5 +252,5 @@ export function runUpdate(
 
   const counts = { ...emptyCounts };
   for (const it of items) counts[it.action]++;
-  return { mode, platform: adapter.id, items, counts };
+  return { mode, platform: adapter.id, items, counts, version };
 }

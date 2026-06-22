@@ -14,6 +14,11 @@ export interface CliMeta {
   binName: string;
   /** Human name of the target tool, e.g. "Claude Code" or "GitHub Copilot (VS Code)". */
   toolName: string;
+  /**
+   * The running package version (from the leaf's `package.json`). Recorded as
+   * `manifest.toolVersion` by `init` and compared by `update` (R-038).
+   */
+  version: string;
 }
 
 /**
@@ -70,7 +75,7 @@ async function doInit(
   const answers = yes ? defaultAnswers(stack) : await runWizard(stack);
   if (answers === null) return 0; // user cancelled
 
-  const written: WriteResult[] = scaffold({ root, adapter, stack, answers });
+  const written: WriteResult[] = scaffold({ root, adapter, stack, answers, toolVersion: meta.version });
 
   note(
     written.map((w) => `${w.status === "created" ? "+" : "·"} ${rel(root, w.path)} (${w.status})`).join("\n"),
@@ -166,12 +171,29 @@ function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: 
   intro(`${meta.binName} update${write ? " --write" : ""}`);
   log.step(`${write ? "Migrating" : "Checking"} ${root} against current templates (${meta.toolName})`);
 
-  const report = runUpdate(root, adapter, { write });
+  const report = runUpdate(root, adapter, { write, toolVersion: meta.version });
 
   if (report.fatal) {
     log.error(report.fatal);
     outro("Nothing to update.");
     return 1;
+  }
+
+  // Version awareness (R-038): report scaffolded → running, warn on a downgrade.
+  const v = report.version;
+  if (v) {
+    const arrow = `${v.scaffolded ?? "unknown"} -> ${v.running ?? "unknown"}`;
+    if (v.direction === "downgrade") {
+      log.warn(
+        `This repo was scaffolded with a newer version than you're running (${arrow}). Migrating may revert newer templates — consider upgrading ${meta.binName} first.`,
+      );
+    } else if (v.direction === "upgrade") {
+      log.step(`Migrating ${arrow} (scaffolded -> running).`);
+    } else if (v.direction === "same") {
+      log.step(`Running the same version that scaffolded this repo (${v.running}).`);
+    } else {
+      log.step(`Version: scaffolded ${v.scaffolded ?? "unknown"}, running ${v.running ?? "unknown"}.`);
+    }
   }
 
   const { create, update, drift, orphan, unchanged } = report.counts;

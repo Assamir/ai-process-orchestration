@@ -83,6 +83,15 @@ export interface ScaffoldManifest {
   generatedAt: string;
   /** Set by `update --write` (R-034) when this scaffold was last migrated. */
   updatedAt?: string;
+  /**
+   * (R-038) The package version (`claude`/`copilot-qa-orchestrator`) that last
+   * wrote this scaffold — recorded by `init` and refreshed by `update --write`.
+   * Lets `update` report `scaffolded X → running Y` and warn on a downgrade, and
+   * is the anchor the changelog (R-042) computes its delta from. Absent in
+   * manifests written before R-038, in which case the version is reported as
+   * "unknown" and `update` proceeds exactly as before.
+   */
+  toolVersion?: string;
   platform: PlatformId;
   stack: DetectedStack;
   choices: WizardAnswers;

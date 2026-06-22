@@ -1,8 +1,10 @@
 import { copilotAdapter, runCli } from "@qa-orch/core";
+import pkg from "../package.json" with { type: "json" };
 
 runCli(copilotAdapter, {
   binName: "copilot-qa-orchestrator",
   toolName: "GitHub Copilot (VS Code)",
+  version: pkg.version,
 }).then(
   (code) => process.exit(code),
   (err: unknown) => {
