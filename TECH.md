@@ -361,7 +361,21 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   changelog is empty, and nothing is invented — every entry traces to a real base→template difference.
   Pre-R-034 manifests (no baseline) yield no changelog (`undefined`). The CLI prints it as a grouped
   "Upstream template delta X → Y" note before the repo-side plan.
-  *Next: R-043 `update --interactive` file-by-file walk.*
+  **File-by-file walk (R-043, v0.33.0).** `update --interactive` (`-i`) steps through each change one file
+  at a time — **apply / skip / show diff** — instead of the bulk `--write`, for reviewing a large
+  migration. The classifier now attaches a `preview` (`{ before?, after }`) to every actionable
+  `create`/`update`/`merge` item (`after` = the proposed content; `before` = the current on-disk content,
+  omitted for a new file), so the walk can render a compact unified line diff (`merge.ts:diffLines`, one
+  `@@`-headed hunk per changed region, no context). The CLI classifies first (dry-run), then `walkChanges`
+  (`core/src/update/resolve.ts`, alongside the R-041 conflict form) prompts apply/skip/diff per
+  create/update/merge **and** resolves conflicts region-by-region (reusing `resolveFile`) in one
+  document-order pass; the selection feeds `runUpdate({ write: true, apply, resolutions })`. The new
+  `apply?: string[]` option **signals interactive mode by its presence** (even when empty): only listed
+  files are written, every other actionable file is reported `skipped: true` and **left untouched with its
+  baseline preserved**, so a later run offers it again. Conflicts stay gated by `resolutions`, never by
+  `apply`. When `apply` is absent, `update` writes everything in bulk exactly as before; `--interactive`
+  requires a TTY and otherwise falls back to a dry-run preview, so CI behavior is unchanged. *The
+  version-aware-`update` epic (R-038→R-043) is complete.*
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,

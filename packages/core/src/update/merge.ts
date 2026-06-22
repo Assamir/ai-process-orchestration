@@ -206,6 +206,30 @@ export function applyResolutions(regions: MergeRegion[], choices: ConflictChoice
   return out.join("\n");
 }
 
+/**
+ * A compact unified-style line diff between `before` and `after` (R-043). One
+ * hunk per differing region — a `@@ -o,len +n,len @@` header, then `-` lines for
+ * what `before` had and `+` lines for what `after` has. No surrounding context
+ * (the regions already isolate the change), so it stays short even for large
+ * files. Returns `"(no changes)"` when the two are identical. Used by the
+ * interactive `update --interactive` walk to show a file's pending change.
+ */
+export function diffLines(before: string, after: string): string {
+  const o = before.split("\n");
+  const n = after.split("\n");
+  const cs = changes(o, n);
+  if (cs.length === 0) return "(no changes)";
+  const out: string[] = [];
+  for (const c of cs) {
+    const oLen = c.oEnd - c.oStart;
+    const nLen = c.nEnd - c.nStart;
+    out.push(`@@ -${c.oStart + 1},${oLen} +${c.nStart + 1},${nLen} @@`);
+    for (let i = c.oStart; i < c.oEnd; i++) out.push(`- ${o[i]}`);
+    for (let i = c.nStart; i < c.nEnd; i++) out.push(`+ ${n[i]}`);
+  }
+  return out.join("\n");
+}
+
 /** Net change in side-line count across a set of hunks (insertions positive). */
 function delta(hunks: Change[]): number {
   let d = 0;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyResolutions, CONFLICT_MARKERS, merge3 } from "../src/index.js";
+import { applyResolutions, CONFLICT_MARKERS, diffLines, merge3 } from "../src/index.js";
 
 describe("merge3 (3-way line merge, R-040)", () => {
   it("returns the base unchanged when no side changed", () => {
@@ -136,5 +136,37 @@ describe("merge regions + applyResolutions (R-041)", () => {
   it("defaults a missing choice to keeping the local side", () => {
     const r = merge3("a\nMINE\nc\n", "a\nb\nc\n", "a\nTHEIRS\nc\n");
     expect(applyResolutions(r.regions, [])).toBe("a\nMINE\nc\n");
+  });
+});
+
+describe("diffLines (R-043 interactive diff view)", () => {
+  it("reports no changes for identical text", () => {
+    expect(diffLines("a\nb\nc\n", "a\nb\nc\n")).toBe("(no changes)");
+  });
+
+  it("emits a unified hunk for a single changed line", () => {
+    const d = diffLines("a\nb\nc\n", "a\nB\nc\n");
+    expect(d).toContain("- b");
+    expect(d).toContain("+ B");
+    expect(d).toMatch(/^@@ /m);
+  });
+
+  it("shows pure additions as `+` lines (append)", () => {
+    const d = diffLines("a\nb\n", "a\nb\nc\n");
+    expect(d).toContain("+ c");
+    expect(d).not.toContain("- ");
+  });
+
+  it("shows pure deletions as `-` lines", () => {
+    const d = diffLines("a\nb\nc\n", "a\nc\n");
+    expect(d).toContain("- b");
+    expect(d).not.toMatch(/^\+ b$/m);
+  });
+
+  it("emits one hunk per disjoint changed region", () => {
+    const before = "L1\nL2\nL3\nL4\nL5\n";
+    const after = "L1x\nL2\nL3\nL4\nL5y\n";
+    const hunks = diffLines(before, after).split("\n").filter((l) => l.startsWith("@@"));
+    expect(hunks).toHaveLength(2);
   });
 });

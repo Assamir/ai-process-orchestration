@@ -7,8 +7,8 @@ import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WriteResult } from "./types.js";
 import type { Changelog, ChangelogKind } from "./update/changelog.js";
-import { runUpdate, type UpdateReport } from "./update/index.js";
-import { resolveConflicts } from "./update/resolve.js";
+import { runUpdate, type UpdateItem, type UpdateReport } from "./update/index.js";
+import { type ChangeItem, resolveConflicts, walkChanges } from "./update/resolve.js";
 import { defaultAnswers, runWizard } from "./wizard/index.js";
 
 export interface CliMeta {
@@ -39,6 +39,7 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
       help: { type: "boolean", short: "h", default: false },
       fix: { type: "boolean", default: false },
       write: { type: "boolean", default: false },
+      interactive: { type: "boolean", short: "i", default: false },
     },
   });
 
@@ -54,7 +55,7 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
     if (values.fix) return doDoctorFix(adapter, meta, root, values.write);
     return doDoctor(adapter, meta, root);
   }
-  if (command === "update") return doUpdate(adapter, meta, root, values.write);
+  if (command === "update") return doUpdate(adapter, meta, root, values.write, values.interactive);
 
   process.stderr.write(`Unknown command: ${command}\n\n${help(meta.binName)}`);
   return 1;
@@ -166,20 +167,33 @@ function doDoctorFix(adapter: PlatformAdapter, meta: CliMeta, root: string, writ
 /**
  * `update` — deterministic, no-LLM migration of an already-initialized repo to
  * the current `core` templates. Dry-run by default (previews additive/updated
- * changes); `--write` applies them. Drifted (user-edited) and orphaned files are
- * reported, never clobbered or deleted.
+ * changes); `--write` applies them in bulk; `--interactive` (R-043) steps through
+ * each change one file at a time (apply / skip / diff). Drifted (user-edited) and
+ * orphaned files are reported, never clobbered or deleted.
  *
  * On `--write` in an interactive terminal, real conflicts (R-040) are resolved
  * through the `@clack/prompts` form (R-041): we classify first (dry-run), let the
  * user pick mine/theirs per conflict, then apply with those resolutions. In a
- * non-interactive run (no TTY) conflicts stay reported and untouched, as before.
+ * non-interactive run (no TTY) conflicts stay reported and untouched. With
+ * `--interactive` the same walk also asks apply/skip per create/update/merge
+ * file, so a large migration can be reviewed file by file (R-043). `--interactive`
+ * requires a TTY; without one it falls back to a dry-run preview.
  */
-async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: boolean): Promise<number> {
-  intro(`${meta.binName} update${write ? " --write" : ""}`);
-  log.step(`${write ? "Migrating" : "Checking"} ${root} against current templates (${meta.toolName})`);
+async function doUpdate(
+  adapter: PlatformAdapter,
+  meta: CliMeta,
+  root: string,
+  write: boolean,
+  interactive: boolean,
+): Promise<number> {
+  const interactiveTTY = interactive && Boolean(process.stdout.isTTY);
+  const wantWrite = write || interactiveTTY;
+  const modeLabel = interactive ? " --interactive" : write ? " --write" : "";
+  intro(`${meta.binName} update${modeLabel}`);
+  log.step(`${wantWrite ? "Migrating" : "Checking"} ${root} against current templates (${meta.toolName})`);
 
-  // Classify first without writing, so we can surface conflicts to the
-  // interactive resolver before anything touches disk.
+  // Classify first without writing, so we can surface changes to the interactive
+  // walk / conflict resolver before anything touches disk.
   const classified = runUpdate(root, adapter, { write: false, toolVersion: meta.version });
 
   if (classified.fatal) {
@@ -188,10 +202,30 @@ async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, w
     return 1;
   }
 
-  // On --write in a TTY, resolve conflicts interactively, then re-run with --write
-  // and the collected resolutions. Otherwise the write pass mirrors the dry run.
+  if (interactive && !interactiveTTY) {
+    log.warn("--interactive needs an interactive terminal; showing a dry-run preview instead.");
+  }
+
+  // The actionable kinds the interactive walk steps through. `drift`/`orphan` are
+  // informational (never applied), so they're reported but not walked.
+  const isWalkable = (i: UpdateItem): boolean =>
+    i.action === "create" || i.action === "update" || i.action === "merge" || i.action === "conflict";
+
   let report: UpdateReport = classified;
-  if (write) {
+  if (interactiveTTY && classified.items.some(isWalkable)) {
+    // R-043: file-by-file walk — apply/skip/diff per create/update/merge, and
+    // region-level resolution per conflict, all in one document-order pass.
+    const changes: ChangeItem[] = classified.items.filter(isWalkable).map((i) => ({
+      rel: i.rel,
+      action: i.action as ChangeItem["action"],
+      detail: i.detail,
+      preview: i.preview,
+      conflict: i.conflict,
+    }));
+    const { apply, resolutions } = await walkChanges(changes);
+    report = runUpdate(root, adapter, { write: true, toolVersion: meta.version, apply, resolutions });
+  } else if (write) {
+    // Bulk write (R-040/R-041): resolve conflicts via the form, then write all.
     const conflicts = classified.items.filter((i) => i.action === "conflict" && i.conflict);
     let resolutions: Record<string, string> | undefined;
     if (conflicts.length > 0 && process.stdout.isTTY) {
@@ -228,7 +262,16 @@ async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, w
     note(changelogLines(cl).join("\n"), "Template changes (upstream delta)");
   }
 
-  const { create, update, merge, conflict, drift, orphan, unchanged } = report.counts;
+  // Whether anything was actually written (true for bulk-write and an interactive
+  // walk that touched ≥1 file; false for dry-run / no-TTY / nothing-to-walk).
+  const wrote = report.mode === "write";
+  const applied = (a: UpdateItem["action"]): number =>
+    report.items.filter((i) => i.action === a && !i.skipped).length;
+  const create = applied("create");
+  const update = applied("update");
+  const merge = applied("merge");
+  const { conflict, drift, orphan, unchanged } = report.counts;
+  const skipped = report.items.filter((i) => i.skipped).length;
   const actionable = report.items.filter((i) => i.action !== "unchanged");
 
   if (actionable.length === 0) {
@@ -238,35 +281,40 @@ async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, w
   }
 
   const symbol: Record<string, string> = {
-    create: write ? "+" : "would create",
-    update: write ? "~" : "would update",
-    merge: write ? "⇄" : "would merge",
+    create: wrote ? "+" : "would create",
+    update: wrote ? "~" : "would update",
+    merge: wrote ? "⇄" : "would merge",
     conflict: "✗",
     drift: "!",
     orphan: "·",
   };
-  const lines = actionable.map(
-    (i) => `${symbol[i.action]} [${i.action}] ${i.rel}${i.detail ? ` (${i.detail})` : ""}`,
+  const lines = actionable.map((i) =>
+    i.skipped
+      ? `· [skipped] ${i.rel} (${i.action})`
+      : `${symbol[i.action]} [${i.action}] ${i.rel}${i.detail ? ` (${i.detail})` : ""}`,
   );
-  note(lines.join("\n"), write ? "Applied" : "Proposed changes (dry-run)");
+  note(lines.join("\n"), wrote ? "Applied" : "Proposed changes (dry-run)");
 
-  if (!write) {
+  if (!wrote) {
     log.warn(
-      `${create} to create, ${update} to update, ${merge} to merge, ${conflict} conflict(s), ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write to apply.`,
+      `${create} to create, ${update} to update, ${merge} to merge, ${conflict} conflict(s), ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write (or --interactive) to apply.`,
     );
     if (conflict > 0) {
       log.step("Run `update --write` in an interactive terminal to resolve conflicts (keep mine / take theirs) per conflict.");
+    }
+    if (create + update + merge > 0) {
+      log.step("Run `update --interactive` to step through each change (apply / skip / diff) one file at a time.");
     }
     outro("Dry-run — nothing written.");
     return 0;
   }
 
   log.success(
-    `Applied: ${create} created, ${update} updated, ${merge} merged. ${conflict} conflict(s), ${drift} drifted, ${orphan} orphaned (left in place).`,
+    `Applied: ${create} created, ${update} updated, ${merge} merged.${skipped > 0 ? ` ${skipped} skipped.` : ""} ${conflict} conflict(s), ${drift} drifted, ${orphan} orphaned (left in place).`,
   );
-  if (conflict > 0 || drift > 0 || orphan > 0) {
+  if (conflict > 0 || drift > 0 || orphan > 0 || skipped > 0) {
     note(
-      "Conflicted files have upstream changes that clash with your edits and were left untouched — reconcile them by hand. Drifted files carry edits with no mergeable upstream delta; orphaned files are no longer part of the scaffold.",
+      "Conflicted files have upstream changes that clash with your edits and were left untouched — reconcile them by hand. Drifted files carry edits with no mergeable upstream delta; orphaned files are no longer part of the scaffold. Skipped files (interactive) were left as-is and will be offered again next run.",
       "Review",
     );
   }
@@ -290,6 +338,7 @@ Options:
   -y, --yes       (init) Skip the wizard and accept detected defaults (non-interactive / CI)
   --fix           (doctor) Repair broken relative links deterministically; dry-run preview by default
   --write         (doctor --fix / update) Apply the proposed changes (otherwise dry-run only)
+  -i, --interactive  (update) Step through each change file by file (apply / skip / diff); requires a TTY
   -h, --help      Show this help
 `;
 }

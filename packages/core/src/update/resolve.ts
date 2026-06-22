@@ -11,7 +11,7 @@
 // `runUpdate({ write: true, resolutions })`.
 
 import { isCancel, log, note, select } from "@clack/prompts";
-import { applyResolutions, type ConflictChoice, type MergeRegion } from "./merge.js";
+import { applyResolutions, type ConflictChoice, diffLines, type MergeRegion } from "./merge.js";
 
 /** A single conflicted file handed to the resolver (from a `conflict` UpdateItem). */
 export interface ConflictFile {
@@ -72,6 +72,105 @@ async function resolveFile(file: ConflictFile): Promise<ConflictChoice[] | null>
     }
   }
   return choices;
+}
+
+// ---------------------------------------------------------------------------
+// Interactive file-by-file walk (R-043).
+//
+// `update --interactive` steps through every actionable file one at a time and
+// lets the user decide per file — apply / skip / show diff — instead of the bulk
+// `--write`. Conflicts are still resolved region-by-region (reusing `resolveFile`
+// above), so one walk covers create/update/merge *and* conflicts in document
+// order. Deterministic, no LLM — the same `@clack/prompts` form family as the
+// wizard and the conflict resolver. The CLI feeds the result into
+// `runUpdate({ write: true, apply, resolutions })`.
+// ---------------------------------------------------------------------------
+
+/** One actionable file presented to the walk (a projection of an `UpdateItem`). */
+export interface ChangeItem {
+  /** Root-relative POSIX path. */
+  rel: string;
+  /** Only the actionable kinds reach the walk. */
+  action: "create" | "update" | "merge" | "conflict";
+  /** Short human reason carried from the classification. */
+  detail?: string;
+  /** Proposed content (+ current on-disk content) for the diff view; absent on conflicts. */
+  preview?: { before?: string; after: string };
+  /** Conflict regions for region-level resolution; present only on `conflict`. */
+  conflict?: { regions: MergeRegion[]; count: number };
+}
+
+/**
+ * The outcome of an interactive walk: which `create`/`update`/`merge` files the
+ * user chose to apply, and the resolved content for each conflict they reconciled.
+ * Both feed straight into `runUpdate({ write: true, apply, resolutions })`.
+ */
+export interface WalkResult {
+  apply: string[];
+  resolutions: Record<string, string>;
+}
+
+/**
+ * Walk the actionable changes in document order, prompting per file. Returns the
+ * selected files and resolved conflicts. A cancel (Ctrl-C) stops the walk and
+ * applies whatever was decided before it — nothing already chosen is lost, and
+ * undecided files are simply left untouched.
+ */
+export async function walkChanges(items: ChangeItem[]): Promise<WalkResult> {
+  const apply: string[] = [];
+  const resolutions: Record<string, string> = {};
+  log.step(`Walking ${items.length} change(s) — apply / skip / diff per file.`);
+
+  for (const item of items) {
+    if (item.action === "conflict" && item.conflict) {
+      const choices = await resolveFile({ rel: item.rel, regions: item.conflict.regions, count: item.conflict.count });
+      if (choices !== null) resolutions[item.rel] = applyResolutions(item.conflict.regions, choices);
+      continue; // skipped/cancelled conflicts stay conflicted
+    }
+
+    const decision = await decideFile(item);
+    if (decision === "cancel") {
+      log.warn("Stopped — applying the changes you've already chosen.");
+      break;
+    }
+    if (decision === "apply") apply.push(item.rel);
+  }
+
+  return { apply, resolutions };
+}
+
+/**
+ * Prompt apply / skip / diff for a single `create`/`update`/`merge` file. Loops
+ * so "show diff" can re-present the file without consuming the decision. Returns
+ * `"cancel"` if the user aborts the whole walk.
+ */
+async function decideFile(item: ChangeItem): Promise<"apply" | "skip" | "cancel"> {
+  const verb = { create: "Create", update: "Update", merge: "Merge" }[item.action as "create" | "update" | "merge"];
+  for (;;) {
+    const choice = await select({
+      message: `${item.rel} — ${verb}${item.detail ? ` (${item.detail})` : ""}?`,
+      options: [
+        { value: "apply", label: `Apply — ${verb.toLowerCase()} this file` },
+        { value: "skip", label: "Skip — leave this file as-is" },
+        { value: "diff", label: "Show diff" },
+      ],
+    });
+    if (isCancel(choice)) return "cancel";
+    if (choice === "diff") {
+      note(previewDiff(item), `Diff: ${item.rel}`);
+      continue;
+    }
+    return choice as "apply" | "skip";
+  }
+}
+
+/** Render an item's pending change as a diff block for the `show diff` view. */
+function previewDiff(item: ChangeItem): string {
+  const p = item.preview;
+  if (!p) return "(no preview available)";
+  // A brand-new file (create) has no `before` — show it all as additions.
+  if (p.before === undefined) return p.after.split("\n").map((l) => `+ ${l}`).join("\n");
+  return diffLines(p.before, p.after);
 }
 
 /** Format a conflict region as a three-way diff block for the `show diff` view. */

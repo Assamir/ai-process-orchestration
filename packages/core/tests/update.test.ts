@@ -377,6 +377,135 @@ describe("runUpdate 3-way merge (R-040)", () => {
   });
 });
 
+describe("runUpdate interactive file-by-file selection (R-043)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+  });
+  afterEach(() => project.cleanup());
+
+  /** Record an older base + local edit so GUIDELINE classifies as a clean `merge`. */
+  function setupMerge() {
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8");
+    const base = ["# OLD HEADING", ...current.split("\n").slice(1)].join("\n");
+    const onDisk = `${base}Local note from the user.\n`;
+    writeFileSync(abs, onDisk, "utf8");
+    const m = readManifest(project.dir);
+    m.files![GUIDELINE] = { hash: createHash("sha256").update(base, "utf8").digest("hex"), content: base };
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+    return { abs, current };
+  }
+
+  it("interactive mode is signalled by `apply` (empty array) and writes nothing unselected", () => {
+    const abs = join(project.dir, GUIDELINE);
+    rmSync(abs); // a pending `create`
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true, apply: [] });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("create");
+    expect(item?.skipped).toBe(true);
+    expect(existsSync(abs)).toBe(false); // skipped — not created
+    // No baseline recorded for the skipped create, so it's offered again.
+    expect(readManifest(project.dir).files![GUIDELINE]).toBeUndefined();
+  });
+
+  it("writes only the selected file; others are skipped (left untouched)", () => {
+    const abs = join(project.dir, GUIDELINE);
+    rmSync(abs);
+    const other = claudeAdapter.guidelineRel("grounding");
+    const otherAbs = join(project.dir, other);
+    rmSync(otherAbs);
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true, apply: [GUIDELINE] });
+    expect(existsSync(abs)).toBe(true); // selected — created
+    expect(existsSync(otherAbs)).toBe(false); // not selected — skipped
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.skipped).toBeUndefined();
+    expect(report.items.find((i) => i.rel === other)?.skipped).toBe(true);
+  });
+
+  it("carries a `preview` on actionable items so the walk can show a diff", () => {
+    // A pending `create` (a different guideline) carries an after-only preview…
+    const createRel = claudeAdapter.guidelineRel("grounding");
+    rmSync(join(project.dir, createRel));
+    // …and a `merge` (GUIDELINE) carries both before (on-disk) and after (merged).
+    const { abs: mAbs } = setupMerge();
+
+    const dry = runUpdate(project.dir, claudeAdapter, { write: false });
+    const created = dry.items.find((i) => i.rel === createRel);
+    expect(created?.preview?.before).toBeUndefined(); // new file: no "before"
+    expect(created?.preview?.after).toContain("## Applicable patterns"); // the rendered template body
+
+    const merged = dry.items.find((i) => i.rel === GUIDELINE);
+    expect(merged?.action).toBe("merge");
+    expect(merged?.preview?.before).toBe(readFileSync(mAbs, "utf8")); // current on-disk
+    expect(merged?.preview?.after).toContain("Local note from the user."); // merged result keeps the edit
+  });
+
+  it("a skipped pristine update preserves its baseline and is offered again", () => {
+    // An older, pristine baseline so GUIDELINE classifies as `update`.
+    const abs = join(project.dir, GUIDELINE);
+    const older = "# OLD pristine content\n";
+    writeFileSync(abs, older, "utf8");
+    const before = { hash: createHash("sha256").update(older, "utf8").digest("hex"), content: older };
+    const m = readManifest(project.dir);
+    m.files![GUIDELINE] = before;
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+
+    const skip = runUpdate(project.dir, claudeAdapter, { write: true, apply: [] });
+    expect(skip.items.find((i) => i.rel === GUIDELINE)?.skipped).toBe(true);
+    expect(readFileSync(abs, "utf8")).toBe(older); // file untouched
+    // Baseline preserved verbatim, so the same update is offered next run.
+    expect(readManifest(project.dir).files![GUIDELINE]).toEqual(before);
+
+    const apply = runUpdate(project.dir, claudeAdapter, { write: true, apply: [GUIDELINE] });
+    expect(apply.items.find((i) => i.rel === GUIDELINE)?.action).toBe("update");
+    expect(readFileSync(abs, "utf8")).not.toContain("OLD pristine content");
+  });
+
+  it("a skipped merge keeps the local edits and old base, then merges when selected", () => {
+    const { abs, current } = setupMerge();
+    const onDisk = readFileSync(abs, "utf8");
+    const baseBefore = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+
+    const skip = runUpdate(project.dir, claudeAdapter, { write: true, apply: [] });
+    expect(skip.items.find((i) => i.rel === GUIDELINE)?.skipped).toBe(true);
+    expect(readFileSync(abs, "utf8")).toBe(onDisk); // untouched
+    expect(readManifest(project.dir).files![GUIDELINE]).toEqual(baseBefore); // base preserved
+
+    const apply = runUpdate(project.dir, claudeAdapter, { write: true, apply: [GUIDELINE] });
+    expect(apply.items.find((i) => i.rel === GUIDELINE)?.action).toBe("merge");
+    const after = readFileSync(abs, "utf8");
+    expect(after).toContain("Local note from the user."); // local edit kept
+    expect(after.split("\n")[0]).toBe(current.split("\n")[0]); // upstream heading applied
+  });
+
+  it("conflicts are gated by resolutions, not the apply set", () => {
+    // Conflicting local + upstream edits to line 0 → a `conflict`, even with the
+    // file in the apply set (conflicts never auto-apply via `apply`).
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8");
+    const base = ["# OLD HEADING", ...current.split("\n").slice(1)].join("\n");
+    const onDisk = ["# MY HEADING", ...base.split("\n").slice(1)].join("\n");
+    writeFileSync(abs, onDisk, "utf8");
+    const m = readManifest(project.dir);
+    m.files![GUIDELINE] = { hash: createHash("sha256").update(base, "utf8").digest("hex"), content: base };
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true, apply: [GUIDELINE] });
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.action).toBe("conflict");
+    expect(readFileSync(abs, "utf8")).toBe(onDisk); // untouched without a resolution
+  });
+
+  it("bulk mode (no apply) still writes everything — apply:[] is not the same as undefined", () => {
+    const abs = join(project.dir, GUIDELINE);
+    rmSync(abs);
+    runUpdate(project.dir, claudeAdapter, { write: true }); // no apply → bulk
+    expect(existsSync(abs)).toBe(true);
+  });
+});
+
 describe("compareToolVersions (R-038)", () => {
   it("orders dotted-integer versions numerically", () => {
     expect(compareToolVersions("0.27.0", "0.28.0")).toBe(-1);

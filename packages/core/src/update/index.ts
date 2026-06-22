@@ -45,6 +45,21 @@ export interface UpdateItem {
    * conflict and reconstruct the file from the user's per-conflict choices.
    */
   conflict?: { regions: MergeRegion[]; count: number };
+  /**
+   * (R-043) Present on actionable `create`/`update`/`merge` items: the proposed
+   * new content (`after`) and, for `update`/`merge`, the current on-disk content
+   * (`before`, omitted for `create` since the file is new), so the interactive
+   * file-by-file walk (`update --interactive`) can show a diff before the user
+   * decides apply / skip.
+   */
+  preview?: { before?: string; after: string };
+  /**
+   * (R-043) True when interactive mode (`opts.apply` supplied) classified this as
+   * an actionable `create`/`update`/`merge` but the user did **not** select it —
+   * so it was reported and left untouched, its baseline preserved so a later run
+   * offers it again. Only set on interactive `--write` runs; absent in bulk mode.
+   */
+  skipped?: boolean;
 }
 
 /**
@@ -178,10 +193,25 @@ export function runUpdate(
      * absent for non-interactive runs, where conflicts stay reported and untouched.
      */
     resolutions?: Record<string, string>;
+    /**
+     * (R-043) Interactive file-by-file selection. When **present** (even if
+     * empty), `update` is in interactive mode: only `create`/`update`/`merge`
+     * files whose `rel` is listed here are written; every other actionable file
+     * is reported and left untouched (`skipped`), its baseline preserved so a
+     * later run offers it again. When **absent** (the default) every actionable
+     * file is written in bulk, as before. Conflicts are always gated separately
+     * by `resolutions`, never by this set. The CLI builds it from the
+     * `@clack/prompts` walk (`walkChanges`).
+     */
+    apply?: string[];
   } = {},
 ): UpdateReport {
   const write = opts.write === true;
   const mode = write ? "write" : "dry-run";
+  // Interactive mode is signalled by the presence of `apply` (even when empty).
+  const interactive = opts.apply !== undefined;
+  const applySet = new Set(opts.apply ?? []);
+  const isSelected = (rel: string): boolean => !interactive || applySet.has(rel);
   const emptyCounts: Record<UpdateAction, number> = {
     create: 0,
     update: 0,
@@ -252,9 +282,16 @@ export function runUpdate(
     const abs = join(root, f.rel);
 
     if (!existsSync(abs)) {
-      items.push({ rel: f.rel, action: "create" });
-      writes.push({ abs, content: rendered });
-      newBaseline[f.rel] = fileBaseline(rendered);
+      const preview = { after: rendered };
+      if (isSelected(f.rel)) {
+        items.push({ rel: f.rel, action: "create", preview });
+        writes.push({ abs, content: rendered });
+        newBaseline[f.rel] = fileBaseline(rendered);
+      } else {
+        // Interactive skip: leave the file absent and record nothing, so a later
+        // run offers the same `create` again.
+        items.push({ rel: f.rel, action: "create", preview, skipped: true });
+      }
       continue;
     }
 
@@ -276,9 +313,17 @@ export function runUpdate(
       base !== undefined &&
       (base.content !== undefined ? onDisk === base.content : hashContent(onDisk) === base.hash);
     if (pristine) {
-      items.push({ rel: f.rel, action: "update", detail: "template changed; file pristine" });
-      writes.push({ abs, content: rendered });
-      newBaseline[f.rel] = fileBaseline(rendered);
+      const preview = { before: onDisk, after: rendered };
+      if (isSelected(f.rel)) {
+        items.push({ rel: f.rel, action: "update", detail: "template changed; file pristine", preview });
+        writes.push({ abs, content: rendered });
+        newBaseline[f.rel] = fileBaseline(rendered);
+      } else {
+        // Interactive skip: leave the (pristine) file on the old template and
+        // preserve its baseline so the refresh is offered again next run.
+        items.push({ rel: f.rel, action: "update", detail: "template changed; file pristine", preview, skipped: true });
+        if (prev !== undefined) newBaseline[f.rel] = prev;
+      }
       continue;
     }
 
@@ -290,15 +335,23 @@ export function runUpdate(
     if (base?.content !== undefined && base.content !== rendered) {
       const merged = merge3(onDisk, base.content, rendered);
       if (merged.clean) {
-        if (merged.content === onDisk) {
-          // The upstream change is already reflected locally — no write needed,
-          // but advance the base so we're reconciled with this template version.
-          items.push({ rel: f.rel, action: "merge", detail: "upstream changes already present" });
+        const preview = { before: onDisk, after: merged.content };
+        if (!isSelected(f.rel)) {
+          // Interactive skip: keep the local edits and the old base so the merge
+          // is recomputed and offered again next run.
+          items.push({ rel: f.rel, action: "merge", detail: "merged upstream changes into local edits", preview, skipped: true });
+          if (prev !== undefined) newBaseline[f.rel] = prev;
         } else {
-          items.push({ rel: f.rel, action: "merge", detail: "merged upstream changes into local edits" });
-          writes.push({ abs, content: merged.content });
+          if (merged.content === onDisk) {
+            // The upstream change is already reflected locally — no write needed,
+            // but advance the base so we're reconciled with this template version.
+            items.push({ rel: f.rel, action: "merge", detail: "upstream changes already present", preview });
+          } else {
+            items.push({ rel: f.rel, action: "merge", detail: "merged upstream changes into local edits", preview });
+            writes.push({ abs, content: merged.content });
+          }
+          newBaseline[f.rel] = fileBaseline(rendered);
         }
-        newBaseline[f.rel] = fileBaseline(rendered);
       } else {
         // (R-041) If the CLI interactively resolved this conflict, write the
         // chosen content and advance the base to the template — reconciled, just

@@ -35,12 +35,19 @@ export {
 export {
   merge3,
   applyResolutions,
+  diffLines,
   CONFLICT_MARKERS,
   type MergeResult,
   type MergeRegion,
   type ConflictChoice,
 } from "./update/merge.js";
-export { resolveConflicts, type ConflictFile } from "./update/resolve.js";
+export {
+  resolveConflicts,
+  walkChanges,
+  type ConflictFile,
+  type ChangeItem,
+  type WalkResult,
+} from "./update/resolve.js";
 export {
   runDoctor,
   fixLinks,
