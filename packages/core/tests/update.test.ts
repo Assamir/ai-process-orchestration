@@ -303,6 +303,64 @@ describe("runUpdate 3-way merge (R-040)", () => {
     expect(readFileSync(abs, "utf8")).toBe(merged);
   });
 
+  it("exposes structured conflict regions on a conflict item (R-041)", () => {
+    setupOlderBase((base) => ["# MY HEADING", ...base.split("\n").slice(1)].join("\n"));
+    const report = runUpdate(project.dir, claudeAdapter, { write: false });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("conflict");
+    expect(item?.conflict?.count).toBeGreaterThan(0);
+    // The regions reconstruct the file and carry at least one conflict region.
+    expect(item?.conflict?.regions.some((r) => r.kind === "conflict")).toBe(true);
+  });
+
+  it("writes an interactively-resolved conflict and advances the baseline (R-041)", () => {
+    const { abs, current } = setupOlderBase((base) =>
+      ["# MY HEADING", ...base.split("\n").slice(1)].join("\n"),
+    );
+
+    // Resolve the conflict by taking the upstream template wholesale (what the
+    // CLI's form would produce if the user picked "take theirs" for every region).
+    const report = runUpdate(project.dir, claudeAdapter, {
+      write: true,
+      resolutions: { [GUIDELINE]: current },
+    });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("merge");
+    expect(item?.detail).toMatch(/resolved interactively/);
+    // The resolved content is on disk…
+    expect(readFileSync(abs, "utf8")).toBe(current);
+    // …and the baseline advanced to the template, so the next run is reconciled.
+    expect((readManifest(project.dir).files![GUIDELINE] as FileBaseline).content).toBe(current);
+    const second = runUpdate(project.dir, claudeAdapter, { write: true });
+    expect(second.items.find((i) => i.rel === GUIDELINE)?.action).toBe("unchanged");
+  });
+
+  it("leaves a conflict untouched when no resolution is supplied (R-041 skip path)", () => {
+    const { abs } = setupOlderBase((base) => ["# MY HEADING", ...base.split("\n").slice(1)].join("\n"));
+    const onDisk = readFileSync(abs, "utf8");
+    const baselineBefore = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+
+    // --write with resolutions for *other* files only — this conflict was skipped.
+    const report = runUpdate(project.dir, claudeAdapter, { write: true, resolutions: {} });
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.action).toBe("conflict");
+    expect(readFileSync(abs, "utf8")).toBe(onDisk);
+    expect(readManifest(project.dir).files![GUIDELINE]).toEqual(baselineBefore);
+  });
+
+  it("ignores resolutions in dry-run (nothing written) (R-041)", () => {
+    const { abs, current } = setupOlderBase((base) =>
+      ["# MY HEADING", ...base.split("\n").slice(1)].join("\n"),
+    );
+    const onDisk = readFileSync(abs, "utf8");
+    const report = runUpdate(project.dir, claudeAdapter, {
+      write: false,
+      resolutions: { [GUIDELINE]: current },
+    });
+    // Still reported as a conflict, and the file is untouched.
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.action).toBe("conflict");
+    expect(readFileSync(abs, "utf8")).toBe(onDisk);
+  });
+
   it("falls back to drift (no merge) for a pre-R-039 hash-only baseline", () => {
     const abs = join(project.dir, GUIDELINE);
     const current = readFileSync(abs, "utf8");

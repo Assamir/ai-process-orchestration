@@ -6,7 +6,8 @@ import { detectStack } from "./detect/index.js";
 import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WriteResult } from "./types.js";
-import { runUpdate } from "./update/index.js";
+import { runUpdate, type UpdateReport } from "./update/index.js";
+import { resolveConflicts } from "./update/resolve.js";
 import { defaultAnswers, runWizard } from "./wizard/index.js";
 
 export interface CliMeta {
@@ -166,17 +167,39 @@ function doDoctorFix(adapter: PlatformAdapter, meta: CliMeta, root: string, writ
  * the current `core` templates. Dry-run by default (previews additive/updated
  * changes); `--write` applies them. Drifted (user-edited) and orphaned files are
  * reported, never clobbered or deleted.
+ *
+ * On `--write` in an interactive terminal, real conflicts (R-040) are resolved
+ * through the `@clack/prompts` form (R-041): we classify first (dry-run), let the
+ * user pick mine/theirs per conflict, then apply with those resolutions. In a
+ * non-interactive run (no TTY) conflicts stay reported and untouched, as before.
  */
-function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: boolean): number {
+async function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: boolean): Promise<number> {
   intro(`${meta.binName} update${write ? " --write" : ""}`);
   log.step(`${write ? "Migrating" : "Checking"} ${root} against current templates (${meta.toolName})`);
 
-  const report = runUpdate(root, adapter, { write, toolVersion: meta.version });
+  // Classify first without writing, so we can surface conflicts to the
+  // interactive resolver before anything touches disk.
+  const classified = runUpdate(root, adapter, { write: false, toolVersion: meta.version });
 
-  if (report.fatal) {
-    log.error(report.fatal);
+  if (classified.fatal) {
+    log.error(classified.fatal);
     outro("Nothing to update.");
     return 1;
+  }
+
+  // On --write in a TTY, resolve conflicts interactively, then re-run with --write
+  // and the collected resolutions. Otherwise the write pass mirrors the dry run.
+  let report: UpdateReport = classified;
+  if (write) {
+    const conflicts = classified.items.filter((i) => i.action === "conflict" && i.conflict);
+    let resolutions: Record<string, string> | undefined;
+    if (conflicts.length > 0 && process.stdout.isTTY) {
+      log.warn(`${conflicts.length} file(s) have conflicts with the upstream template — let's resolve them.`);
+      resolutions = await resolveConflicts(
+        conflicts.map((c) => ({ rel: c.rel, regions: c.conflict!.regions, count: c.conflict!.count })),
+      );
+    }
+    report = runUpdate(root, adapter, { write: true, toolVersion: meta.version, resolutions });
   }
 
   // Version awareness (R-038): report scaffolded → running, warn on a downgrade.
@@ -222,6 +245,9 @@ function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: 
     log.warn(
       `${create} to create, ${update} to update, ${merge} to merge, ${conflict} conflict(s), ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write to apply.`,
     );
+    if (conflict > 0) {
+      log.step("Run `update --write` in an interactive terminal to resolve conflicts (keep mine / take theirs) per conflict.");
+    }
     outro("Dry-run — nothing written.");
     return 0;
   }

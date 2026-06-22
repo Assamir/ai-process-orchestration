@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFLICT_MARKERS, merge3 } from "../src/index.js";
+import { applyResolutions, CONFLICT_MARKERS, merge3 } from "../src/index.js";
 
 describe("merge3 (3-way line merge, R-040)", () => {
   it("returns the base unchanged when no side changed", () => {
@@ -90,5 +90,51 @@ describe("merge3 (3-way line merge, R-040)", () => {
     expect(r.clean).toBe(true);
     expect(r.content).toContain("line2-mine");
     expect(r.content).toContain("line8-theirs");
+  });
+});
+
+describe("merge regions + applyResolutions (R-041)", () => {
+  it("a clean merge has no conflict regions and rebuilds to its content", () => {
+    const base = "a\nb\nc\n";
+    const r = merge3("a\nB-edit\nc\n", base, base);
+    expect(r.regions.some((rg) => rg.kind === "conflict")).toBe(false);
+    // With no conflicts, any choice array (incl. empty) rebuilds the merged text.
+    expect(applyResolutions(r.regions, [])).toBe(r.content);
+  });
+
+  it("exposes each conflict region with all three sides", () => {
+    const r = merge3("a\nMINE\nc\n", "a\nb\nc\n", "a\nTHEIRS\nc\n");
+    const conflicts = r.regions.filter((rg) => rg.kind === "conflict");
+    expect(conflicts).toHaveLength(1);
+    const c = conflicts[0]!;
+    expect(c).toMatchObject({ kind: "conflict", base: ["b"], mine: ["MINE"], theirs: ["THEIRS"] });
+  });
+
+  it("reconstructs the file from per-conflict choices (no markers)", () => {
+    const r = merge3("a\nMINE\nc\n", "a\nb\nc\n", "a\nTHEIRS\nc\n");
+    const keepMine = applyResolutions(r.regions, ["mine"]);
+    const takeTheirs = applyResolutions(r.regions, ["theirs"]);
+    expect(keepMine).toBe("a\nMINE\nc\n");
+    expect(takeTheirs).toBe("a\nTHEIRS\nc\n");
+    for (const out of [keepMine, takeTheirs]) {
+      expect(out).not.toContain(CONFLICT_MARKERS.mine);
+      expect(out).not.toContain(CONFLICT_MARKERS.sep);
+      expect(out).not.toContain(CONFLICT_MARKERS.theirs);
+    }
+  });
+
+  it("resolves multiple conflicts independently, in document order", () => {
+    const base = "h\nA\nm\nB\nt\n";
+    const mine = "h\nA1\nm\nB1\nt\n"; // local edits both regions
+    const theirs = "h\nA2\nm\nB2\nt\n"; // upstream edits both regions differently
+    const r = merge3(mine, base, theirs);
+    expect(r.regions.filter((rg) => rg.kind === "conflict")).toHaveLength(2);
+    // Take theirs for the first conflict, keep mine for the second.
+    expect(applyResolutions(r.regions, ["theirs", "mine"])).toBe("h\nA2\nm\nB1\nt\n");
+  });
+
+  it("defaults a missing choice to keeping the local side", () => {
+    const r = merge3("a\nMINE\nc\n", "a\nb\nc\n", "a\nTHEIRS\nc\n");
+    expect(applyResolutions(r.regions, [])).toBe("a\nMINE\nc\n");
   });
 });

@@ -331,7 +331,21 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   `@clack/prompts` — and R-038 already hand-rolled its semver compare), with a deliberate **safety bias**:
   touching-but-disjoint edits stay independent (both apply), while any genuine overlap is reported as a
   conflict rather than guessed — a false conflict leaves the file untouched (harmless), whereas a wrong
-  auto-merge would not be. *Next: R-041 interactive conflict resolution.*
+  auto-merge would not be.
+  **Interactive conflict resolution (R-041, v0.31.0).** A `conflict` no longer means "edit it by hand."
+  The merge engine now also returns the merge as ordered **regions** (`MergeRegion[]` — stable runs plus
+  conflict regions carrying all three sides), and `update` surfaces them on each `conflict` item
+  (`UpdateItem.conflict = { regions, count }`). On `update --write` in an interactive terminal, the CLI
+  hands those conflicts to an `@clack/prompts` form (`core/src/update/resolve.ts`, `resolveConflicts` —
+  the QA analog of the `init` wizard, **deterministic, no LLM**): for each conflict region the user picks
+  **keep mine** / **take theirs** / **show diff** (mine / base / theirs, then re-prompt) / **skip this
+  file**. Resolved files are rebuilt from the choices (`merge.ts:applyResolutions`, marker-free) and fed
+  back as `runUpdate({ write: true, resolutions })`, which writes them and advances the base to the
+  template (reconciled, exactly like a clean `merge`); skipped files stay reported as `conflict` and
+  untouched. To keep this clean, `update --write` runs **two passes** — classify (dry-run) to discover
+  conflicts, prompt, then apply with the collected resolutions — and the interactive form only fires on a
+  TTY, so non-interactive/CI runs behave exactly as in R-040 (conflicts reported, never written).
+  *Next: R-042 template changelog, R-043 `update --interactive` file-by-file walk.*
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,

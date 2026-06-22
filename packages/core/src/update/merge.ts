@@ -12,10 +12,12 @@
 // A line-based diff3 is small and fully unit-testable, so we vendor it too.
 //
 // Safety bias: when the two sides' edits to the same region differ, we report a
-// **conflict** rather than guess. `update` never writes conflicted files in R-040
-// (R-041 adds interactive resolution), so a false conflict is harmless (the file
-// is left untouched) while a wrong clean merge would not be — so we err toward
-// conflicts by combining touching/overlapping change regions before comparing.
+// **conflict** rather than guess. By default `update` never writes conflicted
+// files, so a false conflict is harmless (the file is left untouched) while a
+// wrong clean merge would not be — so we err toward conflicts by combining
+// touching/overlapping change regions before comparing. R-041 lets the user
+// resolve those conflicts interactively (per region) via `MergeResult.regions`
+// and `applyResolutions`.
 
 /** Conflict markers used when rendering a conflicted region (preview / R-041). */
 export const CONFLICT_MARKERS = {
@@ -25,6 +27,20 @@ export const CONFLICT_MARKERS = {
   /** Upstream (current template) side. */
   theirs: ">>>>>>> template (upstream)",
 } as const;
+
+/**
+ * One segment of a merged file, in document order (R-041). A `stable` region is
+ * already decided (identical in all three, or changed on only one side); a
+ * `conflict` region carries all three sides so a caller can resolve it. Joining
+ * the regions back (stable lines verbatim, conflicts via `applyResolutions` or
+ * `CONFLICT_MARKERS`) reproduces a full file.
+ */
+export type MergeRegion =
+  | { kind: "stable"; lines: string[] }
+  | { kind: "conflict"; base: string[]; mine: string[]; theirs: string[] };
+
+/** A per-conflict resolution choice (R-041): keep the local edits or take upstream. */
+export type ConflictChoice = "mine" | "theirs";
 
 export interface MergeResult {
   /** True when no genuine conflict remained — the merge is safe to apply. */
@@ -36,6 +52,11 @@ export interface MergeResult {
    * `CONFLICT_MARKERS` around each conflicting region (for preview, not writing).
    */
   content: string;
+  /**
+   * (R-041) The merge as an ordered list of regions, so a caller can present each
+   * conflict and reconstruct the file from per-conflict choices (`applyResolutions`).
+   */
+  regions: MergeRegion[];
 }
 
 /** A maximal region in `o` (half-open `[oStart,oEnd)`) that maps to `[nStart,nEnd)` in `n`. */
@@ -60,7 +81,15 @@ export function merge3(mine: string, base: string, theirs: string): MergeResult 
   const ca = changes(o, a);
   const cb = changes(o, b);
 
-  const out: string[] = [];
+  const regions: MergeRegion[] = [];
+  // Append stable lines, coalescing with a preceding stable region so the region
+  // list stays minimal (and a clean merge collapses to a single stable region).
+  const pushStable = (lines: string[]): void => {
+    if (lines.length === 0) return;
+    const last = regions[regions.length - 1];
+    if (last && last.kind === "stable") last.lines.push(...lines);
+    else regions.push({ kind: "stable", lines: [...lines] });
+  };
   let conflicts = 0;
   let oPos = 0;
   let aPos = 0;
@@ -74,11 +103,12 @@ export function merge3(mine: string, base: string, theirs: string): MergeResult 
     const nextStart = Math.min(aStart, bStart, o.length);
 
     // Emit the stable run [oPos, nextStart): identical in all three.
-    while (oPos < nextStart) {
-      out.push(o[oPos]!);
-      oPos++;
-      aPos++;
-      bPos++;
+    if (oPos < nextStart) {
+      pushStable(o.slice(oPos, nextStart));
+      const n = nextStart - oPos;
+      oPos += n;
+      aPos += n;
+      bPos += n;
     }
 
     if (ia >= ca.length && ib >= cb.length) break; // only the stable tail remained
@@ -121,23 +151,59 @@ export function merge3(mine: string, base: string, theirs: string): MergeResult 
     const bLen = span + delta(bHunks);
     const aContent = a.slice(aPos, aPos + aLen);
     const bContent = b.slice(bPos, bPos + bLen);
+    const baseContent = o.slice(regionStart, regionEnd);
     aPos += aLen;
     bPos += bLen;
     oPos = regionEnd;
 
     if (sameLines(aContent, bContent)) {
-      out.push(...aContent); // both sides made the identical change
+      pushStable(aContent); // both sides made the identical change
     } else if (bHunks.length === 0) {
-      out.push(...aContent); // only the local side changed this region
+      pushStable(aContent); // only the local side changed this region
     } else if (aHunks.length === 0) {
-      out.push(...bContent); // only the template changed this region
+      pushStable(bContent); // only the template changed this region
     } else {
       conflicts++;
-      out.push(CONFLICT_MARKERS.mine, ...aContent, CONFLICT_MARKERS.sep, ...bContent, CONFLICT_MARKERS.theirs);
+      regions.push({ kind: "conflict", base: baseContent, mine: aContent, theirs: bContent });
     }
   }
 
-  return { clean: conflicts === 0, conflicts, content: out.join("\n") };
+  return { clean: conflicts === 0, conflicts, content: renderRegions(regions), regions };
+}
+
+/**
+ * Render the regions to a single string: stable lines verbatim, each conflict
+ * wrapped in `CONFLICT_MARKERS` (mine / sep / theirs). This is the preview text —
+ * never written while a conflict remains. Mirrors the legacy inline rendering so
+ * the marker output is byte-identical.
+ */
+function renderRegions(regions: MergeRegion[]): string {
+  const out: string[] = [];
+  for (const r of regions) {
+    if (r.kind === "stable") out.push(...r.lines);
+    else out.push(CONFLICT_MARKERS.mine, ...r.mine, CONFLICT_MARKERS.sep, ...r.theirs, CONFLICT_MARKERS.theirs);
+  }
+  return out.join("\n");
+}
+
+/**
+ * Reconstruct a fully-resolved file from merge regions and a per-conflict choice
+ * (R-041). `choices[i]` resolves the i-th `conflict` region (in document order);
+ * a missing choice defaults to keeping the local side. Stable regions pass through
+ * verbatim, so the result has no conflict markers and is safe to write.
+ */
+export function applyResolutions(regions: MergeRegion[], choices: ConflictChoice[]): string {
+  const out: string[] = [];
+  let ci = 0;
+  for (const r of regions) {
+    if (r.kind === "stable") {
+      out.push(...r.lines);
+    } else {
+      const choice = choices[ci++] ?? "mine";
+      out.push(...(choice === "theirs" ? r.theirs : r.mine));
+    }
+  }
+  return out.join("\n");
 }
 
 /** Net change in side-line count across a set of hunks (insertions positive). */

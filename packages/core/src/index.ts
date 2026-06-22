@@ -25,7 +25,15 @@ export {
   type VersionDirection,
   type VersionInfo,
 } from "./update/index.js";
-export { merge3, CONFLICT_MARKERS, type MergeResult } from "./update/merge.js";
+export {
+  merge3,
+  applyResolutions,
+  CONFLICT_MARKERS,
+  type MergeResult,
+  type MergeRegion,
+  type ConflictChoice,
+} from "./update/merge.js";
+export { resolveConflicts, type ConflictFile } from "./update/resolve.js";
 export {
   runDoctor,
   fixLinks,

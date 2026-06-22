@@ -6,7 +6,7 @@ import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
 import { buildVars, fileBaseline, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
 import type { FileBaseline, ScaffoldManifest } from "../types.js";
-import { merge3 } from "./merge.js";
+import { type MergeRegion, merge3 } from "./merge.js";
 
 /**
  * What `update` decided for a single expected file.
@@ -38,6 +38,12 @@ export interface UpdateItem {
   action: UpdateAction;
   /** Short human reason, e.g. why a differing file is drift vs. update. */
   detail?: string;
+  /**
+   * (R-041) Present only on `conflict` items: the 3-way merge as ordered regions
+   * plus the conflict count, so the CLI's interactive resolver can present each
+   * conflict and reconstruct the file from the user's per-conflict choices.
+   */
+  conflict?: { regions: MergeRegion[]; count: number };
 }
 
 /**
@@ -150,7 +156,19 @@ export interface UpdateReport {
 export function runUpdate(
   root: string,
   adapter: PlatformAdapter,
-  opts: { write?: boolean; toolVersion?: string } = {},
+  opts: {
+    write?: boolean;
+    toolVersion?: string;
+    /**
+     * (R-041) Interactively-resolved conflict files, keyed by root-relative path,
+     * each a fully-resolved file content (no conflict markers). On `--write`, a
+     * file that would otherwise be a `conflict` and has an entry here is written
+     * with that content and its base advanced to the current template (reconciled,
+     * like a clean `merge`). The CLI collects these via the `@clack/prompts` form;
+     * absent for non-interactive runs, where conflicts stay reported and untouched.
+     */
+    resolutions?: Record<string, string>;
+  } = {},
 ): UpdateReport {
   const write = opts.write === true;
   const mode = write ? "write" : "dry-run";
@@ -268,13 +286,25 @@ export function runUpdate(
         }
         newBaseline[f.rel] = fileBaseline(rendered);
       } else {
-        items.push({
-          rel: f.rel,
-          action: "conflict",
-          detail: `${merged.conflicts} conflict(s) with upstream; left in place — resolve manually`,
-        });
-        // Preserve the prior baseline so it keeps reporting until resolved.
-        if (prev !== undefined) newBaseline[f.rel] = prev;
+        // (R-041) If the CLI interactively resolved this conflict, write the
+        // chosen content and advance the base to the template — reconciled, just
+        // like a clean merge. Otherwise report the conflict (with its regions so a
+        // resolver can pick them up) and leave the file and baseline untouched.
+        const resolved = write ? opts.resolutions?.[f.rel] : undefined;
+        if (resolved !== undefined) {
+          items.push({ rel: f.rel, action: "merge", detail: "conflict resolved interactively" });
+          writes.push({ abs, content: resolved });
+          newBaseline[f.rel] = fileBaseline(rendered);
+        } else {
+          items.push({
+            rel: f.rel,
+            action: "conflict",
+            detail: `${merged.conflicts} conflict(s) with upstream; left in place — resolve manually`,
+            conflict: { regions: merged.regions, count: merged.conflicts },
+          });
+          // Preserve the prior baseline so it keeps reporting until resolved.
+          if (prev !== undefined) newBaseline[f.rel] = prev;
+        }
       }
       continue;
     }
