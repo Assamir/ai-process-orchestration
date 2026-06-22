@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claudeAdapter, compareToolVersions, copilotAdapter, runUpdate, scaffold } from "../src/index.js";
-import type { DetectedStack, ScaffoldManifest, WizardAnswers } from "../src/index.js";
+import type { DetectedStack, FileBaseline, ScaffoldManifest, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
 const stack: DetectedStack = {
@@ -166,6 +166,59 @@ describe("runUpdate (update command, R-034)", () => {
 
     const second = runUpdate(project.dir, claudeAdapter, { write: true });
     expect(second.items.every((i) => i.action === "unchanged")).toBe(true);
+  });
+});
+
+describe("baseline stored as content (R-039)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+  });
+  afterEach(() => project.cleanup());
+
+  it("records the full rendered base content (not just a hash) for every file", () => {
+    const m = readManifest(project.dir);
+    const entry = m.files![GUIDELINE] as FileBaseline;
+    expect(typeof entry).toBe("object");
+    expect(typeof entry.hash).toBe("string");
+    expect(entry.hash).toMatch(/^[0-9a-f]{64}$/);
+    // The recorded base is byte-identical to what was written to disk.
+    expect(entry.content).toBe(readFileSync(join(project.dir, GUIDELINE), "utf8"));
+    // Every scaffolded file carries a content baseline, not a bare hash.
+    expect(Object.values(m.files!).every((e) => typeof e === "object" && "content" in e)).toBe(true);
+  });
+
+  it("detects pristineness by content even when the recorded hash is stale", () => {
+    // A content baseline whose hash is deliberately wrong: the direct content
+    // comparison must win, so a pristine file is still refreshed (not drift).
+    const abs = join(project.dir, GUIDELINE);
+    const older = "# OLD pristine content\n";
+    writeFileSync(abs, older, "utf8");
+    const m = readManifest(project.dir);
+    m.files![GUIDELINE] = { hash: "deadbeef", content: older };
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("update");
+    expect(readFileSync(abs, "utf8")).not.toContain("OLD pristine content");
+    // Baseline refreshed to the new content (object shape, correct hash).
+    const after = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+    expect(after.content).toBe(readFileSync(abs, "utf8"));
+    expect(after.hash).not.toBe("deadbeef");
+  });
+
+  it("treats a file edited away from its content baseline as drift, preserving the base verbatim", () => {
+    const abs = join(project.dir, GUIDELINE);
+    const before = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+    writeFileSync(abs, `${before.content}\n\n## Local notes\n`, "utf8");
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true });
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.action).toBe("drift");
+    // The recorded base content is preserved unchanged so it keeps reporting drift.
+    const after = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+    expect(after.content).toBe(before.content);
   });
 });
 

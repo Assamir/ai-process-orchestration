@@ -7,7 +7,14 @@ import { frameworkLabel } from "../labels.js";
 import { FOUNDATION, GUIDELINES, rootConfigMarkdown } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
-import type { DetectedStack, ScaffoldManifest, WizardAnswers, WriteFile, WriteResult } from "../types.js";
+import type {
+  DetectedStack,
+  FileBaseline,
+  ScaffoldManifest,
+  WizardAnswers,
+  WriteFile,
+  WriteResult,
+} from "../types.js";
 
 export interface ScaffoldInput {
   root: string;
@@ -57,13 +64,14 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
   const files = scaffoldFiles(adapter, stack, answers);
 
   const results: WriteResult[] = [];
-  const fileHashes: Record<string, string> = {};
+  const fileBaselines: Record<string, FileBaseline> = {};
   for (const f of files) {
     const content = render(f.content, vars);
     results.push(writeFileIfAbsent(join(root, f.rel), content));
-    // Record the canonical content hash regardless of created/skipped, so
-    // `update` (R-034) has a pristine baseline to compare against later.
-    fileHashes[f.rel] = hashContent(content);
+    // Record the canonical baseline (hash + content) regardless of
+    // created/skipped, so `update` (R-034) has a pristine fingerprint to compare
+    // against and (R-039) the rendered base content to merge from later.
+    fileBaselines[f.rel] = fileBaseline(content);
   }
 
   const manifest: ScaffoldManifest = {
@@ -74,7 +82,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     stack,
     choices: answers,
     skills: SKILLS.map((s) => s.name),
-    files: fileHashes,
+    files: fileBaselines,
   };
   results.push(
     writeFileIfAbsent(join(root, MANIFEST_REL), `${JSON.stringify(manifest, null, 2)}\n`),
@@ -116,6 +124,16 @@ export function scaffoldFiles(
 /** sha256 hex of UTF-8 content — the pristine-baseline fingerprint for `update`. */
 export function hashContent(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+/**
+ * (R-039) Build the recorded baseline for a piece of canonical rendered content:
+ * its sha256 fingerprint plus the content itself. Shared by `scaffold` (records
+ * the original base) and `update` (re-records it on `create`/`update`) so both
+ * write the identical self-contained shape.
+ */
+export function fileBaseline(content: string): FileBaseline {
+  return { hash: hashContent(content), content };
 }
 
 export function buildVars(

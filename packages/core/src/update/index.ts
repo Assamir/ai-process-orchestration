@@ -4,18 +4,19 @@ import type { PlatformAdapter } from "../adapters/types.js";
 import { repoMapMarkdown } from "../detect/repo-map.js";
 import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
-import { buildVars, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
-import type { ScaffoldManifest } from "../types.js";
+import { buildVars, fileBaseline, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
+import type { FileBaseline, ScaffoldManifest } from "../types.js";
 
 /**
  * What `update` decided for a single expected file.
  *
  * - `create`   — absent on disk; the current template is written (additive; safe).
- * - `update`   — present and *pristine* (byte-identical to the recorded baseline,
+ * - `update`   — present and *pristine* (identical to the recorded baseline — by
+ *                content for R-039+ manifests, by sha256 for older hash-only ones,
  *                so untouched by the user), but the current template differs;
  *                refreshed to the new template (safe).
  * - `drift`    — present and modified (user edit or filled-in phase-2 placeholders,
- *                or no baseline hash from a pre-R-034 scaffold); reported, never
+ *                or no recorded baseline from a pre-R-034 scaffold); reported, never
  *                clobbered.
  * - `orphan`   — recorded in the manifest baseline but no longer part of the
  *                scaffold (e.g. a renamed/removed skill); reported, never deleted.
@@ -74,6 +75,26 @@ function parseVersion(v: string): number[] | null {
   const nums = parts.map((p) => Number(p));
   if (nums.some((n) => !Number.isInteger(n) || n < 0)) return null;
   return nums;
+}
+
+/** A manifest baseline entry normalized across its historical shapes (R-039). */
+interface NormalizedBaseline {
+  /** sha256 fingerprint — always present. */
+  hash: string;
+  /** The rendered base content — present only for R-039+ object baselines. */
+  content?: string;
+}
+
+/**
+ * Read a `manifest.files` entry regardless of its on-disk shape: an R-039+
+ * `{ hash, content }` object, an R-034..R-038 bare sha256 string (hash only), or
+ * absent (pre-R-034 → `undefined`). Lets the rest of `update` treat the baseline
+ * uniformly while preferring the richer content form when it exists.
+ */
+function readBaseline(entry: string | FileBaseline | undefined): NormalizedBaseline | undefined {
+  if (entry === undefined) return undefined;
+  if (typeof entry === "string") return { hash: entry };
+  return { hash: entry.hash, content: entry.content };
 }
 
 function versionInfo(scaffolded: string | undefined, running: string | undefined): VersionInfo {
@@ -182,44 +203,49 @@ export function runUpdate(
 
   const items: UpdateItem[] = [];
   const writes: { abs: string; content: string }[] = [];
-  const newBaseline: Record<string, string> = {};
+  const newBaseline: Record<string, string | FileBaseline> = {};
 
   for (const f of expected) {
     const rendered = render(f.content, vars);
-    const renderedHash = hashContent(rendered);
     const abs = join(root, f.rel);
 
     if (!existsSync(abs)) {
       items.push({ rel: f.rel, action: "create" });
       writes.push({ abs, content: rendered });
-      newBaseline[f.rel] = renderedHash;
+      newBaseline[f.rel] = fileBaseline(rendered);
       continue;
     }
 
     const onDisk = readFileSync(abs, "utf8");
     if (onDisk === rendered) {
       items.push({ rel: f.rel, action: "unchanged" });
-      newBaseline[f.rel] = renderedHash;
+      newBaseline[f.rel] = fileBaseline(rendered);
       continue;
     }
 
     // Content differs. Refresh only when we can prove the file is pristine —
-    // i.e. byte-identical to the baseline we last wrote. Otherwise it carries
+    // i.e. identical to the base we last wrote. Prefer the recorded base
+    // *content* (R-039) for a direct comparison; fall back to the sha256
+    // fingerprint for pre-R-039 hash-only manifests. Otherwise the file carries
     // user edits or filled-in phase-2 work, so we report drift and leave it.
-    const baseHash = baseline[f.rel];
-    const pristine = baseHash !== undefined && hashContent(onDisk) === baseHash;
+    const prev = baseline[f.rel];
+    const base = readBaseline(prev);
+    const pristine =
+      base !== undefined &&
+      (base.content !== undefined ? onDisk === base.content : hashContent(onDisk) === base.hash);
     if (pristine) {
       items.push({ rel: f.rel, action: "update", detail: "template changed; file pristine" });
       writes.push({ abs, content: rendered });
-      newBaseline[f.rel] = renderedHash;
+      newBaseline[f.rel] = fileBaseline(rendered);
     } else {
       items.push({
         rel: f.rel,
         action: "drift",
-        detail: baseHash === undefined ? "no baseline hash (pre-R-034 scaffold)" : "user-modified",
+        detail: base === undefined ? "no baseline (pre-R-034 scaffold)" : "user-modified",
       });
-      // Preserve the prior baseline so it keeps reporting drift until resolved.
-      if (baseHash !== undefined) newBaseline[f.rel] = baseHash;
+      // Preserve the prior baseline entry verbatim so it keeps reporting drift
+      // until resolved (a legacy hash stays a hash; a content base stays content).
+      if (prev !== undefined) newBaseline[f.rel] = prev;
     }
   }
 

@@ -98,13 +98,35 @@ export interface ScaffoldManifest {
   /** Logical skill names that were rendered, for phase-2 reference. */
   skills: string[];
   /**
-   * Backward-compatible (R-034): map of root-relative path → sha256 of the
-   * canonical rendered content written at scaffold/update time. Lets `update`
-   * prove a file is *pristine* (byte-identical to what we wrote, i.e. untouched
-   * by the user) before refreshing it to a newer template. Absent in manifests
-   * written before R-034, in which case `update` falls back to additive-only.
+   * Map of root-relative path → recorded baseline of the canonical rendered
+   * content written at scaffold/update time. Lets `update` prove a file is
+   * *pristine* (byte-identical to what we wrote, i.e. untouched by the user)
+   * before refreshing it to a newer template.
+   *
+   * Three historical shapes coexist; `update` reads all of them:
+   * - **R-039+** — a {@link FileBaseline} object (`{ hash, content }`). The
+   *   `content` is the full rendered *base*, so `update` (and the R-040 3-way
+   *   merge) can diff base→new without a git dependency.
+   * - **R-034..R-038** — a bare sha256 string (hash only; no base content).
+   *   `update` still proves pristineness by hash, but can't merge.
+   * - **pre-R-034** — absent entirely, in which case `update` falls back to
+   *   additive-only (every differing file is treated as drift).
    */
-  files?: Record<string, string>;
+  files?: Record<string, string | FileBaseline>;
+}
+
+/**
+ * (R-039) The recorded baseline for one scaffolded file: the sha256 fingerprint
+ * plus the full canonical rendered **content** it was taken from. Storing the
+ * content makes the manifest a self-contained merge base — `update` can diff the
+ * shipped base against the current template (the R-040 3-way merge) without
+ * reaching for git history.
+ */
+export interface FileBaseline {
+  /** sha256 hex of the canonical rendered content (the pristine fingerprint). */
+  hash: string;
+  /** The full canonical rendered content — the *base* for a 3-way merge. */
+  content: string;
 }
 
 /** A file an adapter wants written, relative to the target repo root. */

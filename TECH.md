@@ -305,6 +305,19 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   before. This is the foundation for the rest of the version-aware-`update` epic: the changelog (R-042)
   computes its delta from `toolVersion`, and the 3-way merge (R-039 → R-041) needs to know *what
   changed between versions* before it can merge.
+  **Baseline stored as content (R-039, v0.29.0).** A 3-way merge needs the *base* — the old rendered
+  template — not just a fingerprint, so each `manifest.files` entry graduates from a bare sha256 string
+  to a self-contained `FileBaseline` object (`{ hash, content }`) recording the full canonical rendered
+  content (`scaffold/index.ts:fileBaseline`, written by both `scaffold` and `update --write`). `update`
+  now proves pristineness by a direct **content** comparison (`onDisk === base.content`) and keeps the
+  base on hand for the upcoming merge — all without a git dependency. The shape is read back through a
+  small normalizer (`update/index.ts:readBaseline`) that tolerates all three historical forms: the R-039+
+  object, the R-034..R-038 hash-only string (pristineness still proven by sha256, no merge base), and the
+  pre-R-034 absent entry (additive-only). On `drift` the prior entry is preserved **verbatim** (a legacy
+  hash stays a hash; a content base stays content) so the file keeps reporting drift until resolved. The
+  trade-off is a larger manifest (the rendered base of every scaffolded file, ~85 KB for the default
+  Playwright-TS scaffold), accepted deliberately to keep the merge base self-contained. *Prerequisite for
+  the R-040 3-way merge engine.*
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,
