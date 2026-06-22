@@ -6,6 +6,7 @@ import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
 import { buildVars, fileBaseline, hashContent, MANIFEST_REL, scaffoldFiles } from "../scaffold/index.js";
 import type { FileBaseline, ScaffoldManifest } from "../types.js";
+import { merge3 } from "./merge.js";
 
 /**
  * What `update` decided for a single expected file.
@@ -15,14 +16,21 @@ import type { FileBaseline, ScaffoldManifest } from "../types.js";
  *                content for R-039+ manifests, by sha256 for older hash-only ones,
  *                so untouched by the user), but the current template differs;
  *                refreshed to the new template (safe).
- * - `drift`    — present and modified (user edit or filled-in phase-2 placeholders,
- *                or no recorded baseline from a pre-R-034 scaffold); reported, never
- *                clobbered.
+ * - `merge`    — (R-040) present and user-edited, AND the template changed since
+ *                the recorded base; the upstream delta (base → template) merged
+ *                cleanly onto the local edits via a 3-way merge → applied on
+ *                `--write`. Needs the R-039 base *content* to compute the delta.
+ * - `conflict` — (R-040) like `merge`, but the upstream delta and the local edits
+ *                touch the same region and differ; reported, **never written** in
+ *                R-040 (R-041 adds interactive resolution).
+ * - `drift`    — present and modified, but not mergeable: no recorded base content
+ *                (pre-R-039 hash-only or pre-R-034 absent baseline), or the template
+ *                didn't change so there is nothing to merge; reported, never clobbered.
  * - `orphan`   — recorded in the manifest baseline but no longer part of the
  *                scaffold (e.g. a renamed/removed skill); reported, never deleted.
  * - `unchanged`— already byte-identical to the current template; nothing to do.
  */
-export type UpdateAction = "create" | "update" | "drift" | "orphan" | "unchanged";
+export type UpdateAction = "create" | "update" | "merge" | "conflict" | "drift" | "orphan" | "unchanged";
 
 export interface UpdateItem {
   /** Root-relative POSIX path. */
@@ -149,6 +157,8 @@ export function runUpdate(
   const emptyCounts: Record<UpdateAction, number> = {
     create: 0,
     update: 0,
+    merge: 0,
+    conflict: 0,
     drift: 0,
     orphan: 0,
     unchanged: 0,
@@ -237,16 +247,49 @@ export function runUpdate(
       items.push({ rel: f.rel, action: "update", detail: "template changed; file pristine" });
       writes.push({ abs, content: rendered });
       newBaseline[f.rel] = fileBaseline(rendered);
-    } else {
-      items.push({
-        rel: f.rel,
-        action: "drift",
-        detail: base === undefined ? "no baseline (pre-R-034 scaffold)" : "user-modified",
-      });
-      // Preserve the prior baseline entry verbatim so it keeps reporting drift
-      // until resolved (a legacy hash stays a hash; a content base stays content).
-      if (prev !== undefined) newBaseline[f.rel] = prev;
+      continue;
     }
+
+    // The file is user-modified. When we have the recorded base *content*
+    // (R-039) AND the template actually changed since that base, attempt a 3-way
+    // merge (R-040): replay the upstream delta (base → template) onto the local
+    // edits. Clean merges are applied; genuine conflicts are reported and left in
+    // place (R-041 will resolve them interactively).
+    if (base?.content !== undefined && base.content !== rendered) {
+      const merged = merge3(onDisk, base.content, rendered);
+      if (merged.clean) {
+        if (merged.content === onDisk) {
+          // The upstream change is already reflected locally — no write needed,
+          // but advance the base so we're reconciled with this template version.
+          items.push({ rel: f.rel, action: "merge", detail: "upstream changes already present" });
+        } else {
+          items.push({ rel: f.rel, action: "merge", detail: "merged upstream changes into local edits" });
+          writes.push({ abs, content: merged.content });
+        }
+        newBaseline[f.rel] = fileBaseline(rendered);
+      } else {
+        items.push({
+          rel: f.rel,
+          action: "conflict",
+          detail: `${merged.conflicts} conflict(s) with upstream; left in place — resolve manually`,
+        });
+        // Preserve the prior baseline so it keeps reporting until resolved.
+        if (prev !== undefined) newBaseline[f.rel] = prev;
+      }
+      continue;
+    }
+
+    // Not mergeable: no recorded base content (legacy/absent baseline), or the
+    // template didn't change so there's nothing to merge. Classic drift — report,
+    // never clobber.
+    items.push({
+      rel: f.rel,
+      action: "drift",
+      detail: base === undefined ? "no baseline (pre-R-034 scaffold)" : "user-modified",
+    });
+    // Preserve the prior baseline entry verbatim so it keeps reporting drift
+    // until resolved (a legacy hash stays a hash; a content base stays content).
+    if (prev !== undefined) newBaseline[f.rel] = prev;
   }
 
   // Files we used to manage that are no longer part of the scaffold and still

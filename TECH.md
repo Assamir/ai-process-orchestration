@@ -318,6 +318,20 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   trade-off is a larger manifest (the rendered base of every scaffolded file, ~85 KB for the default
   Playwright-TS scaffold), accepted deliberately to keep the merge base self-contained. *Prerequisite for
   the R-040 3-way merge engine.*
+  **3-way merge engine (R-040, v0.30.0).** With the base content on hand, `update` stops treating every
+  user-edited file as untouchable. When a file is `drift` **and** the template changed since the recorded
+  base, it runs a self-contained, dependency-free line-based **diff3** (`core/src/update/merge.ts`,
+  `merge3`) that replays the upstream delta (base → current template) onto the local edits: disjoint
+  hunks auto-apply, and only edits that touch the *same* region and differ remain. Two new actions
+  refine `drift`: **`merge`** (clean — applied on `--write`, the manifest base advancing to the current
+  template so the next run is reconciled) and **`conflict`** (genuine clash — reported with conflict
+  markers but **never written** in R-040; R-041 adds interactive resolution). Files with no recorded base
+  content (pre-R-039 hash-only / pre-R-034 absent) or no upstream change fall back to classic `drift`,
+  untouched. The merge is dependency-free on principle (the repo keeps `core` lean — only
+  `@clack/prompts` — and R-038 already hand-rolled its semver compare), with a deliberate **safety bias**:
+  touching-but-disjoint edits stay independent (both apply), while any genuine overlap is reported as a
+  conflict rather than guessed — a false conflict leaves the file untouched (harmless), whereas a wrong
+  auto-merge would not be. *Next: R-041 interactive conflict resolution.*
 - **Make test results legible to the agent.** ✅ **Shipped.** The QA analog of Codex's Chrome DevTools /
   observability wiring: phase 1 provisions a read-only `playwright-results` filesystem **MCP server**
   (`.mcp.json` / `.vscode/mcp.json`) over the Playwright HTML report + traces (`core/src/model/mcp.ts`,

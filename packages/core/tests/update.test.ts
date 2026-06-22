@@ -222,6 +222,103 @@ describe("baseline stored as content (R-039)", () => {
   });
 });
 
+describe("runUpdate 3-way merge (R-040)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    project = tempProject();
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+  });
+  afterEach(() => project.cleanup());
+
+  /**
+   * Simulate "the template changed upstream since this repo was scaffolded" by
+   * recording an *older* base in the manifest (differing from the current
+   * template at line 0), while the user keeps a separate local edit on disk.
+   */
+  function setupOlderBase(localEdit: (base: string) => string) {
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8"); // == the current template (theirs)
+    const lines = current.split("\n");
+    const base = ["# OLD HEADING", ...lines.slice(1)].join("\n"); // upstream changed line 0
+    const onDisk = localEdit(base);
+    writeFileSync(abs, onDisk, "utf8");
+    const m = readManifest(project.dir);
+    m.files![GUIDELINE] = { hash: createHash("sha256").update(base, "utf8").digest("hex"), content: base };
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+    return { abs, current };
+  }
+
+  it("merges a clean upstream delta onto a disjoint local edit", () => {
+    // Local edit (a trailing note) is disjoint from the upstream line-0 change.
+    const { abs, current } = setupOlderBase((base) => `${base}Local note from the user.\n`);
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("merge");
+
+    const after = readFileSync(abs, "utf8");
+    // Both sides survive: the upstream heading replaces "# OLD HEADING"…
+    expect(after).not.toContain("# OLD HEADING");
+    expect(after.split("\n")[0]).toBe(current.split("\n")[0]);
+    // …and the user's local note is preserved.
+    expect(after).toContain("Local note from the user.");
+    // Baseline advanced to the current template so the next run is reconciled.
+    expect((readManifest(project.dir).files![GUIDELINE] as FileBaseline).content).toBe(current);
+  });
+
+  it("reports a conflict (and never writes) when local and upstream edits clash", () => {
+    // Local edits the very line (0) that upstream also changed → genuine conflict.
+    const { abs } = setupOlderBase((base) => ["# MY HEADING", ...base.split("\n").slice(1)].join("\n"));
+    const onDisk = readFileSync(abs, "utf8");
+    const baselineBefore = readManifest(project.dir).files![GUIDELINE] as FileBaseline;
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true });
+    const item = report.items.find((i) => i.rel === GUIDELINE);
+    expect(item?.action).toBe("conflict");
+    expect(item?.detail).toMatch(/conflict/);
+    // File left exactly as the user had it — never clobbered.
+    expect(readFileSync(abs, "utf8")).toBe(onDisk);
+    // Baseline preserved verbatim so it keeps reporting until resolved.
+    expect(readManifest(project.dir).files![GUIDELINE]).toEqual(baselineBefore);
+  });
+
+  it("dry-run reports a merge plan without writing", () => {
+    const { abs } = setupOlderBase((base) => `${base}Local note from the user.\n`);
+    const onDisk = readFileSync(abs, "utf8");
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: false });
+    expect(report.counts.merge).toBe(1);
+    expect(readFileSync(abs, "utf8")).toBe(onDisk); // dry-run wrote nothing
+  });
+
+  it("a merged file is stable: once reconciled it's plain drift, never re-written", () => {
+    const { abs } = setupOlderBase((base) => `${base}Local note from the user.\n`);
+    runUpdate(project.dir, claudeAdapter, { write: true });
+    const merged = readFileSync(abs, "utf8");
+
+    // Second run: the baseline now equals the current template (no upstream
+    // delta left), so the file is just local drift — reported, not touched.
+    const second = runUpdate(project.dir, claudeAdapter, { write: true });
+    expect(second.items.find((i) => i.rel === GUIDELINE)?.action).toBe("drift");
+    expect(readFileSync(abs, "utf8")).toBe(merged);
+  });
+
+  it("falls back to drift (no merge) for a pre-R-039 hash-only baseline", () => {
+    const abs = join(project.dir, GUIDELINE);
+    const current = readFileSync(abs, "utf8");
+    const base = ["# OLD HEADING", ...current.split("\n").slice(1)].join("\n");
+    writeFileSync(abs, `${base}Local note.\n`, "utf8");
+    const m = readManifest(project.dir);
+    // Hash-only entry (no content) → no base to merge from → classic drift.
+    m.files![GUIDELINE] = createHash("sha256").update(base, "utf8").digest("hex");
+    writeFileSync(join(project.dir, MANIFEST), `${JSON.stringify(m, null, 2)}\n`, "utf8");
+
+    const report = runUpdate(project.dir, claudeAdapter, { write: true });
+    expect(report.items.find((i) => i.rel === GUIDELINE)?.action).toBe("drift");
+    expect(readFileSync(abs, "utf8")).toBe(`${base}Local note.\n`); // untouched
+  });
+});
+
 describe("compareToolVersions (R-038)", () => {
   it("orders dotted-integer versions numerically", () => {
     expect(compareToolVersions("0.27.0", "0.28.0")).toBe(-1);

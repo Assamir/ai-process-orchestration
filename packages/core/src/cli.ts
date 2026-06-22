@@ -196,7 +196,7 @@ function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: 
     }
   }
 
-  const { create, update, drift, orphan, unchanged } = report.counts;
+  const { create, update, merge, conflict, drift, orphan, unchanged } = report.counts;
   const actionable = report.items.filter((i) => i.action !== "unchanged");
 
   if (actionable.length === 0) {
@@ -208,6 +208,8 @@ function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: 
   const symbol: Record<string, string> = {
     create: write ? "+" : "would create",
     update: write ? "~" : "would update",
+    merge: write ? "⇄" : "would merge",
+    conflict: "✗",
     drift: "!",
     orphan: "·",
   };
@@ -218,16 +220,18 @@ function doUpdate(adapter: PlatformAdapter, meta: CliMeta, root: string, write: 
 
   if (!write) {
     log.warn(
-      `${create} to create, ${update} to update, ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write to apply.`,
+      `${create} to create, ${update} to update, ${merge} to merge, ${conflict} conflict(s), ${drift} drifted (skipped), ${orphan} orphaned. Re-run with --write to apply.`,
     );
     outro("Dry-run — nothing written.");
     return 0;
   }
 
-  log.success(`Applied: ${create} created, ${update} updated. ${drift} drifted, ${orphan} orphaned (left in place).`);
-  if (drift > 0 || orphan > 0) {
+  log.success(
+    `Applied: ${create} created, ${update} updated, ${merge} merged. ${conflict} conflict(s), ${drift} drifted, ${orphan} orphaned (left in place).`,
+  );
+  if (conflict > 0 || drift > 0 || orphan > 0) {
     note(
-      "Drifted files carry your edits or filled-in placeholders and were not overwritten; orphaned files are no longer part of the scaffold. Reconcile them by hand if needed.",
+      "Conflicted files have upstream changes that clash with your edits and were left untouched — reconcile them by hand. Drifted files carry edits with no mergeable upstream delta; orphaned files are no longer part of the scaffold.",
       "Review",
     );
   }
