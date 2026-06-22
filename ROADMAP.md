@@ -8,7 +8,7 @@
 > harness-engineering) · [`CLAUDE.md`](CLAUDE.md) (working guide) · packages
 > [`core`](packages/core) · [`claude-qa-orchestrator`](packages/claude-qa-orchestrator) ·
 > [`copilot-qa-orchestrator`](packages/copilot-qa-orchestrator) · reference
-> [`knowledge-markdowns/10xdevs-3`](knowledge-markdowns/10xdevs-3).
+> [`ai-practices/`](ai-practices) (distilled good/bad AI-engineering practices).
 
 ## How to use this file
 
@@ -84,14 +84,140 @@ broken-link repair) in **v0.21.0**, R-032 (C4 architecture-documentation standar
 R-033 (read-before-you-write standing rule) in **v0.23.0**, and R-034 (`update` / migrate command) in
 **v0.24.0**, and R-035 (`environment-management` guideline) in **v0.25.0**, and R-037 (test-surface ↔
 source repo map) in **v0.26.0**, and R-036 (`test-data-management` guideline) in **v0.27.0**. The
-backlog below is empty — all scoped work is scheduled._
+backlog below holds the unscheduled **R-038 → R-043** epic (version-aware smart `update`) plus
+**R-044/R-045** (assumptions protocol + grounding/evidence upgrade, adapted from `.external`) and
+**R-046/R-047** (`qa-performance` JMeter skill + `performance-testing` guideline) and
+**R-048→R-051** (`qa-a11y`, `test-strategy` guideline, `qa-release-readiness`, `doctor`-in-CI);
+everything else is scheduled._
 
 ## Backlog (unscheduled)
 
 > Newly scoped `R-###` items, not yet assigned to a version. Each names its likely landing files and the
 > artifact it traces to; scope may still change before scheduling.
 
-_Empty — all scoped items are scheduled. Newly scoped `R-###` items will land here before scheduling._
+**Epic: smart, version-aware `update` (R-038 → R-043).** Extends R-034's deliberately conservative
+`update` (which only *reports* `drift`, never merges) into a version-aware migrator that knows *what
+changed* between tool versions and applies only the upstream delta — performing a **3-way merge** that
+preserves local edits and prompts the user on true conflicts. The chain has a strict dependency order
+(R-038 → R-039 → R-040 → R-041; R-042 depends on R-038; R-043 on R-040). Design decisions locked:
+baseline stored as **content** (self-contained, no git dependency); conflict UI is an **interactive
+`@clack/prompts` form**; changelog is a **machine-computed delta** (no hand-maintained file).
+
+- **R-038** — **`toolVersion` in the manifest + version-awareness in `update`.** Record the package
+  version that scaffolded the repo (`manifest.toolVersion`) and compare against the running tool;
+  `update` reports `scaffolded 0.27.0 → running 0.30.0` and warns on downgrade. Foundation for the
+  changelog (R-042) and meaningful merge. *Likely lands in:* `core/src/types.ts`,
+  `scaffold/index.ts` (write `toolVersion`), `update/index.ts`, `cli.ts`, `tests/update.test.ts`.
+  *Traces to:* TECH §11 (deterministic `update`).
+- **R-039** — **Baseline stored as content (not just a hash).** A 3-way merge needs the *base* (the old
+  rendered template), but the manifest records only a sha256. Store the full rendered base content in
+  the manifest (or a sidecar) so `update` can diff base→new without git. *Prerequisite for R-040.*
+  *Likely lands in:* `core/src/types.ts` (manifest `files` shape), `scaffold/index.ts`,
+  `update/index.ts`, `tests/update.test.ts`. *Traces to:* TECH §11.
+- **R-040** — **3-way merge engine in `update`.** For `drift` files, compute the upstream delta
+  (base → current template) and auto-apply non-conflicting hunks onto the locally-modified file; only
+  genuine conflicts remain. Turns `drift` from "untouchable" into "merged where safe". Dry-run shows the
+  plan; `--write` applies. *Depends on R-039.* *Likely lands in:* `core/src/update/index.ts` (+ a merge
+  util), `tests/update.test.ts`. *Traces to:* TECH §11, PRD §8.
+- **R-041** — **Interactive conflict-resolution form (`@clack/prompts`).** On a real conflict, present a
+  comparison (mine / theirs / base) and let the user choose per-conflict: *keep mine · take theirs ·
+  show diff · skip*. Deterministic, **no LLM** (consistent with the `init` wizard). *Depends on R-040.*
+  *Likely lands in:* `core/src/update/index.ts`, `cli.ts`. *Traces to:* TECH §11.
+- **R-042** — **Template changelog — machine-computed delta.** Surface what changed between the
+  scaffolded and current version (added/changed/removed files, skills, guidelines) in the `update`
+  output, derived from the base→new diff. *Depends on R-038.* *Likely lands in:*
+  `core/src/update/index.ts` (optionally a `model/changelog.ts`), `tests/update.test.ts`.
+  *Traces to:* TECH §11. *Design note (from `.external` `git-sync-changelog`):* borrow the
+  **`last_sync_commit` front-matter anchor** pattern — record what version/commit the changelog last
+  ran from so each `update` reports only the delta since the previous run, and never invents entries
+  (every line traces to a real version bump).
+- **R-043** — **`update --interactive` (file-by-file walk).** A mode that steps through each changed file
+  (apply / skip / diff), not just bulk apply — convenient for large migrations. *Depends on R-040;*
+  optional refinement on top of R-041's conflict interactivity. *Likely lands in:*
+  `core/src/update/index.ts`, `cli.ts`. *Traces to:* TECH §11.
+
+**From the `.external` TQA orchestration — reusable, net-new guidelines (R-044, R-045).** Ideas adapted
+from a sibling Copilot QA-analysis system; both *complement* the existing `grounding` rule (R-029)
+rather than duplicate it — R-029 says "cite a real artifact"; these add the structured mechanism for
+*legalizing what can't be cited* and *how to cite by strength*.
+
+- **R-044** — **`assumptions` guideline + `## Assumptions` protocol.** Inference is allowed **only** inside
+  a `## Assumptions` table (`ID | Claim | Basis | Impact | Verification | Confidence`), referenced inline
+  as `(A1)`; any inferred content *outside* the table is treated as a hallucination. `Basis` must be
+  concrete evidence (`file:line` / MCP source / user quote), never "common practice"; confidence is
+  calibrated (`low`/`medium`/`high`, "high is rare"). Complements R-029 grounding. Ships on both
+  platforms via `GUIDELINES` (mandatory ✅/❌ examples + `## Applicable patterns` + `ASSUMPTIONS_PATTERNS`
+  / `PROJECT_ASSUMPTIONS_WORKFLOW` phase-2 slots); referenced by name from the claim-producing skills
+  (`qa-reverse-engineer`, `qa-rca`, `qa-bug-report`, `qa-ticket-review`, `qa-coverage-gap`); `doctor`
+  expects the file + its examples (like `diagram-conventions`/`spec-driven-development`). *Likely lands
+  in:* `core/src/model/context.ts` (`GUIDELINES`), `model/skills.ts`, `doctor/index.ts`,
+  `tests/scaffold.test.ts`, `tests/doctor.test.ts`, TECH §12.1, PRD §8. *Traces to:* PRD §8, TECH §11/§12.1
+  (adapted from `.external/guidelines/assumptions-rules.md` + `assumptions-protocol.instructions.md`).
+- **R-045** — **`grounding` upgrade — evidence-collection standard.** Sharpen the existing `grounding`
+  guideline from "cite something" to: a **ranked evidence-type table** (source code `file#L-L` > config >
+  test > MCP > existing doc > git > web > user-quote), a **minimum-context rule** (≥10 lines / whole
+  method for code citations), and an **identifier scrub checklist** (every class/method/endpoint/env-var/
+  ticket-key verified present before it ships). Upgrades the existing guideline content (no new file);
+  adds the `GROUNDING:contract` check coverage where useful. *Likely lands in:* `core/src/model/context.ts`
+  (`GUIDELINES` — `grounding`), `tests/scaffold.test.ts`, possibly `doctor/index.ts`, TECH §12.1, PRD §8.
+  *Traces to:* PRD §8, TECH §12.1 (adapted from `.external/.github/skills/evidence-collection/SKILL.md`).
+
+**Performance testing on JMeter (R-046 + R-047).** Revives the performance-testing concern that was
+dropped as **R-011** (k6, deprioritized) — now on **JMeter**, and shipping together as the full result-
+legibility path + its governing guideline. (R-011 stays a permanent ID gap; this gets fresh IDs.)
+
+- **R-046** — **`qa-performance` skill (write) + JMeter detection + `jmeter-results` MCP.** A JMeter-first
+  (tool-neutral name, room for k6/Gatling later) performance skill that **generates/audits a `.jmx`
+  plan** (thread groups, HTTP/JDBC samplers, assertions, think-time timers, CSV Data Set Config for
+  parametrization, correlation), **runs non-GUI/headless** (`jmeter -n -t plan.jmx -l results.jtl -e -o
+  dashboard/`, CI-safe; GUI only for authoring), and **enforces SLAs/NFRs** (p95/p99 response time,
+  throughput, error-rate) where **every performance case traces to an NFR / acceptance criterion** (the
+  iron QA rule read from the non-functional side; composes with `spec-driven-development` R-030).
+  Phase-1 **detects JMeter** (`.jmx` files / `jmeter` in the build) into `DetectedStack`, and a
+  **`jmeter-results` MCP server** exposes the HTML dashboard + `.jtl` (the result-legibility pattern of
+  `playwright-results`/`pytest-results`/`jvm-results`/Allure). Renders with the write allowlist on both
+  platforms; wired from `qa-test-automate` + `qa-ci-pipeline` (R-027) `## Next`. *Likely lands in:*
+  `core/src/model/skills.ts`, `detect/*` (+ JMeter detection), `types.ts` (`DetectedStack`),
+  `model/mcp.ts` (`jmeter-results`), `wizard/index.ts`, `scaffold/index.ts`, `tests/scaffold.test.ts`,
+  `tests/mcp.test.ts`, PRD §5, TECH §5. *Traces to:* PRD §5 (capabilities).
+- **R-047** — **`performance-testing` guideline.** Codifies the performance-testing standard the skill
+  embodies: NFRs first (define p95/p99 / throughput / error-rate budgets before scripting), a recorded
+  **baseline** to compare against, load profiles (load / stress / soak / spike), and anti-patterns
+  (no think-time, asserting on averages instead of percentiles, GUI runs in CI). Same guideline standard
+  (mandatory ✅/❌ examples + `## Applicable patterns` + `PERF_PATTERNS` / `PROJECT_PERF_WORKFLOW`
+  phase-2 slots); referenced by name from `qa-performance`; `doctor` expects the file + its examples
+  (like `diagram-conventions`/`spec-driven-development`). *Ships with R-046.* *Likely lands in:*
+  `core/src/model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`,
+  `tests/doctor.test.ts`, TECH §12.1, PRD §8. *Traces to:* PRD §8, TECH §12.1.
+
+**Functional-coverage candidates (R-048 → R-051).** Net-new QA capabilities that fill gaps in the
+shipped 20-skill suite — independent of each other (no dependency chain).
+
+- **R-048** — **`qa-a11y` skill (write) — accessibility testing.** Generates/audits accessibility tests
+  (axe-core via `@axe-core/playwright`, or `pa11y`/`axe` for the stack at hand), maps each violation to a
+  WCAG criterion, and traces every a11y case to an acceptance criterion (iron QA rule). Renders with the
+  write allowlist on both platforms; wired from `qa-test-case-design` / `qa-test-automate` `## Next`.
+  *Likely lands in:* `core/src/model/skills.ts`, `tests/scaffold.test.ts`, PRD §5, TECH §5.
+  *Traces to:* PRD §5.
+- **R-049** — **`test-strategy` guideline — test-level balance.** Codifies the unit / integration / e2e
+  balance (test pyramid vs. testing trophy), when each level is the right tool, and the "ice-cream cone"
+  anti-pattern. Same guideline standard (mandatory ✅/❌ examples + `## Applicable patterns` +
+  `TEST_STRATEGY_PATTERNS` / `PROJECT_TEST_STRATEGY_WORKFLOW` phase-2 slots); referenced by name from
+  `qa-test-case-design` / `qa-coverage-gap`; `doctor` expects the file + its examples (like
+  `diagram-conventions`/`spec-driven-development`). *Likely lands in:* `core/src/model/context.ts`
+  (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`, `tests/doctor.test.ts`, TECH §12.1, PRD §8.
+  *Traces to:* PRD §8, TECH §12.1.
+- **R-050** — **`qa-release-readiness` skill (read-only) — go/no-go gate.** Aggregates the outputs of
+  `qa-coverage-gap` (AC↔case↔test traceability), `qa-metrics` (pass/fail/flakiness + criterion coverage),
+  and `tech-debt-tracker.md` into a single release-readiness digest with an explicit go/no-go
+  recommendation grounded in real artifacts (composes with the `grounding` rule R-029). Read-only tool
+  allowlist; wired from `qa-metrics` / `qa-coverage-gap` `## Next`. *Likely lands in:*
+  `core/src/model/skills.ts`, `tests/scaffold.test.ts`, PRD §5. *Traces to:* PRD §5.
+- **R-051** — **`doctor` in CI — PR-gate recipe.** Extends R-027 (`qa-ci-pipeline`): a ready CI workflow
+  step that runs `doctor` (and optionally `update --dry-run`) as a pull-request gate, failing on scaffold
+  errors — closing the `documentation-as-code` loop (R-028) at the CI boundary so a drifted/broken
+  scaffold is caught automatically. *Likely lands in:* `core/src/model/skills.ts` (`qa-ci-pipeline`)
+  or a CI template, `tests/scaffold.test.ts`, TECH §5, PRD §8. *Traces to:* PRD §8 (closes R-027/R-028).
 
 > **ID notes — R-011 dropped, R-016 merged.** `R-011` (k6 / performance) was removed from the backlog
 > as deprioritized; `R-016` (richer observability) was folded into **R-012**. IDs are append-only and

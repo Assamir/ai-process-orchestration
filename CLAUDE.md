@@ -8,7 +8,7 @@ This is a multi-purpose workspace for AI-process tooling and notes. It is not a 
 
 - `packages/` — an **npm-workspaces monorepo** for the QA-process orchestration product: `core` (private shared library), `claude-qa-orchestrator` and `copilot-qa-orchestrator` (the two published npx packages). See its own section below.
 - `vscode/auditskill/` — a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies. Separate from `packages/` (it audits config; it does not scaffold).
-- `knowledge-markdowns/` — Polish-language course transcripts from **AI Devs 4** (`s01e01`…`s05e05`) and **10xDevs 3** (lekcje o agentach, MCP, Playwright, PRD, etc.). Reference material only — do not treat as source.
+- `ai-practices/` — a distilled **good-vs-bad AI / agent-engineering practice** reference (English, ✅/❌ per theme: context management, agent design, prompting, tools/MCP, testing, evaluation, deployment, etc.), distilled from the **AI Devs 4** and **10xDevs 3** course material. Start at `ai-practices/README.md`. Reference material only — do not treat as source. (Replaces the former Polish `knowledge-markdowns/` raw transcripts.)
 - `PRD.md`, `TECH.md`, `ROADMAP.md` (root, EN) — product + technical design + the tracked roadmap (item IDs `R-###`, files each change lands in) for the QA-orchestration packages. Read these first when working on `packages/`; update `ROADMAP.md` in the same commit that ships a roadmap item.
 - `cli/` — **legacy** `claude-agent-scaffold` (app-dev framing), superseded by `packages/claude-qa-orchestrator`. Not a workspace member; kept only until the maintainer removes it. Do not extend it.
 
@@ -122,5 +122,5 @@ live in `core` (parity); the leaves only pick the adapter.
 
 - When asked to change the QA-orchestration behavior or the generated output, edit `packages/core` (skills, content, adapters) — **not** the leaf packages, which are thin wrappers. Run `npm test` (parity test included) after.
 - When asked to modify the audit skill, edit files under `vscode/auditskill/` directly; there is no build step.
-- When asked about course content, the answer is in `knowledge-markdowns/` (Polish). These files are large (~30–70 KB each) — search with Grep before reading whole files.
-- **Language split:** `vscode/auditskill/` and its docs, plus course notes, are Polish — match that when editing those user-facing strings. The `packages/` product (code, identifiers, JSON keys, generated files) and `PRD.md`/`TECH.md` are English.
+- When asked about course content or AI / agent-engineering practices, the answer is in `ai-practices/` (English, distilled good/bad practices per theme) — start from `ai-practices/README.md`.
+- **Language split:** `vscode/auditskill/` and its docs are Polish — match that when editing those user-facing strings. The `packages/` product (code, identifiers, JSON keys, generated files), `PRD.md`/`TECH.md`, and the `ai-practices/` reference are English.
