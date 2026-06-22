@@ -141,6 +141,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
 | `qa-playwright-cli` | automation | write | `sonnet` | drive Playwright CLI (codegen/trace/snapshots) | Playwright CLI, browser MCP (opt-in) |
 | `qa-ci-pipeline` | automation | write | `sonnet` | generate/audit CI that runs the framework + publishes result dirs | reads `tools.md` + `manifest.json`, targets result-MCP dirs |
+| `qa-performance` | automation | write | `sonnet` | generate/audit a JMeter plan enforcing NFRs (p95/p99/throughput/error-rate), run headless | `jmeter-results` MCP (when JMeter detected) |
 | `qa-rca` | analysis | read | `opus` | root-cause reasoning | result servers |
 | `qa-test-data-gen` | analysis | write | `sonnet` | reusable schema-valid factories/fixtures | stack-aware (faker/factory_boy/datafaker) |
 | `qa-gardening` | analysis | read | `sonnet` | scan + prioritize drift | reads `doctor` output |
@@ -416,6 +417,7 @@ Current set:
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 | `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
 | `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
+| `performance-testing` | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047) | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -521,6 +523,18 @@ Standard each guideline follows:
   `PROJECT_TEST_DATA_WORKFLOW` slots; `doctor` expects the file to exist and to carry both example markers
   (no extra content-contract check, as with `diagram-conventions` / `spec-driven-development` — the
   standard is the guideline body).
+
+- **Performance testing (R-047).** A `performance-testing` guideline codifies the standard the
+  `qa-performance` skill (R-046) embodies — the iron QA rule read from the *non-functional* side. NFRs
+  come first (p95/p99 response time, throughput, error-rate, concurrency defined *before* scripting, each
+  performance case tracing to one — composes with `spec-driven-development`); assertions are on
+  **percentiles, never averages** (an average hides the slow tail); a recorded **baseline** makes a
+  regression visible as a delta; load shapes are realistic (think-time, ramp-up, parametrized data) and
+  the profile is chosen deliberately (load / stress / soak / spike); runs are **headless** (`jmeter -n
+  … -e -o`), with the GUI reserved for authoring (a GUI run in CI is an anti-pattern). It is referenced by
+  name from `qa-performance`. Like every guideline it carries ✅/❌ examples (kept link-free) and phase-2
+  `PERF_PATTERNS` / `PROJECT_PERF_WORKFLOW` slots; `doctor` expects the file + its examples (no extra
+  content-contract check, as with `diagram-conventions` / `spec-driven-development`).
 
 ### 12.2 Diagram standard — Mermaid (R-025)
 

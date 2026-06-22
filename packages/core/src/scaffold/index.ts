@@ -117,6 +117,7 @@ export function scaffoldFiles(
       atlassianMcp: answers.atlassianMcp,
       playwrightMcp: answers.playwrightMcp,
       observability: stack.observability,
+      performance: stack.performance,
     }),
   ];
 }

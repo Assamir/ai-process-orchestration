@@ -301,6 +301,7 @@ The new tests pass locally and the run is recorded in \`automation.md\`.
 ## Next
 - \`qa-rca\` — on failure, find the real cause before retrying.
 - \`qa-playwright-cli\` — use the Playwright CLI to record a draft, inspect a trace, or refresh snapshots.
+- \`qa-performance\` — when a case carries a non-functional target (response time, throughput, load), verify it with a JMeter plan.
 - \`qa-ci-pipeline\` — once tests pass locally, make them run in CI and publish results.`,
   },
   {
@@ -342,7 +343,7 @@ When the suite must run in CI, not just locally — to scaffold a pipeline for a
 ## Procedure
 1. Read \`context/foundation/tools.md\` (run command, report / trace / results paths) and \`context/.scaffold/manifest.json\` (language, build tool, framework). These paths are the contract — the pipeline must publish into them unchanged.
 2. Pick the provider. Detect what the repo already uses: **GitHub Actions** (\`.github/workflows/*.yml\`), **GitLab CI** (\`.gitlab-ci.yml\`), or **Azure Pipelines** (\`azure-pipelines.yml\`). If none exists, default to GitHub Actions and confirm before writing (respect autonomy **{{AUTONOMY_LEVEL}}**).
-3. Generate (or audit) the pipeline so it: checks out, sets up the runtime + build tool, installs deps (and Playwright browsers / JVM deps as needed), runs the recorded run command for **{{AUTOMATION_FRAMEWORK}}**, and **uploads the result dirs as build artifacts** — the same dirs wired into the result MCP: \`./playwright-report\` + \`./test-results\` (Playwright), \`./reports\` + \`./test-results\` (pytest), Surefire/Serenity (\`./target/surefire-reports\` or Gradle \`./build/reports/tests\`), and \`./allure-results\` + \`./allure-report\` when Allure is used. Match the paths in \`tools.md\` exactly — a pipeline that writes results elsewhere breaks legibility.
+3. Generate (or audit) the pipeline so it: checks out, sets up the runtime + build tool, installs deps (and Playwright browsers / JVM deps as needed), runs the recorded run command for **{{AUTOMATION_FRAMEWORK}}**, and **uploads the result dirs as build artifacts** — the same dirs wired into the result MCP: \`./playwright-report\` + \`./test-results\` (Playwright), \`./reports\` + \`./test-results\` (pytest), Surefire/Serenity (\`./target/surefire-reports\` or Gradle \`./build/reports/tests\`), \`./allure-results\` + \`./allure-report\` when Allure is used, and \`./jmeter-report\` + \`./jmeter-results\` when a JMeter load-test stage runs (\`qa-performance\`). Match the paths in \`tools.md\` exactly — a pipeline that writes results elsewhere breaks legibility.
 4. Cache deps/browsers, use a matrix only where it earns its keep, and **fail the build when tests fail** — the iron QA rule holds in CI: work without passing tests is not done. Never add a step that swallows a non-zero test exit.
 5. In **audit** mode, do not rewrite blindly: check the existing pipeline actually runs the framework, fails on test failure, and uploads every result dir; report each gap with the single fix.
 6. Record the pipeline file path and how to fetch its artifacts in \`context/foundation/tools.md\` so the result MCP and \`qa-metrics\` know where CI results land.
@@ -352,7 +353,33 @@ A CI pipeline for the detected provider runs **{{AUTOMATION_FRAMEWORK}}**, fails
 
 ## Next
 - \`qa-metrics\` — aggregate the now-published CI results into the QA health digest.
-- \`qa-rca\` — when a CI run fails, root-cause it from the uploaded artifacts.`,
+- \`qa-rca\` — when a CI run fails, root-cause it from the uploaded artifacts.
+- \`qa-performance\` — add a headless JMeter load-test stage that publishes \`./jmeter-report\` + \`./jmeter-results\`.`,
+  },
+  {
+    name: "qa-performance",
+    description: "Generate or audit a JMeter load/performance test plan that enforces NFRs (p95/p99, throughput, error-rate), run it headless, and trace every performance case to an NFR.",
+    readOnly: false,
+    bucket: "automation",
+    suggestedModel: "sonnet",
+    reads: ["context/foundation/test-plan.md", "context/foundation/tools.md", "context/changes/<work-id>/work.md"],
+    writes: ["context/changes/<work-id>/performance.md", "performance plan (.jmx)"],
+    body: `## When to use
+When a requirement carries a **non-functional** target — response time, throughput, concurrency, error-rate under load — and you need to verify it, or to audit an existing JMeter plan. JMeter-first (the tool-neutral name leaves room for k6/Gatling later). Authoring uses the GUI; **every run is non-GUI/headless** so it is CI-safe.
+
+## Procedure
+1. **NFRs first.** Per the \`performance-testing\` guideline, define the budgets *before* scripting: p95/p99 response time, throughput (req/s), max error-rate, and the load profile (load / stress / soak / spike). Per the \`spec-driven-development\` guideline, every performance case **traces to an NFR / acceptance criterion** — the iron QA rule read from the non-functional side. An NFR that isn't written is a blocker to resolve, not a number to invent.
+2. **Generate or audit the \`.jmx\` plan.** Build thread groups (the load profile), HTTP/JDBC samplers, response/duration **assertions** that fail the run when an SLA is breached, **think-time timers** (real users pause — no think-time overstates throughput), **CSV Data Set Config** for parametrized/correlated data (never a single hard-coded user), and correlation of dynamic tokens. In **audit** mode, check an existing plan has assertions tied to the NFRs, think-time, and parametrized data; report each gap with one fix.
+3. **Run headless.** \`jmeter -n -t plan.jmx -l ./jmeter-results/results.jtl -e -o ./jmeter-report\` — non-GUI, writes the \`.jtl\` log + the HTML dashboard into the dirs the \`jmeter-results\` MCP server reads. GUI is for authoring only; a GUI run in CI is an anti-pattern.
+4. **Enforce SLAs and record.** Read the dashboard/\`.jtl\` through the \`jmeter-results\` MCP server; compare **percentiles** (p95/p99) and error-rate against the budgets — never an average, which hides the tail. Record the plan path, run command, the baseline compared against, and pass/fail per NFR in \`context/changes/<work-id>/performance.md\`. Per the \`grounding\` rule, every number cites the real result artifact you read; if a target has no recorded baseline, say so rather than inventing one.
+
+## Done when
+A \`.jmx\` plan exists whose assertions enforce the NFRs, it has run headless, the percentile/error-rate results are compared against the budgets and recorded in \`performance.md\`, and each performance case traces to an NFR. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-ci-pipeline\` — run the headless JMeter plan in CI and publish \`./jmeter-report\` + \`./jmeter-results\`.
+- \`qa-rca\` — when an NFR fails, root-cause the regression from the dashboard/\`.jtl\`.
+- \`qa-metrics\` — fold the performance pass/fail and trend into the QA health digest.`,
   },
 ];
 

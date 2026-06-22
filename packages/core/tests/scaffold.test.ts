@@ -12,6 +12,7 @@ const stack: DetectedStack = {
   primaryFramework: "playwright-ts",
   linters: ["eslint", "prettier"],
   observability: [],
+  performance: [],
   manifests: ["package.json"],
 };
 
@@ -46,6 +47,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/spec-driven-development.md",
       ".ai/guidelines/environment-management.md",
       ".ai/guidelines/test-data-management.md",
+      ".ai/guidelines/performance-testing.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       "context/foundation/repo-map.md",
@@ -401,6 +403,52 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships qa-performance as a write skill enforcing NFRs + a performance-testing guideline (R-046, R-047)", () => {
+    // The skill is a write/automation skill (it authors a .jmx plan + records results).
+    const perf = SKILLS.find((s) => s.name === "qa-performance");
+    expect(perf, "qa-performance registered").toBeDefined();
+    expect(perf!.readOnly).toBe(false);
+    expect(perf!.bucket).toBe("automation");
+    // It is JMeter-first, headless, percentile-based, and traces to NFRs.
+    expect(perf!.body).toContain("jmeter -n");
+    expect(perf!.body).toMatch(/p95/);
+    expect(perf!.body).toContain("performance-testing");
+    expect(perf!.body).toContain("jmeter-results");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Rendered with the write tool allowlist on Claude.
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-performance/SKILL.md"), "utf8");
+    expect(skill).toContain("Write, Edit, Bash");
+
+    // The performance-testing guideline ships with the load-testing contract.
+    const claude = readFileSync(join(project.dir, ".ai/guidelines/performance-testing.md"), "utf8");
+    expect(claude.toLowerCase()).toContain("nfr");
+    expect(claude).toContain("p95");
+    expect(claude.toLowerCase()).toContain("baseline");
+    expect(claude).toContain("{{PERF_PATTERNS}}");
+    expect(claude).toContain("{{PROJECT_PERF_WORKFLOW}}");
+
+    // Parity: the guideline + skill ship on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/performance-testing.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("nfr");
+      expect(existsSync(join(copilotProject.dir, ".github/prompts/qa-performance.prompt.md"))).toBe(true);
+    } finally {
+      copilotProject.cleanup();
+    }
+
+    // Wired from the automation chain's ## Next.
+    for (const name of ["qa-test-automate", "qa-ci-pipeline"]) {
+      const s = SKILLS.find((x) => x.name === name);
+      expect(s!.body, `${name} references qa-performance`).toContain("qa-performance");
+    }
+  });
+
   it("scaffolds a fresh phase-1 repo-map inventory of the application layout (R-037)", () => {
     // Lay down a representative multi-module repo *before* scaffolding so the
     // deterministic phase-1 inventory has a real layout to map.
@@ -494,7 +542,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management"]) {
+      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

@@ -8,6 +8,8 @@ export interface DetectorResult {
   linters: string[];
   /** Cross-run observability/reporting tools (e.g. `allure`). */
   observability: string[];
+  /** Performance / load-testing tooling (e.g. `jmeter`) found in the manifest. */
+  performance: string[];
   manifests: string[];
 }
 
@@ -19,7 +21,7 @@ export interface DetectorResult {
 export function detectNode(root: string): DetectorResult {
   const pkgRaw = readIfExists(root, "package.json");
   if (pkgRaw === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], performance: [], manifests: [] };
   }
 
   const manifests = ["package.json"];
@@ -69,5 +71,9 @@ export function detectNode(root: string): DetectorResult {
   const observability: string[] = [];
   if (Object.keys(deps).some((d) => d.includes("allure"))) observability.push("allure");
 
-  return { matched: true, buildTool, frameworks, linters, observability, manifests };
+  // JMeter is rarely an npm dep, but surface it if a wrapper (e.g. a jmeter runner) is declared.
+  const performance: string[] = [];
+  if (Object.keys(deps).some((d) => d.includes("jmeter"))) performance.push("jmeter");
+
+  return { matched: true, buildTool, frameworks, linters, observability, performance, manifests };
 }

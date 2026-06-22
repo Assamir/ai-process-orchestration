@@ -92,6 +92,38 @@ ruff = "^0.4"`,
     }
   });
 
+  it("detects JMeter from a standalone .jmx plan and from a build entry (R-046)", () => {
+    // Standalone JMeter: no build signal, just a .jmx test plan in the repo.
+    project.write("package.json", JSON.stringify({ devDependencies: { "@playwright/test": "^1.44" } }));
+    project.write("load-test.jmx", "<jmeterTestPlan></jmeterTestPlan>");
+    const standalone = detectStack(project.dir);
+    expect(standalone.performance).toContain("jmeter");
+    // It is orthogonal to the functional framework, which is still detected.
+    expect(standalone.primaryFramework).toBe("playwright-ts");
+
+    // Build-entry JMeter: the jmeter-maven-plugin in a pom, no .jmx file.
+    const maven = tempProject();
+    try {
+      maven.write(
+        "pom.xml",
+        `<project><build><plugins><plugin><groupId>com.lazerycode.jmeter</groupId>
+         <artifactId>jmeter-maven-plugin</artifactId></plugin></plugins></build></project>`,
+      );
+      expect(detectStack(maven.dir).performance).toContain("jmeter");
+    } finally {
+      maven.cleanup();
+    }
+
+    // No JMeter signal → empty, nothing leaks in.
+    const clean = tempProject();
+    try {
+      clean.write("package.json", JSON.stringify({ devDependencies: { "@playwright/test": "^1.44" } }));
+      expect(detectStack(clean.dir).performance).toEqual([]);
+    } finally {
+      clean.cleanup();
+    }
+  });
+
   it("returns null language and unknown framework for an empty directory", () => {
     const stack = detectStack(project.dir);
     expect(stack.language).toBeNull();

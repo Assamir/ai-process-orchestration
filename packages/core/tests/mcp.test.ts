@@ -62,6 +62,21 @@ describe("resultServers (MCP legibility)", () => {
     const none = resultServers({ framework: "playwright-ts", buildTool: "npm" })["playwright-results"];
     expect(none!.args).not.toContain("./allure-results");
   });
+
+  it("wires a separate jmeter-results server when JMeter is detected (R-046)", () => {
+    // Orthogonal to the functional runner: both the framework + jmeter servers appear.
+    const both = resultServers({ framework: "playwright-ts", buildTool: "npm", performance: ["jmeter"] });
+    expect(both["playwright-results"]).toBeDefined();
+    expect(both["jmeter-results"]).toBeDefined();
+    expect(both["jmeter-results"]!.args).toEqual(expect.arrayContaining(["./jmeter-report", "./jmeter-results"]));
+
+    // Even on an unknown functional framework, a JMeter-only repo is still made legible.
+    const perfOnly = resultServers({ framework: "unknown", buildTool: "unknown", performance: ["jmeter"] });
+    expect(perfOnly["jmeter-results"]).toBeDefined();
+
+    // No performance tooling → no jmeter server leaks in.
+    expect(resultServers({ framework: "playwright-ts", buildTool: "npm" })["jmeter-results"]).toBeUndefined();
+  });
 });
 
 describe("ticketingServers (optional Atlassian MCP)", () => {
@@ -109,6 +124,7 @@ describe("scaffold wires MCP results into the platform config", () => {
     primaryFramework: "playwright-ts",
     linters: [],
     observability: [],
+    performance: [],
     manifests: ["package.json"],
   };
   const answers: WizardAnswers = {
@@ -146,6 +162,7 @@ describe("scaffold wires MCP results into the platform config", () => {
       primaryFramework: "pytest",
       linters: ["ruff"],
       observability: [],
+      performance: [],
       manifests: ["pyproject.toml"],
     };
     const pyAnswers: WizardAnswers = { ...answers, automationFramework: "pytest" };
@@ -162,6 +179,7 @@ describe("scaffold wires MCP results into the platform config", () => {
       primaryFramework: "restassured",
       linters: [],
       observability: [],
+      performance: [],
       manifests: ["pom.xml"],
     };
     const jvmAnswers: WizardAnswers = { ...answers, automationFramework: "restassured" };

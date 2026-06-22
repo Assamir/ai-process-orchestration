@@ -49,6 +49,16 @@ export interface DetectedStack {
    * the result MCP server. Empty when none found.
    */
   observability: string[];
+  /**
+   * Performance / load-testing tooling detected in the stack (e.g. `jmeter`) —
+   * from a build entry (`jmeter-maven-plugin`, a Gradle jmeter plugin) or a `.jmx`
+   * test plan found in the repo. Orthogonal to `frameworks` (the functional
+   * runner): a repo can drive functional tests with Playwright and load tests with
+   * JMeter at once. When present, phase 1 wires the tool's result dirs (the HTML
+   * dashboard + `.jtl`) into the result MCP server and the `qa-performance` skill
+   * keys off it. Empty when none found (R-046).
+   */
+  performance: string[];
   /** Build manifests that were actually found, relative to the scanned root. */
   manifests: string[];
 }

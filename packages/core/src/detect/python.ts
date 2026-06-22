@@ -13,7 +13,7 @@ export function detectPython(root: string): DetectorResult {
   const setupPy = readIfExists(root, "setup.py");
 
   if (pyproject === null && requirements === null && setupPy === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], performance: [], manifests: [] };
   }
 
   const manifests: string[] = [];
@@ -37,5 +37,9 @@ export function detectPython(root: string): DetectorResult {
   const observability: string[] = [];
   if (text.includes("allure")) observability.push("allure");
 
-  return { matched: true, buildTool, frameworks, linters, observability, manifests };
+  // A jmeter wrapper declared as a dep (rare in Python, but surface it if present).
+  const performance: string[] = [];
+  if (text.includes("jmeter")) performance.push("jmeter");
+
+  return { matched: true, buildTool, frameworks, linters, observability, performance, manifests };
 }

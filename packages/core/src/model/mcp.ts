@@ -19,6 +19,13 @@ export interface McpContext {
    * so legibility extends past a single static report directory (R-012).
    */
   observability?: string[];
+  /**
+   * Performance/load-testing tools detected in the stack (e.g. `jmeter`). When
+   * present, a separate `jmeter-results` result server exposes the HTML dashboard
+   * + `.jtl` so `qa-performance` / `qa-rca` / `qa-metrics` read load-test outcomes
+   * directly. Orthogonal to the functional `framework` result server (R-046).
+   */
+  performance?: string[];
   /** Wire the official Playwright browser MCP server (`@playwright/mcp`). */
   playwrightMcp?: boolean;
 }
@@ -40,9 +47,15 @@ export function resultServers(ctx: McpContext): Record<string, McpServer> {
   // `qa-metrics` needs for flakiness/trends (R-012).
   const allure = ctx.observability?.includes("allure") ? ["./allure-results", "./allure-report"] : [];
 
-  if (base) return { [base.name]: filesystem([...base.dirs, ...allure]) };
-  // No framework result server (unknown stack), but Allure may still be wired.
-  return allure.length ? { "allure-results": filesystem(allure) } : {};
+  // JMeter load-test results are orthogonal to the functional runner, so they get
+  // their own server over the HTML dashboard (`-o`) + the `.jtl` log dir (R-046).
+  const jmeter: Record<string, McpServer> = ctx.performance?.includes("jmeter")
+    ? { "jmeter-results": filesystem(["./jmeter-report", "./jmeter-results"]) }
+    : {};
+
+  if (base) return { [base.name]: filesystem([...base.dirs, ...allure]), ...jmeter };
+  // No framework result server (unknown stack), but Allure / JMeter may still be wired.
+  return { ...(allure.length ? { "allure-results": filesystem(allure) } : {}), ...jmeter };
 }
 
 /** The framework's conventional result dirs and server name, or null when unknown. */

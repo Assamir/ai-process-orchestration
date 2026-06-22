@@ -14,7 +14,7 @@ export function detectJava(root: string): DetectorResult {
   const gradle = gradleGroovy ?? gradleKts;
 
   if (pom === null && gradle === null) {
-    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], manifests: [] };
+    return { matched: false, buildTool: "unknown", frameworks: [], linters: [], observability: [], performance: [], manifests: [] };
   }
 
   const manifests: string[] = [];
@@ -46,5 +46,9 @@ export function detectJava(root: string): DetectorResult {
   const observability: string[] = [];
   if (text.includes("allure")) observability.push("allure");
 
-  return { matched: true, buildTool, frameworks, linters, observability, manifests };
+  // jmeter-maven-plugin (com.lazerycode.jmeter) or a Gradle jmeter plugin → load testing.
+  const performance: string[] = [];
+  if (text.includes("jmeter")) performance.push("jmeter");
+
+  return { matched: true, buildTool, frameworks, linters, observability, performance, manifests };
 }

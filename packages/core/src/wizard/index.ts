@@ -39,6 +39,7 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
       `Build tool:       ${stack.buildTool}`,
       `Frameworks:       ${stack.frameworks.length > 0 ? stack.frameworks.map(frameworkLabel).join(", ") : "none detected"}`,
       `Linters:          ${stack.linters.length > 0 ? stack.linters.join(", ") : "none detected"}`,
+      `Performance:      ${stack.performance.length > 0 ? stack.performance.join(", ") : "none detected"}`,
       `Manifests:        ${stack.manifests.length > 0 ? stack.manifests.join(", ") : "none"}`,
     ].join("\n"),
     "Detected test stack",

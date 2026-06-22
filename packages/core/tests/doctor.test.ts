@@ -12,6 +12,7 @@ const stack: DetectedStack = {
   primaryFramework: "playwright-ts",
   linters: ["eslint"],
   observability: [],
+  performance: [],
   manifests: ["package.json"],
 };
 
