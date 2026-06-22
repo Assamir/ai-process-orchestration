@@ -331,7 +331,7 @@ The CLI task is complete (a recorded test refactored to conventions, a trace ins
   },
   {
     name: "qa-ci-pipeline",
-    description: "Generate or audit a CI pipeline that runs the chosen framework and publishes results into the report dirs wired into the result MCP.",
+    description: "Generate or audit a CI pipeline that runs the chosen framework, publishes results into the report dirs wired into the result MCP, and runs `doctor` as a pull-request gate.",
     readOnly: false,
     bucket: "automation",
     suggestedModel: "sonnet",
@@ -345,11 +345,12 @@ When the suite must run in CI, not just locally — to scaffold a pipeline for a
 2. Pick the provider. Detect what the repo already uses: **GitHub Actions** (\`.github/workflows/*.yml\`), **GitLab CI** (\`.gitlab-ci.yml\`), or **Azure Pipelines** (\`azure-pipelines.yml\`). If none exists, default to GitHub Actions and confirm before writing (respect autonomy **{{AUTONOMY_LEVEL}}**).
 3. Generate (or audit) the pipeline so it: checks out, sets up the runtime + build tool, installs deps (and Playwright browsers / JVM deps as needed), runs the recorded run command for **{{AUTOMATION_FRAMEWORK}}**, and **uploads the result dirs as build artifacts** — the same dirs wired into the result MCP: \`./playwright-report\` + \`./test-results\` (Playwright), \`./reports\` + \`./test-results\` (pytest), Surefire/Serenity (\`./target/surefire-reports\` or Gradle \`./build/reports/tests\`), \`./allure-results\` + \`./allure-report\` when Allure is used, and \`./jmeter-report\` + \`./jmeter-results\` when a JMeter load-test stage runs (\`qa-performance\`). Match the paths in \`tools.md\` exactly — a pipeline that writes results elsewhere breaks legibility.
 4. Cache deps/browsers, use a matrix only where it earns its keep, and **fail the build when tests fail** — the iron QA rule holds in CI: work without passing tests is not done. Never add a step that swallows a non-zero test exit.
-5. In **audit** mode, do not rewrite blindly: check the existing pipeline actually runs the framework, fails on test failure, and uploads every result dir; report each gap with the single fix.
-6. Record the pipeline file path and how to fetch its artifacts in \`context/foundation/tools.md\` so the result MCP and \`qa-metrics\` know where CI results land.
+5. **Add the docs-as-code gate.** Beyond the tests, add a fast read-only step that runs the scaffolder's own validator — \`npx <qa-orchestrator> doctor\` — as a **pull-request gate**, so a drifted or broken \`context/\` scaffold (broken relative links, leftover phase-1 \`{{PLACEHOLDER}}\` markers, a missing iron QA rule, a guideline without good/bad examples) **fails the build the same way a failing test does**. This delivers what the \`documentation-as-code\` guideline promises — docs kept in sync by CI — at the CI boundary. \`doctor\` is deterministic, no-LLM, and exits non-zero on errors, so it is safe and fast on every PR; no extra dependency to install beyond the orchestrator package via \`npx\`. Optionally also run \`npx <qa-orchestrator> update --dry-run\` to surface (without applying) upstream template drift in the PR. Run the gate on pull requests, alongside or before the test job.
+6. In **audit** mode, do not rewrite blindly: check the existing pipeline actually runs the framework, fails on test failure, uploads every result dir, **and runs \`doctor\` as a PR gate**; report each gap with the single fix.
+7. Record the pipeline file path and how to fetch its artifacts in \`context/foundation/tools.md\` so the result MCP and \`qa-metrics\` know where CI results land.
 
 ## Done when
-A CI pipeline for the detected provider runs **{{AUTOMATION_FRAMEWORK}}**, fails on test failure, and publishes the result dirs the result MCP reads — and \`tools.md\` records it. In audit mode, a gap report with one fix per finding (output in **{{REPORT_LANGUAGE_NAME}}**).
+A CI pipeline for the detected provider runs **{{AUTOMATION_FRAMEWORK}}**, fails on test failure, publishes the result dirs the result MCP reads, **and runs \`doctor\` as a PR gate that fails on scaffold errors** — and \`tools.md\` records it. In audit mode, a gap report with one fix per finding (output in **{{REPORT_LANGUAGE_NAME}}**).
 
 ## Next
 - \`qa-metrics\` — aggregate the now-published CI results into the QA health digest.

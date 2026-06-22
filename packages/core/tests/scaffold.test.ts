@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeAdapter, copilotAdapter, scaffold, SKILLS } from "../src/index.js";
+import { claudeAdapter, copilotAdapter, GUIDELINES, scaffold, SKILLS } from "../src/index.js";
 import type { DetectedStack, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -596,6 +596,25 @@ describe("scaffold (Claude)", () => {
     // Phase-1 placeholders are rendered with the chosen framework.
     expect(skill).toContain("Playwright (TypeScript)");
     expect(skill).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+  });
+
+  it("qa-ci-pipeline wires doctor as a PR gate, closing the docs-as-code loop in CI (R-051)", () => {
+    const ci = SKILLS.find((s) => s.name === "qa-ci-pipeline");
+    expect(ci, "qa-ci-pipeline registered").toBeDefined();
+    // The skill now runs the scaffolder's own validator as a pull-request gate.
+    expect(ci!.body).toContain("doctor");
+    expect(ci!.body).toMatch(/pull-request gate|PR gate/);
+    expect(ci!.body).toContain("update --dry-run");
+    // It delivers the promise the documentation-as-code guideline already makes.
+    expect(ci!.body).toContain("documentation-as-code");
+    // The one-line description advertises the gate (handoff list / frontmatter).
+    expect(ci!.description).toContain("doctor");
+
+    // The documentation-as-code guideline's promise ("doctor in CI, wired by
+    // qa-ci-pipeline") is now actually fulfilled by the skill.
+    const docAsCode = GUIDELINES.find((g) => g.name === "documentation-as-code");
+    expect(docAsCode!.body).toContain("qa-ci-pipeline");
+    expect(docAsCode!.body).toContain("doctor");
   });
 
   it("ships qa-metrics as a read-only observability/metrics digest skill (R-012)", () => {
