@@ -116,8 +116,9 @@ walkthrough + the generated `docs/skill-catalog.md` with per-skill usage flows f
 **v0.38.0** (completing the docs/formatting bundle R-054 → R-052)._
 
 _All scheduled items are shipped._ The backlog below holds the unscheduled functional-coverage
-candidates **R-048→R-050** (`qa-a11y`, `test-strategy` guideline, `qa-release-readiness`) and **R-053**
-(`qa-mobile` skill).
+candidates **R-048→R-050** (`qa-a11y`, `test-strategy` guideline, `qa-release-readiness`), **R-053**
+(`qa-mobile` skill), **R-055** (`qa-security` skill), and **R-057** (`accessibility-testing` guideline,
+pairs with R-048).
 
 ## Backlog (unscheduled)
 
@@ -142,9 +143,11 @@ stored as **content** (self-contained, no git dependency — ✅ R-039); conflic
 ✅ R-042, derived from the manifest baseline vs. current templates); the walk **signals interactive mode
 via the `apply` option's presence** and preserves the baseline of skipped files (✅ R-043).
 
-**Functional-coverage candidates (R-048 → R-050, R-053).** Net-new QA capabilities that fill gaps in the
-shipped 21-skill suite — independent of each other (no dependency chain). (R-051, `doctor`-in-CI, shipped
-in **v0.36.0**; R-054 `code-formatting` in **v0.37.0**; R-052 product docs in **v0.38.0** — all in Shipped.)
+**Functional-coverage candidates (R-048 → R-050, R-053, R-055, R-057, R-058).** Net-new QA capabilities
+that fill gaps in the shipped 21-skill suite — independent of each other (no dependency chain), except two
+skill+guideline pairs best scheduled together (like R-046+R-047): **R-057** is the guideline for the
+R-048 skill, and **R-058** is the guideline for the R-055 skill. (R-051, `doctor`-in-CI, shipped in
+**v0.36.0**; R-054 `code-formatting` in **v0.37.0**; R-052 product docs in **v0.38.0** — all in Shipped.)
 
 - **R-048** — **`qa-a11y` skill (write) — accessibility testing.** Generates/audits accessibility tests
   (axe-core via `@axe-core/playwright`, or `pa11y`/`axe` for the stack at hand), maps each violation to a
@@ -179,6 +182,44 @@ in **v0.36.0**; R-054 `code-formatting` in **v0.37.0**; R-052 product docs in **
   `performance-testing`). *Likely lands in:* `core/src/types.ts` (`DetectedStack.mobile`), `detect/*`,
   `model/mcp.ts` (`mobile-results`), `model/skills.ts` (`qa-mobile`), `scaffold/index.ts`,
   `wizard/index.ts`, `tests/{detect,mcp,scaffold}.test.ts`, PRD §5, TECH §5. *Traces to:* PRD §5.
+- **R-055** — **`qa-security` skill (write) — security / DAST testing.** Generates/audits security tests:
+  DAST via **OWASP ZAP** (baseline / full scan, **headless & CI-safe**; GUI only to author), dependency
+  scanning (`npm audit` / OWASP Dependency-Check), optionally SAST. Each finding maps to an **OWASP
+  Top-10** category, and every security case **traces to a security requirement / acceptance criterion**
+  (the iron QA rule from the security side; composes with `spec-driven-development`). Phase 1 **detects** a
+  security stack into a new `DetectedStack.security` (a ZAP automation plan / `.zap` config, or a
+  dependency-scan build entry, via a bounded scan — orthogonal to the functional `frameworks`) and wires a
+  **`zap-results`** MCP server over the ZAP report dir (HTML / JSON), the result-legibility pattern of
+  `playwright-results`/`jmeter-results`/Allure. Renders with the write allowlist on both platforms; wired
+  from `qa-test-automate` + `qa-ci-pipeline` `## Next`. The suite would become **22 skills**. Mirrors the
+  R-046/R-047 pattern; likely pairs with a future `security-testing` guideline. *Likely lands in:*
+  `core/src/types.ts` (`DetectedStack.security`), `detect/*`, `model/mcp.ts` (`zap-results`),
+  `model/skills.ts` (`qa-security`), `scaffold/index.ts`, `wizard/index.ts`,
+  `tests/{detect,mcp,scaffold}.test.ts`, PRD §5, TECH §5. *Traces to:* PRD §5.
+- **R-057** — **`accessibility-testing` guideline — the guideline pair for R-048.** Codifies the standard
+  `qa-a11y` embodies: WCAG **POUR** principles, conformance levels (A / AA / AAA — target **AA**),
+  **automated coverage is partial** (~30–40% of WCAG — axe-core/`pa11y` catch contrast, ARIA, missing
+  labels, but **not** keyboard traps, focus order, or meaningful sequence), so automated **and**
+  manual / assistive-tech checks are both required, plus anti-patterns (treating an axe pass as
+  "accessible", testing only the happy path, ignoring keyboard / screen-reader). Same guideline standard
+  (mandatory ✅/❌ examples + `## Applicable patterns` + `A11Y_PATTERNS` / `PROJECT_A11Y_WORKFLOW` phase-2
+  slots); referenced by name from `qa-a11y` (R-048); `doctor` expects the file + its examples (like
+  `diagram-conventions`/`spec-driven-development`/`performance-testing`). **Best scheduled with R-048**
+  (skill + guideline together, as R-046+R-047 shipped together). *Likely lands in:*
+  `core/src/model/context.ts` (`GUIDELINES`), `tests/scaffold.test.ts`, TECH §12.1, PRD §8.
+  *Traces to:* PRD §8, TECH §12.1.
+- **R-058** — **`security-testing` guideline — the guideline pair for R-055.** Codifies the standard
+  `qa-security` embodies: a **threat model as the input** (what are we protecting, against whom), **OWASP
+  Top-10 / ASVS** as the conformance baseline, **shift-left** (SAST + dependency scan early in the loop,
+  DAST against a deployed environment), a recorded **vulnerability baseline** to triage new findings
+  against (so a known/accepted issue doesn't re-fail the gate), severity triage (CVSS, not raw scanner
+  counts), and anti-patterns (scanning without triage, treating a clean ZAP baseline as "secure", secrets
+  in scan config — composes with `environment-management`, R-035). Same guideline standard (mandatory
+  ✅/❌ examples + `## Applicable patterns` + `SECURITY_PATTERNS` / `PROJECT_SECURITY_WORKFLOW` phase-2
+  slots); referenced by name from `qa-security` (R-055); `doctor` expects the file + its examples (like
+  `performance-testing`/`accessibility-testing`). **Best scheduled with R-055** (skill + guideline
+  together, as R-046+R-047 shipped together). *Likely lands in:* `core/src/model/context.ts`
+  (`GUIDELINES`), `tests/scaffold.test.ts`, TECH §12.1, PRD §8. *Traces to:* PRD §8, TECH §12.1.
 
 > **R-054 (v0.37.0) and R-052 (v0.38.0) both shipped** — see **Shipped**. They were scoped here during
 > backlog review; full detail moved into their Shipped rows on delivery.
