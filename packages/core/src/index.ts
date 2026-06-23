@@ -58,3 +58,11 @@ export {
   type LinkFixClass,
 } from "./doctor/index.js";
 export { runCli, type CliMeta } from "./cli.js";
+export {
+  renderSkillCatalog,
+  renderSkillFlow,
+  renderOrchestrationGraph,
+  nextSkills,
+  triggerLine,
+  procedureSteps,
+} from "./docs/skill-flows.js";

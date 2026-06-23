@@ -666,3 +666,23 @@ wiring/root-config rules, run `npx <pkg> update` (dry-run) then `--write` in an 
 pull them in — additive files are created and pristine (untouched) files are refreshed to the new template,
 while user-edited and orphaned files are reported, never overwritten. Like `doctor`, it runs **outside the
 agent loop** and is 100% deterministic (no LLM).
+
+### 12.4 Skill catalog & product docs (R-052)
+
+The product's own user documentation is **generated from the skill suite**, so it can never drift from
+behavior. `core/src/docs/skill-flows.ts` reads `model/skills.ts` and emits `docs/skill-catalog.md`: a
+per-skill **usage flow** for every skill in the suite (trigger/inputs → key procedure steps → artifacts
+produced → `## Next` skills), plus the aggregate flows — the **orchestration graph** (each bucket a
+lifecycle swimlane, each `## Next` edge drawn), the **two-phase install**, the **daily loop**, and the
+**detection/wizard/MCP wiring**. Each is a Mermaid flowchart wrapped in the R-054 `@formatter:off` /
+`@formatter:on` guards, so the catalog is itself *born compliant*.
+
+The generator is **purely read-only over `skills.ts`** — it ships nothing into target repos or generated
+`SKILL.md`s, so it has **no parity impact** (the parity test is unaffected). Determinism (no dates, no
+randomness) lets the committed `docs/skill-catalog.md` be **snapshot-verified** against the generator in
+`tests/skill-flows.test.ts`: a `skills.ts` change without a docs regeneration fails CI, and a *new skill
+auto-appears* once regenerated. Regenerate with `npm run docs` (a thin wrapper that runs the drift-guard
+test with `WRITE_DOCS=1`). The hand-written surfaces — the root `README.md`, the `docs/README.md` guide,
+and the `examples/README.md` walkthrough — link to the generated catalog; the walkthrough's factual claims
+(the files `init` creates, the CLI verbs, a `doctor`-clean result) are themselves backed by
+`tests/examples.test.ts`. This is the `documentation-as-code` guideline applied to the product's own docs.
