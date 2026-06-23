@@ -424,6 +424,7 @@ Current set:
 | `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
 | `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
 | `performance-testing` | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047) | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
+| `code-formatting` | deterministic, tool-owned formatting — the formatter is the source of truth, deterministic import-order, and the generalized `@formatter:off` / `@formatter:on` autoformatter guards around content the formatter would mangle (chiefly Mermaid diagrams) (R-054) | the policy + the detected linters + a ✅/❌ example | `FORMATTER_PATTERNS`, `PROJECT_FORMATTING_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -542,6 +543,24 @@ Standard each guideline follows:
   `PERF_PATTERNS` / `PROJECT_PERF_WORKFLOW` slots; `doctor` expects the file + its examples (no extra
   content-contract check, as with `diagram-conventions` / `spec-driven-development`).
 
+- **Code & doc formatting (R-054).** A `code-formatting` guideline makes formatting **deterministic and
+  tool-owned** instead of hand-argued: the project's configured autoformatter/linter (rendered from the
+  detected `{{LINTERS}}`) is the single source of truth for whitespace, wrapping, and **import order**, run
+  on save / pre-commit / in CI so every diff stays about behavior, not style. Its load-bearing piece is the
+  **generalized `@formatter:off` / `@formatter:on` autoformatter safeguard** — content whose exact layout
+  matters (chiefly Mermaid diagrams, also aligned tables / ASCII art / deliberately ordered literals) is
+  fenced off so a formatter pass can't reflow and corrupt it; in Markdown via the HTML-comment form
+  `<!-- @formatter:off -->` … `<!-- @formatter:on -->`, in code via the language's line-comment form
+  (`// @formatter:off`, `# fmt: off`). It **broadens** a Mermaid-only safeguard (adapted from a sibling
+  `.external` Copilot QA-analysis system) into a general formatting standard, and **composes with
+  `diagram-conventions`**: every rendered Mermaid block in `context/` and reports carries the guard, so
+  diagrams are *born compliant* — the `diagram-conventions` example fences (and §12.2's fence below) are
+  themselves wrapped. `doctor` enforces a **content contract** separate from the file-existence and
+  examples checks: if the guideline no longer mentions both `@formatter:off` and `@formatter:on`, that is
+  an **error** (`FORMATTER:guards`, parallel to `ENVMGMT:contract` / `DOCASCODE:contract` /
+  `GROUNDING:contract`). Like every guideline it carries ✅/❌ examples (kept link-free) and phase-2
+  `FORMATTER_PATTERNS` / `PROJECT_FORMATTING_WORKFLOW` slots.
+
 ### 12.2 Diagram standard — Mermaid (R-025)
 
 The `diagram-conventions` guideline fixes **Mermaid** as the diagram format for everything under
@@ -555,6 +574,20 @@ traceability — it never displaces the rule that every case traces to an accept
 guideline ships an example flowchart (AC → case → test → `qa-rca`/`qa-review`) and a phase-2
 `{{PROJECT_DIAGRAMS}}` slot for the product's canonical diagrams. As with any guideline, it is added by
 appending to `GUIDELINES`; both adapters render it and `doctor` then expects it.
+
+Every rendered diagram is wrapped in the `@formatter:off` / `@formatter:on` guards from the
+`code-formatting` standard (R-054, §12.1) so an autoformatter can't reflow the fence and break the
+render — *born compliant*. This document's own flow diagram follows the rule:
+
+<!-- @formatter:off -->
+```mermaid
+flowchart LR
+  ac[Acceptance criterion] --> tc[Test case]
+  tc --> at[Automated test]
+  at -->|fail| rca[qa-rca]
+  at -->|pass| rev[qa-review]
+```
+<!-- @formatter:on -->
 
 #### 12.2.1 Architecture standard — C4 (R-032)
 

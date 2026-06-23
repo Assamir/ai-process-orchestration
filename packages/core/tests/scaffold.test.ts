@@ -48,6 +48,7 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/environment-management.md",
       ".ai/guidelines/test-data-management.md",
       ".ai/guidelines/performance-testing.md",
+      ".ai/guidelines/code-formatting.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       "context/foundation/repo-map.md",
@@ -449,6 +450,49 @@ describe("scaffold (Claude)", () => {
     }
   });
 
+  it("ships the code-formatting guideline + wraps the diagram fences in @formatter guards (R-054)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const fmt = readFileSync(join(project.dir, ".ai/guidelines/code-formatting.md"), "utf8");
+    // The load-bearing safeguard: the generalized @formatter:off/on autoformatter guards.
+    expect(fmt).toContain("@formatter:off");
+    expect(fmt).toContain("@formatter:on");
+    // Deterministic formatting + import-order contract.
+    expect(fmt.toLowerCase()).toContain("import order");
+    expect(fmt.toLowerCase()).toContain("source of truth");
+    // Composes with diagram-conventions and surfaces the detected formatters/linters
+    // (LINTERS is a phase-1 var → rendered to the detected value, no leftover placeholder).
+    expect(fmt).toContain("diagram-conventions");
+    expect(fmt).toContain("eslint");
+    expect(fmt).not.toContain("{{LINTERS}}");
+    // Phase-2 slots per the R-026 guideline standard.
+    expect(fmt).toContain("{{FORMATTER_PATTERNS}}");
+    expect(fmt).toContain("{{PROJECT_FORMATTING_WORKFLOW}}");
+
+    // The diagram-conventions guideline's example fences are now born compliant —
+    // every rendered Mermaid block is wrapped in the formatter guard.
+    const diagrams = readFileSync(join(project.dir, ".ai/guidelines/diagram-conventions.md"), "utf8");
+    expect(diagrams).toContain("<!-- @formatter:off -->");
+    expect(diagrams).toContain("<!-- @formatter:on -->");
+    expect(diagrams).toContain("code-formatting");
+    // Each rendered mermaid fence is preceded by an off-guard.
+    const offGuards = (diagrams.match(/<!-- @formatter:off -->\n```mermaid/g) ?? []).length;
+    expect(offGuards, "every mermaid fence guarded").toBeGreaterThanOrEqual(2);
+
+    // Parity: the guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/code-formatting.instructions.md"),
+        "utf8",
+      );
+      expect(copilot).toContain("@formatter:off");
+      expect(copilot).toContain("@formatter:on");
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("scaffolds a fresh phase-1 repo-map inventory of the application layout (R-037)", () => {
     // Lay down a representative multi-module repo *before* scaffolding so the
     // deterministic phase-1 inventory has a real layout to map.
@@ -542,7 +586,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing"]) {
+      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");

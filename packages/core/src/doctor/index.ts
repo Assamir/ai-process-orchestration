@@ -235,6 +235,25 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
   }
 
+  // 9. Code-formatting guideline (R-054) — must keep its core safeguard: the
+  // generalized `@formatter:off` / `@formatter:on` autoformatter guards that keep
+  // content the formatter would mangle (chiefly Mermaid diagrams) byte-stable.
+  // Content check parallel to the docs-as-code / grounding / env-management checks.
+  const fmtRel = adapter.guidelineRel("code-formatting");
+  const fmtAbs = join(root, fmtRel);
+  if (existsSync(fmtAbs)) {
+    const text = readFileSync(fmtAbs, "utf8").toLowerCase();
+    if (!text.includes("@formatter:off") || !text.includes("@formatter:on")) {
+      findings.push({
+        id: "FORMATTER:guards",
+        severity: "error",
+        message: `The code-formatting guideline (${fmtRel}) no longer states its core safeguard (the \`@formatter:off\` / \`@formatter:on\` autoformatter guards).`,
+        remediation:
+          "Restore the guards: formatting is tool-owned and deterministic, and content the formatter would mangle (Mermaid diagrams, aligned tables, ASCII art) is wrapped in `@formatter:off` / `@formatter:on`. It must not be weakened.",
+      });
+    }
+  }
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };

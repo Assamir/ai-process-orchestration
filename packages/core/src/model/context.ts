@@ -387,6 +387,7 @@ diagram, so a reader picks the altitude the testing question needs. Map each lev
 - Mermaid's \`C4*\` blocks are the native fit; if a renderer lacks C4 support, fall back to a labeled \`flowchart\` with the same boxes/edges.
 - **Don't hand-maintain L4** — it drifts from the code. Link to the source instead (per the \`grounding\` rule).
 
+<!-- @formatter:off -->
 \`\`\`mermaid
 C4Context
   title System context — checkout
@@ -396,9 +397,11 @@ C4Context
   Rel(customer, shop, "Browses & buys")
   Rel(shop, psp, "Authorizes payment")
 \`\`\`
+<!-- @formatter:on -->
 
 ## Rules
 - Fence as \`\`\`mermaid; one diagram per block; declare direction (\`TD\`/\`LR\`) explicitly.
+- **Wrap every rendered diagram in \`@formatter:off\` / \`@formatter:on\` guards** (the HTML-comment form in Markdown) so an autoformatter can't reflow the fence and break the render — see the \`code-formatting\` guideline. Diagrams are born compliant.
 - Label every node and edge meaningfully. Keep a diagram to ~15 nodes — split a bigger one by domain rather than letting it sprawl.
 - The diagram **supports** the prose and traceability; it never replaces the rule that every case traces to an acceptance criterion.
 - Reference real source paths in the surrounding text; don't encode detail in the diagram that will drift from the code.
@@ -407,7 +410,8 @@ C4Context
 
 > Every guideline shows the pattern, it doesn't just describe it.
 
-✅ **Good** — a fenced, directed, meaningfully labeled Mermaid flowchart:
+✅ **Good** — a fenced, directed, meaningfully labeled Mermaid flowchart, wrapped in \`@formatter:off\` guards (per \`code-formatting\`) so an autoformat pass can't reflow it:
+<!-- @formatter:off -->
 \`\`\`mermaid
 flowchart LR
   A[Acceptance criterion] --> B[Test case]
@@ -415,6 +419,7 @@ flowchart LR
   C -->|fail| D[qa-rca]
   C -->|pass| E[qa-review]
 \`\`\`
+<!-- @formatter:on -->
 
 ❌ **Avoid** — a pasted PNG screenshot (binary, rots, can't diff), or one
 unlabeled 40-node blob with no declared direction. Don't paste an image for a
@@ -684,6 +689,62 @@ verdict  p95 = 268 ms (baseline 251 ms), errors 0.3% -> PASS, traces NFR-2.1
 > Record this project's concrete setup once known: the NFR source, where the baseline lives, the load profiles run, the environment load tests run against, and how the \`.jtl\`/dashboard are published.
 
 {{PROJECT_PERF_WORKFLOW}}
+`,
+  },
+  {
+    name: "code-formatting",
+    title: "Code & doc formatting",
+    body: `# Code & doc formatting
+
+> Phase 1 seeded this standard. Phase 2 records this project's concrete formatter setup in the \`{{PLACEHOLDER}}\` section.
+
+Formatting is **deterministic and tool-owned**, never argued by hand. A configured autoformatter is the single source of truth for whitespace, line length, and import order; you run it, you don't reproduce it from memory or hand-tune to a personal style. This keeps review about behavior instead of style, and keeps diffs minimal — formatting churn buried in a logic change hides the change. The one exception is content the formatter would *mangle* — chiefly Mermaid diagrams (see \`diagram-conventions\`) — which is fenced off with \`@formatter:off\` / \`@formatter:on\` guards so the tool leaves it byte-stable.
+
+- **Detected formatters / linters:** {{LINTERS}}
+
+## Rules
+- **The formatter is the source of truth.** Run the project's configured formatter/linter (\`{{LINTERS}}\`) before committing and let it decide whitespace, wrapping, and quoting. Don't hand-format to a different style and don't disable a rule to dodge a fix — fix the code. Once the formatter has run, style is not a review topic.
+- **Format on save / pre-commit / in CI.** Wire the formatter to run automatically (editor on-save, a pre-commit hook, and a CI check that fails on a non-empty diff). A one-time "format the whole repo" commit pays the churn once; after that every change lands already-formatted, so each diff stays about behavior.
+- **Deterministic import order.** Imports are grouped and ordered by the tool — a single canonical order (e.g. standard library → third-party → first-party → local, blank line between groups, side-effect/static imports last). Never hand-sort; let the formatter/linter enforce it so import blocks don't churn between authors.
+- **Guard content the formatter would break.** Wrap anything whose exact layout is load-bearing — a Mermaid diagram, an aligned table, ASCII art, a deliberately ordered literal — in formatter-off guards so reflowing/reordering can't corrupt it. In Markdown use the HTML-comment form \`<!-- @formatter:off -->\` … \`<!-- @formatter:on -->\`; in code use the language's line-comment form (\`// @formatter:off\`, \`# fmt: off\`). Always pair an \`off\` with an \`on\` — an unclosed guard silently disables formatting for the rest of the file.
+- **Guards are a scalpel, not a blanket.** Disable formatting for the smallest region that needs it; never wrap a whole file to avoid running the formatter. This composes with \`diagram-conventions\`: every rendered Mermaid block in \`context/\` and in reports carries the guard so it survives an autoformat pass — diagrams are born compliant.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — the diagram is fenced off so the formatter can't reflow it, and imports are left to the tool:
+\`\`\`\`markdown
+<!-- @formatter:off -->
+\`\`\`mermaid
+flowchart LR
+  ac[Acceptance criterion] --> tc[Test case] --> at[Automated test]
+\`\`\`
+<!-- @formatter:on -->
+\`\`\`\`
+
+❌ **Avoid** — an un-guarded diagram (the next autoformat realigns the arrows and breaks the render) and hand-sorted imports that churn on every PR:
+\`\`\`\`
+\`\`\`mermaid
+flowchart LR
+  ac[Acceptance criterion]-->tc[Test case]
+\`\`\`
+import { z } from "zod"; import { local } from "./local"; import { http } from "axios"; // hand-ordered, no grouping
+\`\`\`\`
+
+## Applicable patterns
+
+> Encouraged: name the formatting tools/configs this project standardizes on
+> (Prettier + ESLint, Spotless + google-java-format, Black + ruff/isort, EditorConfig,
+> a pre-commit framework) so agents run the right one.
+
+{{FORMATTER_PATTERNS}}
+
+## Project-specific formatting workflow
+
+> Record this project's concrete setup once known: the formatter command, where its config lives, the pre-commit / CI hook that enforces it, and any standing \`@formatter:off\` regions.
+
+{{PROJECT_FORMATTING_WORKFLOW}}
 `,
   },
 ];

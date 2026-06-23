@@ -137,6 +137,18 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "ENVMGMT:contract" && f.severity === "error")).toBe(true);
   });
 
+  it("flags a gutted code-formatting guideline that drops its @formatter guards (R-054)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Keep the ✅/❌ markers but drop the @formatter:off/on autoformatter safeguard.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/code-formatting.md"),
+      "# Code formatting\n\nRun the formatter. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "FORMATTER:guards" && f.severity === "error")).toBe(true);
+  });
+
   it("warns (not errors) when the read-before-you-write rule is dropped from the root config (R-033)", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     // Rewrite the root config keeping the load-bearing rules but dropping the read-first rule.
