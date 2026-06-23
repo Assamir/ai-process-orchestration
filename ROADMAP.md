@@ -106,8 +106,34 @@ and R-044 (`assumptions` guideline + `## Assumptions` protocol) and R-045 (`grou
 evidence-collection standard) together in **v0.34.0** (the `.external`-adapted anti-hallucination pair),
 and R-046 (`qa-performance` JMeter skill + detection + `jmeter-results` MCP) with R-047
 (`performance-testing` guideline) together in **v0.35.0**, and R-051 (`doctor` as a CI pull-request
-gate, wired by `qa-ci-pipeline`) in **v0.36.0**. The backlog below holds **R-048→R-050** (`qa-a11y`,
-`test-strategy` guideline, `qa-release-readiness`); everything else is scheduled._
+gate, wired by `qa-ci-pipeline`) in **v0.36.0**._
+
+### Scheduled (not yet shipped)
+
+The docs/formatting bundle is next, in order so the `code-formatting` safeguard lands **before** R-052
+ships its diagram set (diagrams born compliant):
+
+- **R-054 → v0.37.0** — **`code-formatting` guideline** (deterministic formatting + the generalized
+  `@formatter:off/on` autoformatter safeguard + import-order). Guideline + `doctor` `FORMATTER:guards`
+  check; also wraps the existing `diagram-conventions` example fences and `TECH.md`'s fence. *Lands in:*
+  `core/src/model/context.ts` (`GUIDELINES`), `doctor/index.ts`, `tests/scaffold.test.ts`,
+  `tests/doctor.test.ts`, `TECH.md` §12.1/§12.2, PRD §8. (Full scope in the backlog history below.)
+- **R-052 → v0.38.0** — **Product user documentation** (root `README.md` + `docs/` guide + test-backed
+  `examples/` walkthrough + the Mermaid diagram set, all `@formatter`-wrapped per R-054). The diagram set
+  includes the aggregate flows (two-phase init, daily QA loop, the skill-orchestration graph, config /
+  detection / wizard / MCP wiring) **and a per-skill usage flow for every skill in the suite (all 21)** —
+  each a Mermaid flowchart (trigger/inputs → key procedure steps → artifacts produced → `## Next` skills),
+  **auto-generated from `skills.ts` metadata** (the R-020 `## Next` edges + `readOnly` + `suggestedModel`)
+  and **snapshot-verified in a test** so they can never drift and a future skill auto-appears. Rendered
+  into a `docs/` skill-catalog section per skill, optionally complemented by ~4 grouped lifecycle
+  swimlanes (planning / authoring / automation / analysis). Docs-only, **no parity impact** (the generator
+  *reads* `skills.ts` but ships nothing into target repos / generated `SKILL.md`s). *Lands in:*
+  `README.md`, `docs/**` (incl. the 21 per-skill flows), `examples/**`, a flow generator + snapshot test
+  under `packages/core/` (e.g. `src/docs/skill-flows.ts` + `tests/skill-flows.test.ts`),
+  `packages/core/tests/examples.test.ts`, `TECH.md` §11/§12, the two leaf `README.md`.
+
+The backlog below now holds **R-048→R-050** (`qa-a11y`, `test-strategy` guideline,
+`qa-release-readiness`) and **R-053** (`qa-mobile` skill); everything else is scheduled or shipped.
 
 ## Backlog (unscheduled)
 
@@ -132,9 +158,9 @@ stored as **content** (self-contained, no git dependency — ✅ R-039); conflic
 ✅ R-042, derived from the manifest baseline vs. current templates); the walk **signals interactive mode
 via the `apply` option's presence** and preserves the baseline of skipped files (✅ R-043).
 
-**Functional-coverage candidates (R-048 → R-050).** Net-new QA capabilities that fill gaps in the
-shipped 21-skill suite — independent of each other (no dependency chain). (R-051, `doctor`-in-CI,
-shipped in **v0.36.0** — see Shipped.)
+**Functional-coverage candidates (R-048 → R-050, R-053).** Net-new QA capabilities that fill gaps in the
+shipped 21-skill suite — independent of each other (no dependency chain). (R-051, `doctor`-in-CI, shipped
+in **v0.36.0**; R-052/R-054 now scheduled — see Next.)
 
 - **R-048** — **`qa-a11y` skill (write) — accessibility testing.** Generates/audits accessibility tests
   (axe-core via `@axe-core/playwright`, or `pa11y`/`axe` for the stack at hand), maps each violation to a
@@ -156,6 +182,23 @@ shipped in **v0.36.0** — see Shipped.)
   recommendation grounded in real artifacts (composes with the `grounding` rule R-029). Read-only tool
   allowlist; wired from `qa-metrics` / `qa-coverage-gap` `## Next`. *Likely lands in:*
   `core/src/model/skills.ts`, `tests/scaffold.test.ts`, PRD §5. *Traces to:* PRD §5.
+- **R-053** — **`qa-mobile` skill (write) — mobile app testing.** Generates/audits mobile UI tests for an
+  orthogonal new stack dimension, mirroring the R-046/R-047 pattern. Phase 1 **detects** a mobile stack
+  into a new `DetectedStack.mobile` (Appium / Detox / Maestro config or a build entry, via a bounded scan —
+  orthogonal to the functional `frameworks`), defaulting **Appium-first** (cross-platform, fits both the
+  JS and JVM stacks already detected) with Detox (React Native) / Maestro / native (Espresso, XCUITest) as
+  phase-2 variants, and optionally wires a **`mobile-results`** MCP over the chosen runner's report dir
+  (the result-legibility pattern of `playwright-results`/`jmeter-results`). Each mobile case **traces to an
+  AC** (iron QA rule). Renders with the write allowlist on both platforms; wired from
+  `qa-test-case-design` / `qa-test-automate` `## Next`. Optionally paired with a **`mobile-testing`**
+  guideline (device matrix, emulator vs. real device, waits/flakiness — same guideline standard as
+  `performance-testing`). *Likely lands in:* `core/src/types.ts` (`DetectedStack.mobile`), `detect/*`,
+  `model/mcp.ts` (`mobile-results`), `model/skills.ts` (`qa-mobile`), `scaffold/index.ts`,
+  `wizard/index.ts`, `tests/{detect,mcp,scaffold}.test.ts`, PRD §5, TECH §5. *Traces to:* PRD §5.
+
+> **R-052 and R-054 are now scheduled** (v0.38.0 and v0.37.0 respectively) — see **Next → Scheduled (not
+> yet shipped)** above for their condensed scope. They were scoped here during backlog review; full detail
+> moved up on scheduling.
 
 > **ID notes — R-011 dropped, R-016 merged.** `R-011` (k6 / performance) was removed from the backlog
 > as deprioritized; the performance concern was later revived on **JMeter** as **R-046/R-047** (shipped
