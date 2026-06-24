@@ -4,7 +4,7 @@ import { ARTIFACTS, SKILLS, tpl } from "../src/index.js";
 describe("artifact template registry (R-059)", () => {
   const byName = new Map(SKILLS.map((s) => [s.name, s]));
 
-  it("is the single source of shape for the six runtime artifacts", () => {
+  it("is the single source of shape for the runtime artifacts", () => {
     expect(ARTIFACTS.map((a) => a.name)).toEqual([
       "work",
       "plan",
@@ -12,10 +12,13 @@ describe("artifact template registry (R-059)", () => {
       "automation",
       "performance",
       "bug-report",
+      "refinement",
     ]);
-    // Every artifact lives under a work-item folder.
+    // Each artifact is either work-item-scoped or in a standalone area (refinements).
     for (const a of ARTIFACTS) {
-      expect(a.pathTemplate, a.name).toMatch(/^context\/changes\/<work-id>\/[a-z-]+\.md$/);
+      expect(a.pathTemplate, a.name).toMatch(
+        /^context\/(changes\/<work-id>\/[a-z-]+|refinements\/[A-Za-z<>-]+)\.md$/,
+      );
     }
   });
 

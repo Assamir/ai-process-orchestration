@@ -586,7 +586,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting"]) {
+      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting", "mcp-content-fetch"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");
@@ -712,6 +712,112 @@ describe("scaffold (Claude)", () => {
       expect(skill!.writes, `${a.name} path in ${a.producedBy}.writes`).toContain(a.pathTemplate);
       expect(skill!.body, `${a.producedBy} embeds the ${a.name} template`).toContain(a.template);
     }
+  });
+
+  it("plan.md is the 3-perspective living plan (R-062)", () => {
+    const plan = ARTIFACTS.find((a) => a.name === "plan")!;
+    expect(plan.requiredSections).toEqual(["Business view", "Architecture view", "Implementation view"]);
+    for (const h of ["## Business view", "## Architecture view", "## Implementation view"]) {
+      expect(plan.template, h).toContain(h);
+    }
+    // Coverage overview, a TC summary, and a guarded Mermaid dependency diagram.
+    expect(plan.template).toContain("Coverage overview");
+    expect(plan.template).toContain("<!-- @formatter:off -->");
+    expect(plan.template).toContain("Traces to:");
+    const qaPlan = SKILLS.find((s) => s.name === "qa-plan")!;
+    expect(qaPlan.body).toContain("Business view");
+    expect(qaPlan.body).toContain(plan.template);
+  });
+
+  it("cases.md is the detailed executable layer (R-063)", () => {
+    const cases = ARTIFACTS.find((a) => a.name === "cases")!;
+    for (const f of ["Type:", "Priority:", "Test level:", "Test data:", "Variants"]) {
+      expect(cases.template, f).toContain(f);
+    }
+    expect(cases.template).toContain("Traces to:");
+    const design = SKILLS.find((s) => s.name === "qa-test-case-design")!;
+    expect(design.reads).toContain("context/changes/<work-id>/plan.md");
+  });
+
+  it("qa-bug-report writes a dual .md + .jira output via the shared conversion (R-064)", () => {
+    const bug = SKILLS.find((s) => s.name === "qa-bug-report")!;
+    expect(bug.readOnly).toBe(false);
+    expect(bug.writes).toContain("context/changes/<work-id>/bug-report.jira");
+    // The enriched report carries the service-behavior sections.
+    const tplBug = ARTIFACTS.find((a) => a.name === "bug-report")!;
+    for (const h of ["## Observations / logs", "## Root cause summary", "## Regression risk"]) {
+      expect(tplBug.template, h).toContain(h);
+    }
+  });
+
+  it("wires the opt-in xray + markitdown fetch servers and the mcp-content-fetch guideline (R-065)", () => {
+    // The guideline ships on both platforms (its examples are checked elsewhere).
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const guide = readFileSync(join(project.dir, ".ai/guidelines/mcp-content-fetch.md"), "utf8");
+    expect(guide.toLowerCase()).toContain("download");
+    expect(guide).toContain("markitdown");
+    expect(guide).toContain("xray");
+    expect(guide).toContain("{{MCP_FETCH_PATTERNS}}");
+
+    // Opt-in: both servers absent by default, present when chosen, no literal secrets.
+    const off = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
+    expect(off.mcpServers.xray).toBeUndefined();
+    expect(off.mcpServers.markitdown).toBeUndefined();
+
+    const optIn = tempProject();
+    try {
+      scaffold({
+        root: optIn.dir,
+        adapter: claudeAdapter,
+        stack,
+        answers: { ...answers, xrayMcp: true, markitdownMcp: true },
+      });
+      const mcp = JSON.parse(readFileSync(join(optIn.dir, ".mcp.json"), "utf8"));
+      expect(mcp.mcpServers.xray.env.XRAY_CLIENT_ID).toBe("${XRAY_CLIENT_ID}");
+      expect(mcp.mcpServers.markitdown.args).toEqual(["markitdown-mcp"]);
+    } finally {
+      optIn.cleanup();
+    }
+  });
+
+  it("qa-ticket-review is a write skill producing a dual-output refinement (R-066)", () => {
+    const tr = SKILLS.find((s) => s.name === "qa-ticket-review")!;
+    expect(tr.readOnly).toBe(false);
+    expect(tr.writes).toContain("context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md");
+    expect(tr.writes).toContain("context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.jira");
+    // Still references the rules the claim-producing tests expect.
+    for (const ref of ["grounding", "assumptions", "spec-driven-development", "mcp-content-fetch"]) {
+      expect(tr.body, ref).toContain(ref);
+    }
+    const refinement = ARTIFACTS.find((a) => a.name === "refinement")!;
+    expect(refinement.producedBy).toBe("qa-ticket-review");
+    expect(refinement.requiredSections).toEqual(["Context", "Recommendation", "Acceptance criteria"]);
+    expect(tr.body).toContain(refinement.template);
+
+    // The standalone refinements area is scaffolded.
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    expect(existsSync(join(project.dir, "context/refinements/.gitkeep"))).toBe(true);
+  });
+
+  it("scaffolds the test-framework foundation doc owned by qa-automation-bootstrapper (R-067)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const tf = readFileSync(join(project.dir, "context/foundation/test-framework.md"), "utf8");
+    for (const h of ["## Stack", "## How to run", "## Conventions"]) expect(tf, h).toContain(h);
+    // Phase-1 stack vars are rendered (no leftover phase-1 placeholder).
+    expect(tf).toContain("Playwright (TypeScript)");
+    expect(tf).not.toContain("{{AUTOMATION_FRAMEWORK}}");
+    const boot = SKILLS.find((s) => s.name === "qa-automation-bootstrapper")!;
+    expect(boot.writes).toContain("context/foundation/test-framework.md");
+  });
+
+  it("expands the system-overview Test surface into a QA lens (R-068)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const overview = readFileSync(join(project.dir, "context/reference/system-overview.md"), "utf8");
+    for (const h of ["Test surface (QA lens)", "### Integration points", "### Entry-point inventory", "### Data model & boundaries"]) {
+      expect(overview, h).toContain(h);
+    }
+    // C4 architecture layer is untouched.
+    expect(overview).toContain("[c4-context.md](./c4-context.md)");
   });
 
   it("writes a valid manifest listing every skill", () => {

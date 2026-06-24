@@ -28,6 +28,10 @@ export interface McpContext {
   performance?: string[];
   /** Wire the official Playwright browser MCP server (`@playwright/mcp`). */
   playwrightMcp?: boolean;
+  /** Wire the opt-in Xray MCP server (Jira test issue types) — R-065. */
+  xrayMcp?: boolean;
+  /** Wire the opt-in markitdown MCP server (attachment → Markdown) — R-065. */
+  markitdownMcp?: boolean;
 }
 
 /**
@@ -141,7 +145,40 @@ export function browserServers(ctx: McpContext): Record<string, McpServer> {
   };
 }
 
-/** Every MCP server a scaffold wires: result-legibility, optional browser + ticketing. */
+/**
+ * Optional **content-fetch** MCP servers (R-065), wired alongside `atlassian`
+ * (R-009) so a refinement/bug report can pull tickets, test issues, and binary
+ * attachments straight into context instead of relying on pasted text:
+ *
+ * - **`xray`** — Jira test issue types (Test / Test Execution / Test Plan / Test
+ *   Set). A local/custom server launched via `${XRAY_MCP_PATH}` with Xray Cloud
+ *   client credentials supplied by `${VAR}` indirection — never written as values.
+ * - **`markitdown`** (`microsoft/markitdown`) — converts a **local** binary
+ *   attachment (`.docx/.pdf/.pptx/.xlsx/.html/.msg/.epub`) to Markdown. No
+ *   secrets, so it renders identically on both platforms.
+ *
+ * Both are off unless the wizard opts in. The flow + ordering guarantees live in
+ * the `mcp-content-fetch` guideline.
+ */
+export function fetchServers(ctx: McpContext): Record<string, McpServer> {
+  const servers: Record<string, McpServer> = {};
+  if (ctx.xrayMcp) {
+    servers.xray = {
+      command: "node",
+      args: ["${XRAY_MCP_PATH}"],
+      env: {
+        XRAY_CLIENT_ID: "${XRAY_CLIENT_ID}",
+        XRAY_CLIENT_SECRET: "${XRAY_CLIENT_SECRET}",
+      },
+    };
+  }
+  if (ctx.markitdownMcp) {
+    servers.markitdown = { command: "uvx", args: ["markitdown-mcp"] };
+  }
+  return servers;
+}
+
+/** Every MCP server a scaffold wires: result-legibility, optional browser, ticketing + fetch. */
 export function mcpServers(ctx: McpContext): Record<string, McpServer> {
-  return { ...resultServers(ctx), ...browserServers(ctx), ...ticketingServers(ctx) };
+  return { ...resultServers(ctx), ...browserServers(ctx), ...ticketingServers(ctx), ...fetchServers(ctx) };
 }

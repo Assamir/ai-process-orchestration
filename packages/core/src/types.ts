@@ -82,6 +82,20 @@ export interface WizardAnswers {
    * default (and under `--yes`/CI) — opt-in, since it launches a real browser.
    */
   playwrightMcp: boolean;
+  /**
+   * (R-065) Wire the opt-in **Xray** MCP server (Jira test issue types: Test /
+   * Test Execution / Test Plan / Test Set) alongside `atlassian`, with `${VAR}`
+   * secret indirection. Off by default (and under `--yes`/CI). Optional so
+   * pre-R-065 callers/manifests stay valid.
+   */
+  xrayMcp?: boolean;
+  /**
+   * (R-065) Wire the opt-in **markitdown** MCP server (`microsoft/markitdown`),
+   * which converts binary attachments (`.docx/.pdf/.pptx/.xlsx/.html/.msg/.epub`)
+   * to Markdown from a **local path**. No secrets. Off by default. Optional so
+   * pre-R-065 callers/manifests stay valid.
+   */
+  markitdownMcp?: boolean;
 }
 
 /** A single platform we can scaffold for. */

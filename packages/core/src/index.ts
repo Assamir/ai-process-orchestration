@@ -11,8 +11,14 @@ export {
 export { render } from "./render.js";
 export { SKILLS, type LogicalSkill } from "./model/skills.js";
 export { ARTIFACTS, tpl, type ArtifactTemplate } from "./model/artifacts.js";
+export {
+  mdToJira,
+  JIRA_CONVERSION_TABLE,
+  JIRA_TYPE_SECTIONS,
+  type JiraTicketType,
+} from "./model/jira.js";
 export { rootConfigMarkdown, GUIDELINES, FOUNDATION } from "./model/context.js";
-export { resultServers, browserServers, ticketingServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
+export { resultServers, browserServers, ticketingServers, fetchServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
 export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";

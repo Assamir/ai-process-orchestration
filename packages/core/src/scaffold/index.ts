@@ -116,6 +116,8 @@ export function scaffoldFiles(
       buildTool: stack.buildTool,
       atlassianMcp: answers.atlassianMcp,
       playwrightMcp: answers.playwrightMcp,
+      xrayMcp: answers.xrayMcp,
+      markitdownMcp: answers.markitdownMcp,
       observability: stack.observability,
       performance: stack.performance,
     }),

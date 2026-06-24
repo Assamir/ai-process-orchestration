@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeAdapter, copilotAdapter, resultServers, browserServers, ticketingServers, scaffold } from "../src/index.js";
+import { claudeAdapter, copilotAdapter, resultServers, browserServers, ticketingServers, fetchServers, scaffold } from "../src/index.js";
 import type { DetectedStack, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -113,6 +113,66 @@ describe("browserServers (optional Playwright browser MCP)", () => {
 
   it("is offered regardless of the detected framework (browser MCP is stack-agnostic)", () => {
     expect(browserServers({ framework: "pytest", buildTool: "pip", playwrightMcp: true })["playwright-browser"]).toBeDefined();
+  });
+});
+
+describe("fetchServers (optional content-fetch MCP, R-065)", () => {
+  it("wires nothing unless opted in", () => {
+    expect(fetchServers({ framework: "playwright-ts", buildTool: "npm" })).toEqual({});
+  });
+
+  it("wires the Xray server with env-var indirection, no literal secrets", () => {
+    const xray = fetchServers({ framework: "playwright-ts", buildTool: "npm", xrayMcp: true }).xray;
+    expect(xray).toBeDefined();
+    expect(xray!.command).toBe("node");
+    expect(xray!.args).toEqual(["${XRAY_MCP_PATH}"]);
+    for (const v of Object.values(xray!.env!)) expect(v).toMatch(/^\$\{[A-Z0-9_]+\}$/);
+  });
+
+  it("wires the markitdown server (local, no secrets) when opted in", () => {
+    const md = fetchServers({ framework: "pytest", buildTool: "pip", markitdownMcp: true }).markitdown;
+    expect(md).toBeDefined();
+    expect(md!.command).toBe("uvx");
+    expect(md!.args).toEqual(["markitdown-mcp"]);
+    expect(md!.env).toBeUndefined();
+  });
+
+  it("renders the Xray env with the platform-correct envelope (R-065)", () => {
+    const a = tempProject();
+    const b = tempProject();
+    const stack: DetectedStack = {
+      language: "node",
+      buildTool: "npm",
+      frameworks: ["playwright-ts"],
+      primaryFramework: "playwright-ts",
+      linters: [],
+      observability: [],
+      performance: [],
+      manifests: ["package.json"],
+    };
+    const optIn: WizardAnswers = {
+      automationFramework: "playwright-ts",
+      reportLanguage: "en",
+      autonomyLevel: "medium",
+      qaConventions: "x",
+      atlassianMcp: false,
+      playwrightMcp: false,
+      xrayMcp: true,
+      markitdownMcp: true,
+    };
+    try {
+      scaffold({ root: a.dir, adapter: claudeAdapter, stack, answers: optIn });
+      const claude = JSON.parse(readFileSync(join(a.dir, ".mcp.json"), "utf8"));
+      expect(claude.mcpServers.xray.env.XRAY_CLIENT_ID).toBe("${XRAY_CLIENT_ID}");
+
+      scaffold({ root: b.dir, adapter: copilotAdapter, stack, answers: optIn });
+      const copilot = JSON.parse(readFileSync(join(b.dir, ".vscode/mcp.json"), "utf8"));
+      expect(copilot.servers.xray.env.XRAY_CLIENT_ID).toBe("${env:XRAY_CLIENT_ID}");
+      expect(copilot.servers.markitdown.args).toEqual(["markitdown-mcp"]);
+    } finally {
+      a.cleanup();
+      b.cleanup();
+    }
   });
 });
 

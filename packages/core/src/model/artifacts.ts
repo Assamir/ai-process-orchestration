@@ -27,7 +27,10 @@
 export interface ArtifactTemplate {
   /** Stable key, e.g. "cases". Used by `tpl()` and the consistency test. */
   name: string;
-  /** Canonical path with the `<work-id>` token — must appear in `producedBy`'s `writes`. */
+  /**
+   * Canonical path (work-item-scoped `context/changes/<work-id>/…` or a standalone
+   * area like `context/refinements/…`) — must appear in `producedBy`'s `writes`.
+   */
   pathTemplate: string;
   /** The skill that produces this artifact (must exist in `SKILLS`). */
   producedBy: string;
@@ -55,35 +58,105 @@ status: in-progress
 - **AC1**: <a single, testable statement>
 - **AC2**: <…>`;
 
-const PLAN_TEMPLATE = `# Test plan: <work-id>
+const PLAN_TEMPLATE = `---
+status: in-progress
+---
+# Test plan: <work-id> — <title>
 
-## Test levels
-<unit / API / E2E in play, and why>
+> Living document. Three perspectives: Business (PO) · Architecture · Implementation (Tester).
+> Derives from work.md acceptance criteria; updated in place as work progresses.
+> Reads first: spec-driven-development, test-strategy, grounding, assumptions guidelines.
 
-## Risk areas
-<where defects are most likely or most costly>
+| Field | Value |
+|-------|-------|
+| **Work-item** | <work-id> |
+| **Source** | <ticket / spec link> |
+| **Plan version** | 1.0 |
+| **Last updated** | <YYYY-MM-DD> |
 
-## Data & environments
-<test data needs; target environments>
+## Business view
+- **Business driver:** <why this work matters — business outcome>
+- **Acceptance criteria:** AC1 … (mirrors work.md; source of truth)
+- **Priorities:** P1 critical / P2 important / P3 nice-to-have — each with business justification
+- **Out of scope:** <what is explicitly NOT covered>
 
-## Steps
-1. design — derive cases from the acceptance criteria
-2. automate — implement the designed cases
-3. run — execute and capture results
-4. analyze — triage failures and report coverage
+## Architecture view
+### Coverage overview
+| Area / AC | Cases | Positive | Negative | Edge | Current | Target |
+|-----------|-------|----------|----------|------|---------|--------|
+| AC1 | 3 | 1 | 1 | 1 | 0% | 100% |
+- **Risk areas:** <where defects are most likely or most costly>
+- **Open questions (for review):** <decisions to confirm before implementation>
+- **Sign-off checklist:** [ ] scope covers critical ACs · [ ] priorities reflect criticality · [ ] no critical scenario missing · [ ] out-of-scope acceptable
 
-## Assumptions & non-coverage
-<assumptions made; what is explicitly NOT covered>`;
+## Implementation view
+### Test case summary
+| TC | Traces to | Type | Priority | Level | Dependencies | Status |
+|----|-----------|------|----------|-------|--------------|--------|
+| TC1 | AC1 | Positive | P1 | API | — | planned |
+### Business test cases
+#### TC1: <business scenario name>
+- **What it tests:** <user action / behavior exercised>
+- **What it verifies:** <expected business outcome>
+- **Preconditions / Input / Expected result:** <…>
+- **Priority:** P1 — <why> · **Traces to:** AC1
+### Reference pattern
+<existing test in the repo this should mirror — path + why>
+### Work division
+| Workstream | Scope | TCs | Depends on |
+|------------|-------|-----|------------|
+| WS-1 | <area> | TC1..TCn | — |
+### Dependencies & prerequisites
+- **Data setup / cleanup · cross-test sequencing · environment · auth** (only what applies)
+### Dependency diagram
+<!-- @formatter:off -->
+\`\`\`mermaid
+graph LR
+    TC1[TC1: setup] --> TC2[TC2: validate]
+\`\`\`
+<!-- @formatter:on -->
+
+## Clarification checklist
+| # | Topic | Question | Status | Answer |
+|---|-------|----------|--------|--------|
+| Q1 | <topic> | <question> | open / resolved | <answer> |
+
+## Source references
+| Source | Path / URL | What was extracted |
+|--------|------------|--------------------|
+| <doc> | <path#Lnn / url> | <takeaways> |
+
+## Assumptions
+| ID | Claim | Basis | Impact | Verification | Confidence |
+|----|-------|-------|--------|--------------|------------|
+
+## Changelog
+| Date | Author | Change |
+|------|--------|--------|`;
 
 const CASES_TEMPLATE = `# Test cases: <work-id>
 
+> Detailed, executable test-case specs derived from the plan's business test cases.
+> Each case traces to an acceptance criterion and becomes one automated test
+> (referenced as \`Covers: TC<n>\` in automation.md).
+> Reads first: spec-driven-development, test-naming, test-data-management.
+
 ## TC1: <case title>
-- **Traces to:** AC1
-- **Test level:** <unit | API | E2E>
-- **Preconditions:** <state before the test>
+- **Traces to:** AC1            <!-- + parent business case from plan, if applicable -->
+- **Type:** Positive | Negative | Parameterized | Edge
+- **Priority:** P1 | P2 | P3
+- **Test level:** unit | API | E2E
+- **Preconditions:** <state / setup required>
+- **Test data:** <factory / fixture name — see qa-test-data-gen>
 - **Steps:**
-  1. <step>
-- **Expected result:** <observable outcome>`;
+  1. <action>
+- **Expected result:** <observable, asserted outcome>
+- **Variants (parameterized / boundary / invalid):**
+  | Input | Expected |
+  |-------|----------|
+  | <valid baseline> | <pass> |
+  | <boundary> | <…> |
+  | <invalid> | <error / rejection> |`;
 
 const AUTOMATION_TEMPLATE = `# Automation: <work-id>
 
@@ -116,6 +189,9 @@ const BUG_REPORT_TEMPLATE = `# Bug: <one-line summary>
 - **Work-item / AC:** <work-id> · <criterion id>
 - **Suspected area (from qa-rca):** <component / module>
 
+## Preconditions
+- <state before reproduction>
+
 ## Steps to reproduce
 1. <step>
 
@@ -123,10 +199,82 @@ const BUG_REPORT_TEMPLATE = `# Bug: <one-line summary>
 - **Expected:** <...>
 - **Actual:** <...>
 
-## Evidence
-- <links to trace / screenshot / log via the result MCP server or tools.md paths>`;
+## Impact
+<who / what is affected; blast radius>
 
-/** The runtime artifacts under `context/changes/<work-id>/`, in workflow order. */
+## Observations / logs
+> Factual, service-level excerpts only — no test-internal mechanics.
+\`\`\`
+<raw log / response payload / HTTP code>
+\`\`\`
+
+## Root cause summary
+<from qa-rca; any inference marked as an Assumption (A1) per the assumptions guideline>
+
+## Suggested fix
+- <recommendation(s)>
+
+## Regression risk
+<related areas to re-test>
+
+## Evidence
+- <links to trace / screenshot / log via the result MCP server or tools.md paths>
+
+## Open questions
+- <unresolved>`;
+
+const REFINEMENT_TEMPLATE = `---
+jira_key: <KEY>
+ticket_type: Bug | Story/Feature | Task/Sub-task | Maintenance | Test Case
+status: Draft
+date: <YYYY-MM-DD>
+related_docs: []
+---
+# <ticket_type>: <title>
+
+## Context
+<factual, from fetched Jira / Xray / Confluence / attachments; mark gaps [Required input — not provided]>
+
+## Goals / Non-Goals
+<what this ticket will and will not achieve>
+
+## Scope / Out of scope
+<what is in; what is explicitly excluded>
+
+## Impacted files & classes
+- <File / Class> — <path#Lnn>          <!-- from codebase scan; grounding -->
+
+## Solution options
+<the viable approaches considered>
+
+## Recommendation
+1. **Conservative** — <approach> · trade-offs: <…>
+2. **Extensible** — <approach> · trade-offs: <…>
+3. **Performance** — <approach> · trade-offs: <…>
+   <!-- optional 4. Tooling -->
+
+## Acceptance criteria
+- <criterion>
+
+## Suggested tests
+- <test levels / cases this work should be verified by>
+
+## Risks
+<what could go wrong; mitigation>
+
+## Dependencies
+<blocking tickets, services, data>
+
+## Documentation links
+- <configurable project doc-space link>
+
+## Open questions
+- [Required input — not provided] <where applicable>
+
+## Definition of Done
+- <the checklist that closes this ticket>`;
+
+/** The runtime artifacts under `context/changes/<work-id>/`, plus standalone areas, in workflow order. */
 export const ARTIFACTS: ArtifactTemplate[] = [
   {
     name: "work",
@@ -139,7 +287,7 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     name: "plan",
     pathTemplate: "context/changes/<work-id>/plan.md",
     producedBy: "qa-plan",
-    requiredSections: ["Test levels", "Risk areas", "Steps"],
+    requiredSections: ["Business view", "Architecture view", "Implementation view"],
     template: PLAN_TEMPLATE,
   },
   {
@@ -172,6 +320,16 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     producedBy: "qa-bug-report",
     requiredSections: ["Steps to reproduce", "Expected vs actual", "Evidence"],
     template: BUG_REPORT_TEMPLATE,
+  },
+  {
+    // R-066 — standalone deliverable: ticket refinement does not require a
+    // work-id (refinement often precedes the work-item), so it lives in its own
+    // `context/refinements/` area rather than under `changes/<work-id>/`.
+    name: "refinement",
+    pathTemplate: "context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md",
+    producedBy: "qa-ticket-review",
+    requiredSections: ["Context", "Recommendation", "Acceptance criteria"],
+    template: REFINEMENT_TEMPLATE,
   },
 ];
 

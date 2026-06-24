@@ -25,6 +25,8 @@ export function defaultAnswers(stack: DetectedStack): WizardAnswers {
     qaConventions: defaultQaConventions(automationFramework, stack.linters),
     atlassianMcp: false,
     playwrightMcp: false,
+    xrayMcp: false,
+    markitdownMcp: false,
   };
 }
 
@@ -94,6 +96,18 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
   });
   if (isCancel(playwrightMcp)) return abort();
 
+  const xrayMcp = await confirm({
+    message: "Wire an Xray MCP server (Jira Test / Test Execution / Test Plan / Test Set) for qa-ticket-review?",
+    initialValue: seed.xrayMcp ?? false,
+  });
+  if (isCancel(xrayMcp)) return abort();
+
+  const markitdownMcp = await confirm({
+    message: "Wire the markitdown MCP server (convert local binary attachments to Markdown)?",
+    initialValue: seed.markitdownMcp ?? false,
+  });
+  if (isCancel(markitdownMcp)) return abort();
+
   return {
     automationFramework,
     reportLanguage,
@@ -101,6 +115,8 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
     qaConventions: qaConventions.trim(),
     atlassianMcp,
     playwrightMcp,
+    xrayMcp,
+    markitdownMcp,
   };
 }
 

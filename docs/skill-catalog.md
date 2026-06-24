@@ -56,6 +56,7 @@ flowchart LR
   qa_review --> qa_implement
   qa_archive --> qa_new
   qa_archive --> qa_gardening
+  qa_ticket_review --> qa_new
   qa_ticket_review --> qa_test_plan
   qa_ticket_review --> qa_test_case_design
   qa_test_plan --> qa_test_case_design
@@ -238,11 +239,11 @@ flowchart TD
   r0 --> qa_plan
   r1[("reads: context/foundation/test-plan.md")]
   r1 --> qa_plan
-  s0["1. Read the work-item and the foundation test-plan"]
+  s0["1. Read the work-item (work"]
   qa_plan --> s0
   s1["2. Write context/changes/<work-id>/plan"]
   s0 --> s1
-  s2["3. State assumptions and what is explicitly NOT covered"]
+  s2["3. Fill the clarification checklist, source references…"]
   s1 --> s2
   s3["4. Pause for human approval before implementing (respe…"]
   s2 --> s3
@@ -355,35 +356,44 @@ flowchart TD
 
 ### Test design
 
-#### `qa-ticket-review` *(read-only)*
+#### `qa-ticket-review`
 
-Analyze a ticket/requirement for testability, acceptance criteria, and risk (read-only).
+Refine a ticket/requirement into a dual-output deliverable (canonical Markdown + paste-ready Jira) with testability, recommendations, and acceptance criteria.
 
-- **Model:** opus (heavy reasoning) · **Mode:** read-only
-- **Reads:** `context/changes/<work-id>/work.md`
-- **Writes:** —
-- **Next:** `qa-test-plan` → `qa-test-case-design`
+- **Model:** opus (heavy reasoning) · **Mode:** write
+- **Reads:** `context/foundation/test-strategy.md`, `context/reference/system-overview.md`
+- **Writes:** `context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md`, `context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.jira`
+- **Next:** `qa-new` → `qa-test-plan` → `qa-test-case-design`
 
 <!-- @formatter:off -->
 ```mermaid
 flowchart TD
-  trig["▶ When a ticket arrives and you need to know if it can be tested…"]
-  qa_ticket_review["qa-ticket-review<br/>opus · read-only"]
+  trig["▶ When a ticket arrives and you need a refined, testable delivera…"]
+  qa_ticket_review["qa-ticket-review<br/>opus · write"]
   trig --> qa_ticket_review
-  r0[("reads: context/changes/<work-id>/work.md")]
+  r0[("reads: context/foundation/test-strategy.md")]
   r0 --> qa_ticket_review
-  s0["1. Pull the source"]
+  r1[("reads: context/reference/system-overview.md")]
+  r1 --> qa_ticket_review
+  s0["1. Fetch the source through MCP — never summarize from…"]
   qa_ticket_review --> s0
-  s1["2. Restate the requirement in one sentence"]
+  s1["2. Classify the ticket"]
   s0 --> s1
-  s2["3. Extract explicit and implicit acceptance criteria"]
+  s2["3. Scan the codebase for impact"]
   s1 --> s2
-  s3["4. Identify risk areas, edge cases, and required test…"]
+  s3["4. Recommend at least 3 options"]
   s2 --> s3
-  s4["5. Output (in {{REPORT_LANGUAGE_NAME}})"]
+  s4["5. Write the canonical Markdown"]
   s3 --> s4
-  s4 -->|next| qa_test_plan["qa-test-plan"]
-  s4 -->|next| qa_test_case_design["qa-test-case-design"]
+  s5["6. Zero assumptions."]
+  s4 --> s5
+  w0[("writes: context/refinements/<YYYY-MM-DD>-<KEY>-…")]
+  s5 --> w0
+  w1[("writes: context/refinements/<YYYY-MM-DD>-<KEY>-…")]
+  s5 --> w1
+  s5 -->|next| qa_new["qa-new"]
+  s5 -->|next| qa_test_plan["qa-test-plan"]
+  s5 -->|next| qa_test_case_design["qa-test-case-design"]
 ```
 <!-- @formatter:on -->
 
@@ -421,7 +431,7 @@ flowchart TD
 Generate structured test cases for a work-item from its acceptance criteria.
 
 - **Model:** opus (heavy reasoning) · **Mode:** write
-- **Reads:** `context/changes/<work-id>/work.md`, `context/foundation/test-plan.md`
+- **Reads:** `context/changes/<work-id>/work.md`, `context/changes/<work-id>/plan.md`, `context/foundation/test-plan.md`
 - **Writes:** `context/changes/<work-id>/cases.md`
 - **Next:** `qa-test-data-gen` → `qa-test-automate` → `qa-coverage-gap`
 
@@ -433,13 +443,15 @@ flowchart TD
   trig --> qa_test_case_design
   r0[("reads: context/changes/<work-id>/work.md")]
   r0 --> qa_test_case_design
-  r1[("reads: context/foundation/test-plan.md")]
+  r1[("reads: context/changes/<work-id>/plan.md")]
   r1 --> qa_test_case_design
-  s0["1. For each acceptance criterion, derive positive, neg…"]
+  r2[("reads: context/foundation/test-plan.md")]
+  r2 --> qa_test_case_design
+  s0["1. Start from the plan's business test cases (plan"]
   qa_test_case_design --> s0
-  s1["2. Write each case to context/changes/<work-id>/cases"]
+  s1["2. For each acceptance criterion derive positive, nega…"]
   s0 --> s1
-  s2["3. Note required test data"]
+  s2["3. Note required test data and name the factory/fixtur…"]
   s1 --> s2
   s3["4. Keep cases automation-ready (deterministic, indepen…"]
   s2 --> s3
@@ -458,8 +470,8 @@ flowchart TD
 Set up the test-automation framework and wire result artifacts to be agent-readable.
 
 - **Model:** sonnet (balanced) · **Mode:** write
-- **Reads:** `context/.scaffold/manifest.json`, `context/foundation/tools.md`
-- **Writes:** `context/foundation/tools.md`
+- **Reads:** `context/.scaffold/manifest.json`, `context/foundation/tools.md`, `context/foundation/test-framework.md`
+- **Writes:** `context/foundation/tools.md`, `context/foundation/test-framework.md`
 - **Next:** `qa-test-automate` → `qa-ci-pipeline`
 
 <!-- @formatter:off -->
@@ -472,18 +484,24 @@ flowchart TD
   r0 --> qa_automation_bootstrapper
   r1[("reads: context/foundation/tools.md")]
   r1 --> qa_automation_bootstrapper
+  r2[("reads: context/foundation/test-framework.md")]
+  r2 --> qa_automation_bootstrapper
   s0["1. Confirm the framework from the manifest"]
   qa_automation_bootstrapper --> s0
   s1["2. Establish the test folder layout, config, and a smo…"]
   s0 --> s1
   s2["3. Make results legible to the agent"]
   s1 --> s2
-  s3["4. Do not weaken the iron QA rule"]
+  s3["4. Write the durable onboarding guide context/foundati…"]
   s2 --> s3
+  s4["5. Do not weaken the iron QA rule"]
+  s3 --> s4
   w0[("writes: context/foundation/tools.md")]
-  s3 --> w0
-  s3 -->|next| qa_test_automate["qa-test-automate"]
-  s3 -->|next| qa_ci_pipeline["qa-ci-pipeline"]
+  s4 --> w0
+  w1[("writes: context/foundation/test-framework.md")]
+  s4 --> w1
+  s4 -->|next| qa_test_automate["qa-test-automate"]
+  s4 -->|next| qa_ci_pipeline["qa-ci-pipeline"]
 ```
 <!-- @formatter:on -->
 
@@ -823,11 +841,11 @@ flowchart TD
 
 #### `qa-bug-report`
 
-Turn a confirmed product defect into a structured, reproducible bug report with evidence (writes the report only).
+Turn a confirmed product defect into a structured, reproducible bug report with evidence + a paste-ready Jira version.
 
 - **Model:** sonnet (balanced) · **Mode:** write
 - **Reads:** `context/changes/<work-id>/automation.md`, `context/changes/<work-id>/work.md`, `context/foundation/tools.md`
-- **Writes:** `context/changes/<work-id>/bug-report.md`
+- **Writes:** `context/changes/<work-id>/bug-report.md`, `context/changes/<work-id>/bug-report.jira`
 - **Next:** `qa-archive`
 
 <!-- @formatter:off -->
@@ -848,11 +866,15 @@ flowchart TD
   s0 --> s1
   s2["3. Fill the template below into context/changes/<work-…"]
   s1 --> s2
-  s3["4. If an atlassian MCP server is configured, propose f…"]
+  s3["4. Produce the paste-ready Jira version."]
   s2 --> s3
+  s4["5. If an atlassian MCP server is configured, propose f…"]
+  s3 --> s4
   w0[("writes: context/changes/<work-id>/bug-report.md")]
-  s3 --> w0
-  s3 -->|next| qa_archive["qa-archive"]
+  s4 --> w0
+  w1[("writes: context/changes/<work-id>/bug-report.ji…")]
+  s4 --> w1
+  s4 -->|next| qa_archive["qa-archive"]
 ```
 <!-- @formatter:on -->
 

@@ -448,9 +448,15 @@ function relativePosix(fromFile: string, toFile: string): string {
 /** Scan markdown for relative links, capturing the raw target, path part, and anchor. */
 function scanLinks(md: string): ScannedLink[] {
   const out: ScannedLink[] = [];
+  // A link inside a fenced or inline code span is not a link — blank those regions
+  // first so e.g. a `[text](url)` example in a doc table isn't flagged as broken.
+  // (Length is preserved so this stays cheap and order-stable.)
+  const scannable = md
+    .replace(/```[\s\S]*?```/g, (s) => " ".repeat(s.length))
+    .replace(/`[^`\n]*`/g, (s) => " ".repeat(s.length));
   const re = /\[[^\]]*\]\(([^)]+)\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(md)) !== null) {
+  while ((m = re.exec(scannable)) !== null) {
     const raw = m[1]!.trim();
     if (/^(https?:|mailto:|#)/i.test(raw)) continue;
     const hash = raw.indexOf("#");

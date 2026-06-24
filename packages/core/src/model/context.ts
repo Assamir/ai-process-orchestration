@@ -77,8 +77,9 @@ ${skillList}
 
 ## Where things live
 
-- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, lessons, tech-debt tracker, repo map (test surface ↔ source).
+- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, test-framework guide, lessons, tech-debt tracker, repo map (test surface ↔ source).
 - \`context/changes/<work-id>/\` — in-flight work (work.md, plan.md, cases.md, automation.md).
+- \`context/refinements/\` — standalone ticket-refinement deliverables (\`.md\` + paste-ready \`.jira\`), produced by \`qa-ticket-review\` (no work-id required).
 - \`context/archive/<work-id>/\` — completed work (read-only history).
 - \`context/reference/\` — reverse-engineered system docs (produced by \`qa-reverse-engineer\`).
 - Guidelines — QA conventions & naming (see the guidelines files).
@@ -747,6 +748,57 @@ import { z } from "zod"; import { local } from "./local"; import { http } from "
 {{PROJECT_FORMATTING_WORKFLOW}}
 `,
   },
+  {
+    name: "mcp-content-fetch",
+    title: "MCP content fetch",
+    body: `# MCP content fetch
+
+> Phase 1 seeded this standard. Phase 2 records this project's concrete fetch sources in the \`{{PLACEHOLDER}}\` section.
+
+When a ticket, spec, test issue, or attachment is the input to a refinement, bug report, or plan, you **fetch it through MCP and read it** — you do not summarize from memory or from the ticket title. Skipping a step here (summarizing before the attachment is downloaded, converting a URL instead of a local file, guessing at a binary's contents) is the **#1 cause of hallucinated summaries**. The ordering below is a guarantee, not a suggestion: download → verify → convert → read, in that order, every time. "What's not in context doesn't exist" — an attachment you have not converted and read is not evidence.
+
+## The fetch flow (in order)
+1. **Discover.** \`getIssue\` for the Jira key → if it is a test issue (Test / Test Execution / Test Plan / Test Set), use the **\`xray\`** server → follow links to Confluence (\`getPage\` / \`searchConfluence\`) → list attachments (\`getAttachments\`) → fetch each (\`getAttachmentContent\`).
+2. **Download to a staging path.** Save every attachment under \`context/refinements/.attachments/<source-id>/<filename>\`, where \`<source-id>\` is the \`JIRA-KEY\` | \`PAGE-ID\` | \`XRAY-KEY\` it came from. Stage by source so two tickets can't collide.
+3. **Pre-flight verify.** Before converting, confirm the file **exists and its size is > 0**. A zero-byte or missing download is a failure to surface, not a file to summarize.
+4. **Convert on the local path only.** Run **\`markitdown\`** against the **local file path** — never a URL or an attachment id (markitdown is local-path only). Read text formats (\`.md\` / \`.txt\` / \`.json\`) directly; use \`view_image\` for images. Only the converted Markdown is evidence you may cite.
+5. **Clean up.** Remove the staging dir when done — it is git-ignored scratch, never committed.
+
+## Source priority
+Prefer the most authoritative source: **Jira + Xray** (for test issues) > **Jira** > **Confluence** > **Attachments**. Reach for an attachment only when the structured sources don't carry the fact.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — download, verify, then convert the local file, and cite the converted text:
+\`\`\`
+getAttachmentContent PROJ-217 spec.docx
+  -> context/refinements/.attachments/PROJ-217/spec.docx   (12 KB, exists)
+markitdown context/refinements/.attachments/PROJ-217/spec.docx
+  -> "AC-2: reject empty cart at checkout"   (cited from the converted Markdown)
+\`\`\`
+
+❌ **Avoid** — summarizing from the title, or converting a URL instead of the verified local file:
+\`\`\`
+"The spec.docx probably covers the checkout flow."   # never downloaded/read — a guess
+markitdown https://jira/secure/attachment/9001/spec.docx   # markitdown is local-path only
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: the fetch practices this project relies on (source-id staging dirs, download→verify→convert
+> ordering, Xray-first for test issues, git-ignored \`.attachments/\`) so agents follow them.
+
+{{MCP_FETCH_PATTERNS}}
+
+## Project-specific fetch sources
+
+> Record this project's concrete sources once known: the Jira/Confluence/Xray hosts, the doc space(s) specs live in, and which attachment formats actually appear.
+
+{{PROJECT_MCP_FETCH_WORKFLOW}}
+`,
+  },
 ];
 
 /** The `context/` system of record laid down at scaffold time. */
@@ -799,6 +851,50 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 - **Report path:** {{REPORT_PATH}}
 - **Trace / screenshot path:** {{TRACE_PATH}}
 - **Machine-readable results (e.g. JUnit XML):** {{RESULTS_PATH}}
+`,
+  },
+  {
+    rel: "context/foundation/test-framework.md",
+    body: `# Test framework
+
+> Durable. How the automation framework is organized and how to work in it.
+> Owned by qa-automation-bootstrapper; enriched in phase 2.
+> Machine-read result paths live in tools.md — don't duplicate them here.
+> Reads: qa-conventions, test-naming, code-formatting, environment-management.
+
+## Stack
+- **Framework:** {{AUTOMATION_FRAMEWORK}} · **Build tool:** {{BUILD_TOOL}} · **Language:** {{PROJECT_LANGUAGE}}
+- **Key libraries / versions:** {{KEY_LIBRARIES}}
+
+## Project test layout
+<where tests live; directory structure; naming — cross-links context/foundation/repo-map.md>
+
+## How to run
+| Mode | Command |
+|------|---------|
+| All tests | {{RUN_COMMAND}} |
+| Single test / file | {{RUN_SINGLE}} |
+| By tag / group | {{RUN_TAGGED}} |
+| Headed / debug / UI | {{RUN_DEBUG}} |
+| Update snapshots / baselines | {{RUN_UPDATE}} |
+
+## Conventions
+- **Base test class / fixtures:** <setup/teardown entry points>
+- **Page objects / request builders / clients:** <the abstraction tests use>
+- **Tags / categories:** <how tests are grouped>
+- **Naming:** see the test-naming guideline
+
+## Authentication & environment setup
+<how tests authenticate; required env vars — see environments.md + environment-management>
+
+## How to add a new test
+1. <framework-specific step-by-step walkthrough>
+
+## Reference example tests
+- \`<path>\` — <which pattern it demonstrates>
+
+## CI integration
+<pointer to the qa-ci-pipeline workflow that runs this framework>
 `,
   },
   {
@@ -887,10 +983,36 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 
 {{BUSINESS_CONTEXT}}
 
-## Test surface
-> The QA lens over the architecture: what is risky, what is untested, and where the integration seams are.
+## Test surface (QA lens)
+> The testing view over the architecture (C4 above is the architecture layer). What is risky, what is
+> untested, and where the integration seams are. All claims verified at \`file:line\` (grounding);
+> inferences live in the Assumptions table only.
 
-{{TEST_SURFACE}}
+### Integration points
+> The map for integration-test planning: every system this one talks to.
+
+| Integrated system | Repo / module | Integration point | Direction | Protocol | Data exchanged | Test focus |
+|-------------------|---------------|-------------------|-----------|----------|----------------|------------|
+
+### Entry-point inventory
+> Every way into the system tests target, each tied to its source and coverage status.
+
+| Entry point | Type | Source (file:line) | Covered by tests? |
+|-------------|------|--------------------|-------------------|
+| <METHOD /path · CLI · job · consumer> | HTTP / CLI / job / event | <path#Lnn> | yes / no / partial |
+
+### Data model & boundaries
+> The fields/entities under test, with their valid and invalid/boundary values for case design.
+
+| Field / entity | Type | Valid | Invalid / boundary | Source (file:line) |
+|----------------|------|-------|--------------------|--------------------|
+
+### Test scenarios summary
+- <high-level positive / negative / integration scenarios; link to cases.md when designed>
+
+### Questions & issues
+| ID | Question / uncertainty | Impact | Status |
+|----|------------------------|--------|--------|
 `,
   },
   {
@@ -947,6 +1069,10 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/archive/.gitkeep",
+    body: "",
+  },
+  {
+    rel: "context/refinements/.gitkeep",
     body: "",
   },
 ];

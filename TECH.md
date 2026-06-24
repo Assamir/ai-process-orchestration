@@ -60,7 +60,11 @@ Reuses the current `cli/src` structure, extended. Key modules and their responsi
   (skip-if-exists) + `.scaffold/manifest.json` (phase-2 handoff state).
 - **`model/`** — the **logical QA skill definitions**: each skill's name, description, procedure
   body, inputs/outputs, and which `context/` files it reads/writes — expressed once,
-  platform-agnostic. This is where functional parity is guaranteed.
+  platform-agnostic. This is where functional parity is guaranteed. Also holds the single-source
+  registries the skills embed: `artifacts.ts` (`ARTIFACTS` + `tpl()` — runtime-artifact shape, R-059;
+  now including the standalone `refinement` deliverable, R-066) and **`jira.ts`** (`mdToJira` + the
+  `JIRA_CONVERSION_TABLE` embedded verbatim into the bug-report/refinement skills — the one
+  Markdown→Jira transform, R-064, snapshot-tested).
 - **`adapters/`** — the `PlatformAdapter` interface (see §5) that maps a logical artifact to a
   platform-specific path + frontmatter.
 - **`util/fs.ts`** (`exists`, `readIfExists`, `firstExisting`), **`labels.ts`**,
@@ -177,10 +181,11 @@ call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outp
 
 ```
 context/
-├── foundation/   test-strategy.md, test-plan.md, tools.md, environments.md, lessons.md, tech-debt-tracker.md
-├── changes/<work-id>/   work.md, plan.md, cases.md, automation.md, bug-report.md
+├── foundation/   test-strategy.md, test-plan.md, tools.md, test-framework.md (R-067), environments.md, lessons.md, tech-debt-tracker.md, repo-map.md
+├── changes/<work-id>/   work.md, plan.md (3-perspective, R-062), cases.md (detailed, R-063), automation.md, bug-report.md + bug-report.jira (R-064), performance.md
+├── refinements/   <YYYY-MM-DD>-<KEY>-<slug>.md + .jira  (standalone ticket refinements, qa-ticket-review, R-066)
 ├── archive/<work-id>/   (read-only)
-└── reference/   system-overview.md + reverse-engineered docs (qa-reverse-engineer)
+└── reference/   system-overview.md (incl. the QA test-surface lens, R-068) + reverse-engineered C4 docs (qa-reverse-engineer)
 ```
 
 - The lean root config is an **index**, not a repository; skills fetch from `context/` just-in-time
@@ -408,11 +413,19 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   server (`browserServers` in `core/src/model/mcp.ts`) for *interactive* exploration in
   `qa-test-case-design` / `qa-rca` — distinct from the read-only result servers, which only read static
   artifacts. No secrets, so it renders identically on both platforms (only the envelope key differs).
-- **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`qa-ticket-review`,
-  `qa-review`, `qa-rca`, `qa-gardening`) or write (`qa-test-case-design`, `qa-test-automate`,
-  `qa-automation-bootstrapper`, …); the adapter encodes this as Claude `allowed-tools` and as Copilot agent
+- **Read-only vs. write skills.** Each `LogicalSkill` is annotated read-only (`qa-review`, `qa-rca`,
+  `qa-gardening`, `qa-coverage-gap`, `qa-metrics`) or write (`qa-test-case-design`, `qa-test-automate`,
+  `qa-automation-bootstrapper`, `qa-ticket-review` — flipped to write in R-066 to produce the refinement
+  deliverable, …); the adapter encodes this as Claude `allowed-tools` and as Copilot agent
   tool allowlists — schema-level filtering, not prose. Each skill also carries a `suggestedModel` tier
   (R-014), rendered as Claude `model:` frontmatter — see the matrix in §5.
+- **Content fetch via MCP (R-065).** Two opt-in servers wired alongside `atlassian` (R-009) by
+  `fetchServers` in `core/src/model/mcp.ts`, with `${VAR}` secret indirection and the platform-correct
+  envelope: **`xray`** (Jira test issue types) and **`markitdown`** (binary attachment → Markdown, local
+  path only). The **`mcp-content-fetch`** guideline codifies the load-bearing **download → verify →
+  convert → read** ordering and source priority (Jira+Xray > Jira > Confluence > attachments); skipping a
+  step is the #1 cause of hallucinated summaries. `qa-ticket-review` / `qa-bug-report` produce
+  **dual output** (canonical Markdown + a paste-ready `.jira`) via the one `model/jira.ts` transform (R-064).
 - **Compaction survival.** The handful of inviolable rules live in the lean root so they persist when
   the conversation is compacted over long QA sessions.
 
@@ -438,6 +451,7 @@ Current set:
 | `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
 | `performance-testing` | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047) | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
 | `code-formatting` | deterministic, tool-owned formatting — the formatter is the source of truth, deterministic import-order, and the generalized `@formatter:off` / `@formatter:on` autoformatter guards around content the formatter would mangle (chiefly Mermaid diagrams) (R-054) | the policy + the detected linters + a ✅/❌ example | `FORMATTER_PATTERNS`, `PROJECT_FORMATTING_WORKFLOW` |
+| `mcp-content-fetch` | fetch tickets/specs/attachments through MCP, never summarize from the title — the **download → verify → convert → read** ordering + source priority (Jira+Xray > Jira > Confluence > attachments) (R-065) | the flow + the ordering guarantees + a ✅/❌ example | `MCP_FETCH_PATTERNS`, `PROJECT_MCP_FETCH_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -452,8 +466,10 @@ Standard each guideline follows:
 - **Mandatory ✅ good / ❌ bad examples (R-026).** Every guideline *shows* the pattern, it doesn't just
   describe it: each carries a `## Examples (✅ good / ❌ bad — required)` section with a concrete good
   case and a concrete bad case. `doctor` enforces this — a guideline file missing either the `✅` or
-  `❌` marker is an **error** (`GUIDELINE:examples:<name>`). Keep examples short and free of relative
-  Markdown/image links (`[..](..)` / `![..](..)`) so they don't trip the broken-link check.
+  `❌` marker is an **error** (`GUIDELINE:examples:<name>`). Keep examples short; relative
+  Markdown/image links (`[..](..)` / `![..](..)`) are safe inside fenced or `inline` code spans —
+  `doctor`'s link check now skips code spans (`scanLinks`) so an example link in a doc table or template
+  isn't flagged — but a bare relative link in prose still must resolve.
 - **Encouraged "Applicable patterns" section.** Each guideline ends with an `## Applicable patterns`
   section (phase-2 placeholder, e.g. `CONVENTIONS_PATTERNS`, `NAMING_PATTERNS`, `DIAGRAM_PATTERNS`)
   naming the design / programming / testing patterns this codebase applies (Page Object,

@@ -12,6 +12,7 @@
  * `tpl(name)` inside a fenced `## Template` section (R-059).
  */
 import { tpl } from "./artifacts.js";
+import { JIRA_CONVERSION_TABLE } from "./jira.js";
 
 export interface LogicalSkill {
   /** kebab-case, stable. Becomes the skill / prompt file name. */
@@ -100,12 +101,15 @@ ${tpl("work")}
     reads: ["context/changes/<work-id>/work.md", "context/foundation/test-plan.md"],
     writes: ["context/changes/<work-id>/plan.md"],
     body: `## When to use
-After a work-item exists and its scope is clear. The plan is a control mechanism, not paperwork.
+After a work-item exists and its scope is clear. The plan is a living control mechanism, not paperwork — it is updated in place as the work-item progresses.
 
 ## Procedure
-1. Read the work-item and the foundation test-plan.
-2. Write \`context/changes/<work-id>/plan.md\` from the **Template** below: test levels in play (unit/API/E2E), risk areas, data needs, environments, and the ordered steps (design → automate → run → analyze).
-3. State assumptions and what is explicitly NOT covered.
+1. Read the work-item (\`work.md\`, with its \`AC<n>\` ids) and the foundation test-plan/strategy.
+2. Write \`context/changes/<work-id>/plan.md\` from the **Template** below, organized into three perspectives:
+   - **Business view** — the business driver, the acceptance criteria mirrored from \`work.md\`, P1–P3 priorities each with a business justification, and what is out of scope.
+   - **Architecture view** — a coverage overview (area/AC × positive/negative/edge × current/target), risk areas, open questions for review, and a sign-off checklist.
+   - **Implementation view** — the test-case summary table (TC | Traces to | Type | Priority | Level | Dependencies | Status), the **business-level** test cases (the detailed/automatable cases live in \`cases.md\`), a reference pattern, work division, dependencies & prerequisites, and a Mermaid dependency diagram (per \`diagram-conventions\`, wrapped in \`@formatter:off\`/\`@formatter:on\`).
+3. Fill the clarification checklist, source references (grounding — cite each \`file:line\`/ticket the plan derives from), assumptions, and changelog. Per the \`spec-driven-development\` guideline every business test case carries \`Traces to: AC<n>\`.
 4. Pause for human approval before implementing (respect autonomy level: **{{AUTONOMY_LEVEL}}**).
 
 ## Template
@@ -114,7 +118,7 @@ ${tpl("plan")}
 \`\`\`
 
 ## Done when
-The plan lists ordered steps, risks, and success criteria, and has been approved.
+The plan covers the Business / Architecture / Implementation perspectives, every business test case traces to an acceptance criterion, and it has been approved.
 
 ## Next
 - \`qa-implement\` — once the plan is approved, execute it step by step.`,
@@ -197,26 +201,39 @@ The work-item lives under \`context/archive/\`, lessons are captured, and any ne
 const design: LogicalSkill[] = [
   {
     name: "qa-ticket-review",
-    description: "Analyze a ticket/requirement for testability, acceptance criteria, and risk (read-only).",
-    readOnly: true,
+    description: "Refine a ticket/requirement into a dual-output deliverable (canonical Markdown + paste-ready Jira) with testability, recommendations, and acceptance criteria.",
+    readOnly: false,
     bucket: "design",
     suggestedModel: "opus",
-    reads: ["context/changes/<work-id>/work.md"],
-    writes: [],
+    reads: ["context/foundation/test-strategy.md", "context/reference/system-overview.md"],
+    writes: [
+      "context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md",
+      "context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.jira",
+    ],
     body: `## When to use
-When a ticket arrives and you need to know if it can be tested as written. Read-only.
+When a ticket arrives and you need a refined, testable deliverable — testability verdict, solution recommendations, and sharp acceptance criteria. Standalone: a refinement often **precedes** the work-item, so it does not require a \`<work-id>\`. Writes the canonical Markdown and a paste-ready Jira version under \`context/refinements/\`.
 
 ## Procedure
-1. Pull the source: if an \`atlassian\` MCP server is configured (Jira + Confluence), read the ticket and any linked Confluence specs directly through it — what's not in context doesn't exist. Otherwise work from the ticket text in \`work.md\`.
-2. Restate the requirement in one sentence; if you cannot, the ticket is ambiguous — list the questions.
-3. Extract explicit and implicit acceptance criteria; mark each as testable / not-yet-testable. Per the \`spec-driven-development\` guideline, these agreed criteria are the spec the downstream cases will trace to — sharpen every not-yet-testable criterion now, before any case design begins.
-4. Identify risk areas, edge cases, and required test data and environments.
-5. Output (in **{{REPORT_LANGUAGE_NAME}}**): a testability verdict, the criteria list, open questions, and suggested test levels. Recommend updating \`work.md\` accordingly. Per the \`grounding\` rule, ground every criterion in the ticket/spec text you cite — never infer requirements that are not written. Per the \`assumptions\` guideline, any criterion you had to infer goes in a \`## Assumptions\` table (with its basis, impact, verification, and a calibrated confidence) and is referenced inline as \`(A1)\` — an inferred requirement stated as fact is a hallucination.
+1. **Fetch the source through MCP — never summarize from the title.** Per the \`mcp-content-fetch\` guideline, follow the download -> verify -> convert -> read ordering: \`getIssue\` (Jira) -> the \`xray\` server for a Test / Test Execution / Test Plan / Test Set issue -> linked Confluence (\`getPage\` / \`searchConfluence\`) -> attachments (\`getAttachments\` / \`getAttachmentContent\`), staged under \`context/refinements/.attachments/<source-id>/\` and converted with \`markitdown\` on the local path. Source priority: Jira+Xray > Jira > Confluence > attachments. What's not fetched doesn't exist.
+2. **Classify the ticket** into one of the five merged types — Bug, Story/Feature, Task/Sub-task, Maintenance, Test Case — and restate the requirement in one sentence; if you cannot, it is ambiguous, so list the questions.
+3. **Scan the codebase for impact** (grounding): name the impacted files/classes at \`file:line\`. Extract explicit and implicit acceptance criteria; per the \`spec-driven-development\` guideline these agreed criteria are the spec downstream cases will trace to — sharpen every not-yet-testable one now.
+4. **Recommend at least 3 options** — Conservative / Extensible / Performance (+ optional Tooling), each with its trade-offs. Identify risks, dependencies, suggested tests, and a Definition of Done.
+5. **Write the canonical Markdown** to \`context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md\` from the **Template** below, then **project it to the \`.jira\` twin** (100% Jira wiki markup) via the **Markdown->Jira** conversion: a Jira-field header (Issue Type, Summary with the *configurable* prefix, Priority, Component/s, Labels with the *configurable* required-label, Attachment note, Linked Issues) plus the per-type body (Bug / Story-Feature / Task-Sub-task / Maintenance / Test Case). A Sub-task takes no prefix and inherits priority/component/labels/Linked-Issues from its parent. Preserve \`{code}/{panel}/{info}/{warning}/{noformat}\` macros.
+6. **Zero assumptions.** Per the \`grounding\` and \`assumptions\` guidelines: ground every claim in fetched/cited evidence; write \`[Required input — not provided]\` for a gap (never invent a basis); flag conflicting sources explicitly; any unavoidable inference goes in a \`## Assumptions\` table referenced inline as \`(A1)\`. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Template
+\`\`\`md
+${tpl("refinement")}
+\`\`\`
+
+## Markdown->Jira conversion
+${JIRA_CONVERSION_TABLE}
 
 ## Done when
-The reviewer has a clear testability verdict and a list of open questions.
+A \`context/refinements/<YYYY-MM-DD>-<KEY>-<slug>.md\` exists with Context, at least 3 Recommendations, and sharp Acceptance criteria, and its \`.jira\` twin carries the same content as Jira wiki markup with the per-type body. No invented facts — gaps are marked \`[Required input — not provided]\`.
 
 ## Next
+- \`qa-new\` — open the work-item once the refinement is agreed.
 - \`qa-test-plan\` — fold the requirement into the durable test plan.
 - \`qa-test-case-design\` — derive cases once the criteria are testable.`,
   },
@@ -248,16 +265,16 @@ To establish or evolve the durable, cross-work-item test plan.
     readOnly: false,
     bucket: "design",
     suggestedModel: "opus",
-    reads: ["context/changes/<work-id>/work.md", "context/foundation/test-plan.md"],
+    reads: ["context/changes/<work-id>/work.md", "context/changes/<work-id>/plan.md", "context/foundation/test-plan.md"],
     writes: ["context/changes/<work-id>/cases.md"],
     body: `## When to use
 After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
-1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path. Per the \`spec-driven-development\` guideline, derive cases from the documented criteria in \`work.md\`, not from the current code — a case that traces to no criterion is undocumented scope. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
-2. Write each case to \`context/changes/<work-id>/cases.md\` using the **Template** below — give each case a stable \`TC<n>\` id and a \`Traces to:\` field naming the \`AC<n>\` acceptance-criterion id(s) it covers (a case that traces to no criterion is undocumented scope).
-3. Note required test data; hand off to \`qa-test-data-gen\` if it must be produced.
-4. Keep cases automation-ready (deterministic, independent).
+1. Start from the plan's **business test cases** (\`plan.md\`, Implementation view) and the acceptance criteria in \`work.md\`. \`cases.md\` is the detailed, executable layer: each business case expands into one or more concrete cases that each become a single automated test. Per the \`spec-driven-development\` guideline, derive cases from the documented criteria, not from the current code — a case that traces to no criterion is undocumented scope. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
+2. For each acceptance criterion derive positive, negative, parameterized, and boundary/edge cases — do not stop at the happy path. Write each to \`context/changes/<work-id>/cases.md\` using the **Template** below: a stable \`TC<n>\` id, a \`Traces to:\` field naming the \`AC<n>\` id(s) it covers (+ the parent business-TC where applicable), Type / Priority / Test level, Preconditions, the named **Test data** factory/fixture, Steps, the asserted Expected result, and a **Variants** table for parameterized/boundary/invalid inputs.
+3. Note required test data and name the factory/fixture for each case; hand off to \`qa-test-data-gen\` if it must be produced. Per the \`test-data-management\` guideline, the Variants table is where boundary/invalid inputs live as overrides of a valid baseline.
+4. Keep cases automation-ready (deterministic, independent) — one behavior per case.
 
 ## Template
 \`\`\`md
@@ -281,19 +298,20 @@ const automation: LogicalSkill[] = [
     readOnly: false,
     bucket: "automation",
     suggestedModel: "sonnet",
-    reads: ["context/.scaffold/manifest.json", "context/foundation/tools.md"],
-    writes: ["context/foundation/tools.md"],
+    reads: ["context/.scaffold/manifest.json", "context/foundation/tools.md", "context/foundation/test-framework.md"],
+    writes: ["context/foundation/tools.md", "context/foundation/test-framework.md"],
     body: `## When to use
 First time a repo needs automation, or when adding a new test level.
 
 ## Procedure
 1. Confirm the framework from the manifest: **{{AUTOMATION_FRAMEWORK}}**. Verify it is installed; if not, propose the exact install/config steps for the detected build tool.
 2. Establish the test folder layout, config, and a smoke test that proves the harness runs.
-3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, pytest-html + JUnit XML, Surefire XML). A read-only results MCP filesystem server is pre-wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) for Playwright (\`playwright-results\` over \`./playwright-report\` + \`./test-results\`), pytest (\`pytest-results\` over \`./reports\` + \`./test-results\`), and JVM runners — RestAssured/JUnit/TestNG (\`jvm-results\` over the Surefire/Serenity report dirs) — verify those paths match your config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` so \`qa-rca\` and \`qa-test-automate\` can read outcomes directly.
-4. Do not weaken the iron QA rule.
+3. Make results legible to the agent: ensure reports/traces/logs are written to known paths (e.g. Playwright HTML report + trace, pytest-html + JUnit XML, Surefire XML). A read-only results MCP filesystem server is pre-wired in the platform's MCP config (\`.mcp.json\` / \`.vscode/mcp.json\`) for Playwright (\`playwright-results\` over \`./playwright-report\` + \`./test-results\`), pytest (\`pytest-results\` over \`./reports\` + \`./test-results\`), and JVM runners — RestAssured/JUnit/TestNG (\`jvm-results\` over the Surefire/Serenity report dirs) — verify those paths match your config and adjust if needed. Record the result paths in \`context/foundation/tools.md\` (the narrow, machine-read result-legibility doc) so \`qa-rca\` and \`qa-test-automate\` can read outcomes directly.
+4. **Write the durable onboarding guide \`context/foundation/test-framework.md\`** — the rich "how the framework is organized and how to work in it" doc: the Stack (framework/build/language + key libraries), the project test layout (cross-linking \`repo-map.md\`), the **How to run** command matrix (all / single / tagged / headed-debug / update-snapshots), the conventions (base class/fixtures, page-objects/request-builders, tags, naming → \`test-naming\`), authentication & environment setup (→ \`environments.md\`, \`environment-management\`), how to add a new test, reference example tests, and the CI pointer (→ \`qa-ci-pipeline\`). Keep \`tools.md\` lean — it holds result paths only; don't duplicate the run matrix there.
+5. Do not weaken the iron QA rule.
 
 ## Done when
-A smoke test passes and result-artifact paths are recorded in \`tools.md\`.
+A smoke test passes, result-artifact paths are recorded in \`tools.md\`, and \`test-framework.md\` documents the stack, the How-to-run matrix, and the conventions.
 
 ## Next
 - \`qa-test-automate\` — author tests now that the harness runs.
@@ -563,28 +581,32 @@ A read-only metrics digest exists with pass/fail/flake counts, criterion-coverag
   },
   {
     name: "qa-bug-report",
-    description: "Turn a confirmed product defect into a structured, reproducible bug report with evidence (writes the report only).",
+    description: "Turn a confirmed product defect into a structured, reproducible bug report with evidence + a paste-ready Jira version.",
     readOnly: false,
     bucket: "analysis",
     suggestedModel: "sonnet",
     reads: ["context/changes/<work-id>/automation.md", "context/changes/<work-id>/work.md", "context/foundation/tools.md"],
-    writes: ["context/changes/<work-id>/bug-report.md"],
+    writes: ["context/changes/<work-id>/bug-report.md", "context/changes/<work-id>/bug-report.jira"],
     body: `## When to use
-After \`qa-rca\` concludes the failure is a product defect (not a test defect) and you need a structured, reproducible report. Reads evidence; writes only the report.
+After \`qa-rca\` concludes the failure is a product defect (not a test defect) and you need a structured, reproducible report. Reads evidence; writes the canonical report and a paste-ready Jira version.
 
 ## Procedure
 1. Pull the evidence through the result MCP server (\`playwright-results\` / \`pytest-results\` / \`jvm-results\`) or the paths in \`context/foundation/tools.md\` (trace, screenshot, JUnit XML, logs). What is not in context does not exist; per the \`grounding\` rule, every field below cites real evidence — never invent steps, an environment, or a result you did not observe. Per the \`assumptions\` guideline, anything you had to infer (a step the trace only implies, an unconfirmed environment detail) goes in a \`## Assumptions\` table and is referenced inline as \`(A1)\`, never blended into the reproduction as fact.
 2. Confirm reproducibility: minimal, ordered steps from a known state; note environment and the test data used.
-3. Fill the template below into \`context/changes/<work-id>/bug-report.md\`. Link the affected acceptance criterion and the work-id; carry the suspected area from \`qa-rca\`.
-4. If an \`atlassian\` MCP server is configured, propose filing it as a Jira issue — mirror the template, do not invent fields.
+3. Fill the template below into \`context/changes/<work-id>/bug-report.md\`. Link the affected acceptance criterion and the work-id; carry the suspected area from \`qa-rca\`. Keep the **Observations / logs** factual and service-level — raw payloads, HTTP codes, stacktraces — not test-internal mechanics.
+4. **Produce the paste-ready Jira version.** Transform the canonical Markdown into \`context/changes/<work-id>/bug-report.jira\` using the **Markdown→Jira** conversion below — one deterministic transform, the same machine the ticket refinement uses. Fence logs/stacktraces in \`{code}\` blocks; preserve any \`{code}/{panel}/{info}/{warning}/{noformat}\` macros unchanged. The \`.md\` is the source of truth; the \`.jira\` is its mechanical projection — never let the two diverge in content.
+5. If an \`atlassian\` MCP server is configured, propose filing the \`.jira\` body as a Jira issue — mirror it, do not invent fields.
 
 ## Template
 \`\`\`md
 ${tpl("bug-report")}
 \`\`\`
 
+## Markdown→Jira conversion
+${JIRA_CONVERSION_TABLE}
+
 ## Done when
-\`bug-report.md\` exists with reproducible steps, expected vs actual, severity, evidence links, and a traced acceptance criterion. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+\`bug-report.md\` exists with reproducible steps, expected vs actual, severity, evidence links, and a traced acceptance criterion, and \`bug-report.jira\` carries the same content in Jira wiki markup. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
 
 ## Next
 - \`qa-archive\` — once the defect is logged and the work-item is wrapping up.
@@ -605,7 +627,8 @@ To understand an existing application before planning tests, or to onboard onto 
 1. Recon first: from \`context/.scaffold/manifest.json\` and a light scan, identify the language(s), build tool, frameworks, and the obvious entry points (HTTP routes, CLI, jobs, message consumers).
 2. Read \`context/foundation/repo-map.md\` — phase 1 already inventoried the build roots, test directories, and test/CI configs there (deterministically, no LLM). Use it as your starting map instead of blind-searching, especially in a large or multi-module/polyglot repo.
 3. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context / C4 container) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
-4. Document the architecture with the **C4 model** (see the \`diagram-conventions\` guideline), top-down: L1 system context in \`c4-context.md\`, L2 containers in \`c4-container.md\`, L3 components (for the testing-critical containers) in \`c4-component.md\`. Skip L4 (code) unless a specific component needs it — link to source instead. Index everything from \`system-overview.md\` and fill its business-context + test-surface (risky / untested) sections.
+4. Document the architecture with the **C4 model** (see the \`diagram-conventions\` guideline), top-down: L1 system context in \`c4-context.md\`, L2 containers in \`c4-container.md\`, L3 components (for the testing-critical containers) in \`c4-component.md\`. Skip L4 (code) unless a specific component needs it — link to source instead. Index everything from \`system-overview.md\` and fill its business-context section.
+   Then fill the **Test surface (QA lens)** — the testing view that sits over the C4 architecture: **Integration points** (every system this one talks to, with direction/protocol/data/test-focus — the map for integration-test planning), the **Entry-point inventory** (each HTTP route / CLI / job / consumer at its \`file:line\`, marked covered/uncovered), **Data model & boundaries** (each field/entity with its valid vs invalid/boundary values, for case design), a **Test scenarios summary**, and a **Questions & issues** table. Every cell is grounded at \`file:line\`; anything inferred goes in the Assumptions table, not the lens.
 5. Each C4 level carries one Mermaid diagram (\`C4Context\` / \`C4Container\` / \`C4Component\`, or the \`flowchart\` fallback) plus supporting prose. Zoom in only as far as the testing question needs — most QA work lives at L1–L3.
 6. Enrich \`repo-map.md\`'s phase-2 sections: fill **Test ↔ source map** (map each test directory from the inventory to the C4 container/component it exercises, reusing those names so the two maps agree) and **Entry points** (each route/CLI/job/consumer linked to the test directory that covers it, or flagged uncovered). Leave the phase-1 inventory section as the auto-generated map — don't hand-edit it.
 7. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path / symbol / integration by opening it before documenting it — never invent an architecture. Per the \`assumptions\` guideline, record anything you could not verify in a \`## Assumptions\` table (basis, impact, verification, calibrated confidence) and reference it inline as \`(A1)\` — inferred architecture stated as fact is a hallucination.
