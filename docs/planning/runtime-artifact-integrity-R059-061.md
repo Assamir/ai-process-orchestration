@@ -5,7 +5,7 @@
 > compose from it via a fenced `## Template`, trace markers `AC<n>`/`Traces to:`/`Covers:`
 > + seeded `status: in-progress`, `tests/artifacts.test.ts` + scaffold consistency
 > assertion, all 167 core tests green, no doc drift, leaves bumped to 0.39.0. ROADMAP
-> Shipped-row commit hash still `(pending)` — record after commit. **Next: R-060.**
+> Shipped-row commit hash recorded (`6eb9e27`). **Next: R-060.**
 >
 > **CHECKPOINT (2026-06-23) — plan complete, all forks resolved.**
 > To resume: open this file, enter plan mode, start from **R-060**.
