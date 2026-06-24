@@ -104,6 +104,10 @@ scheduled to a version; the next work is pulled from the **Backlog** below._
   guideline, scheduled together), **R-049** (`test-strategy` guideline), **R-050** (`qa-release-readiness`
   skill), **R-053** (`qa-mobile` skill), **R-055** + **R-058** (`qa-security` skill + `security-testing`
   guideline, scheduled together).
+- **Documentation pillars** — the epic **R-069 → R-074** (start with the keystone **R-069**, the
+  documentation meta-standard): make plan/cases/implementation rest on pillars of generated documentation
+  (P1 app source / P2 Jira+Confluence / P3 framework code), each conforming to a documentation standard. See
+  the **Backlog** epic and [`docs/design/documentation-pillars-R069-074.md`](docs/design/documentation-pillars-R069-074.md).
 
 ## Backlog (unscheduled)
 
@@ -229,6 +233,75 @@ R-048 skill, and **R-058** is the guideline for the R-055 skill. (R-051, `doctor
 
 > **R-054 (v0.37.0) and R-052 (v0.38.0) both shipped** — see **Shipped**. They were scoped here during
 > backlog review; full detail moved into their Shipped rows on delivery.
+
+**Epic: documentation pillars (R-069 → R-074).** Make the three authoring outputs — the **test plan**, the
+**test cases**, and **their implementation** — rest on **pillars of generated documentation**: **P1** from
+the app source (`context/reference/`, `qa-reverse-engineer` — exists), **P2** from Jira/Confluence
+(`context/knowledge/` + `refinements/`), **P3** from the test-framework code
+(`context/foundation/framework-architecture.md`). Closes three gaps in the shipped product: **(a)** no
+**meta documentation standard** governing the shape of every generated doc, **(b)** the pillars are **not
+enforced as the foundation** of plan/cases/automation, **(c)** **P3 is not generated** from framework code
+(and P2 has no durable knowledge base / semantic gate). Strict dependency order: **R-069 is the keystone**
+(meta-standard + machine contract) → **R-070** (`built-on:` provenance, depends on R-069's light `status:`
+frontmatter, feeds R-061's hard gate) → **R-071/R-072** create the P3/P2 pillars R-070's map references →
+**R-073** (depends on R-069's criteria); **R-074** is independent/light. Full design, gap-analysis table,
+and user-locked decisions in [`docs/design/documentation-pillars-R069-074.md`](docs/design/documentation-pillars-R069-074.md).
+
+- **R-069** — **`documentation` meta-standard guideline + machine frontmatter/section contract
+  (unscheduled, keystone).** A new `documentation` guideline (human-readable; *references* `grounding`
+  R-029, `diagram-conventions` R-025, `documentation-as-code` R-028 — no duplication) **plus** a machine
+  contract in `artifacts.ts` (frontmatter + required sections) that `doctor` enforces — the product's "rule
+  + check" pattern. **Tiered:** durable docs (`foundation/`/`reference/`/`refinements/`/`knowledge/`) get
+  the full standard (frontmatter `title`/`version`/`last-updated`/`owner-skill`/`status`, single H1, "When
+  to use this document", length/anti-bloat guidance); runtime artifacts (`changes/<id>/*`) get a **light**
+  frontmatter (`status`, `work-id`, trace markers) + the existing `requiredSections`. The light `status:`
+  feeds R-060/R-061. *Likely lands in:* `core/src/model/context.ts` (`GUIDELINES`), `model/artifacts.ts`
+  (frontmatter+section contract), `doctor/index.ts` (new checks), `tests/{scaffold,doctor}.test.ts`, TECH
+  §12.1, PRD §8. *Traces to:* PRD §8, TECH §12.1.
+- **R-070** — **`built-on:` pillar provenance + per-skill required-pillar map (unscheduled, depends on
+  R-069).** A *horizontal* trace dimension orthogonal to the vertical `AC<n>`→`Traces to:`→`Covers:` chain:
+  a `built-on:` frontmatter field listing the pillar docs an artifact rests on, plus a per-skill
+  required-pillar map (`plan`/`cases`: P1+P2; `automation`: P3; data-gen: P1; `performance`: P1). Shippable
+  core (= 3A): `doctor` **link-checks** `built-on:` and **warns** when required pillars are missing; the hard
+  gate at `status: ready` (missing provenance → error) **folds into R-061**. *Likely lands in:*
+  `core/src/model/artifacts.ts` (`built-on:` field + type→required-pillar map), `doctor/index.ts`,
+  `model/skills.ts` (write skills populate it), `tests/*`, TECH §11, PRD §8. *Traces to:* PRD §8, TECH §11.
+- **R-071** — **`qa-framework-analyze` skill → `framework-architecture.md` (P3) (unscheduled).** A dedicated
+  read→write skill (twin of `qa-reverse-engineer`, pointed at the *test-framework* code: base classes,
+  fixtures, page objects/helpers, config, extension points) that generates
+  `context/foundation/framework-architecture.md` = **P3**, grounded at `file:line`, so `qa-test-automate`'s
+  code matches the documented architecture. `test-framework.md` (R-067) stays the hand-authored onboarding
+  guide; this is the *generated structural map*. Re-runnable as the framework evolves. *Likely lands in:*
+  `core/src/model/skills.ts`, `model/context.ts` (new foundation doc), `model/artifacts.ts`,
+  `tests/scaffold.test.ts`, PRD §5, TECH §5/§6. *Traces to:* PRD §5.
+- **R-072** — **`qa-knowledge` skill + `context/knowledge/` (P2) (unscheduled).** A write skill that fetches
+  the indicated Confluence pages / epics via the R-065 MCP fetch layer and synthesizes **durable** knowledge
+  docs (domain, glossary, business rules, decisions) into a new top-level `context/knowledge/` dir, sibling
+  to `context/reference/` (so `doctor` reads a pillar's type from its path: P1 = `reference/`, P2 =
+  `knowledge/` + `refinements/`). "Querying" = the agent just reads these docs. *Likely lands in:*
+  `core/src/model/skills.ts`, `model/context.ts` (new `knowledge/` area + root map), `model/artifacts.ts`,
+  `tests/scaffold.test.ts`, PRD §5, TECH §6. *Traces to:* PRD §5.
+- **R-073** — **`qa-doc-critic` read-only semantic quality gate (unscheduled, depends on R-069).** A
+  read-only skill that does post-generation **per-document** semantic review against the R-069 meta-standard
+  + `grounding` (R-029) + `assumptions` (R-044): hallucination check, Assumptions-table completeness,
+  citation presence, standard conformance; reports in chat. Sharp role separation — `doctor`
+  (mechanical/no-LLM) · `qa-gardening` (repo-wide drift sweep) · `qa-review` (work-item
+  coverage/traceability) · `qa-doc-critic` (single-document quality). *Likely lands in:*
+  `core/src/model/skills.ts`, `tests/scaffold.test.ts`, PRD §5, TECH §5. *Traces to:* PRD §5.
+- **R-074** — **`qa-reverse-engineer` enrichment: API/endpoint inventory + Completeness Verification
+  (unscheduled, independent).** Light P1 closure: an explicit **API/endpoint inventory** section and a
+  **Completeness Verification** self-check (all paths/endpoints covered and grounded) added to
+  `system-overview.md` / `reference/`, governed by the R-069 length guidance. *Likely lands in:*
+  `core/src/model/skills.ts` (`qa-reverse-engineer`), `model/context.ts` (`system-overview.md` sections),
+  `tests/scaffold.test.ts`, PRD §5. *Traces to:* PRD §5.
+
+> **Deferred (recorded with the epic, not scheduled).** **R-075** — per-service split of
+> `context/reference/` (microservice/polyglot repos). **R-076** — `qa-postman-analysis` skill (when teams
+> use Postman collections). **R-077** — `git-sync-changelog` skill (from `.external/`: sync service repos +
+> a combined changelog for quarterly doc refresh). **R-078** — service-analysis-updates flow (from
+> `.external/`: periodic refresh of P1 docs on source drift). The hard `built-on:` gate at `status: ready`
+> folds into **R-061** once shipped. Detail in
+> [`docs/design/documentation-pillars-R069-074.md`](docs/design/documentation-pillars-R069-074.md).
 
 > **ID notes — R-011 dropped, R-016 merged.** `R-011` (k6 / performance) was removed from the backlog
 > as deprioritized; the performance concern was later revived on **JMeter** as **R-046/R-047** (shipped

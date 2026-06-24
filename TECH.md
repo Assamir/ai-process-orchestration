@@ -428,6 +428,20 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   **dual output** (canonical Markdown + a paste-ready `.jira`) via the one `model/jira.ts` transform (R-064).
 - **Compaction survival.** The handful of inviolable rules live in the lean root so they persist when
   the conversation is compacted over long QA sessions.
+- **Documentation pillars (planned, R-069→R-074).** The authoring chain (plan → cases → implementation)
+  rests on **three pillars of generated documentation**: **P1** from the application source
+  (`context/reference/`, `qa-reverse-engineer` — shipped), **P2** from Jira/Confluence
+  (`context/knowledge/` + `refinements/`, `qa-knowledge`, R-072), and **P3** from the test-framework code
+  (`context/foundation/framework-architecture.md`, `qa-framework-analyze`, R-071) so authored test code
+  matches the framework architecture *as documented*. Each generated doc conforms to a **meta documentation
+  standard** — a `documentation` guideline that *references* (not duplicates) `grounding`/`diagram-conventions`/
+  `documentation-as-code`, plus a machine frontmatter/section contract in `artifacts.ts` that `doctor`
+  enforces (R-069, the same rule-plus-check pattern as `ENVMGMT:contract`/`GROUNDING:contract`). A horizontal
+  **`built-on:` provenance** field (R-070) records which pillar docs an artifact rests on — orthogonal to the
+  vertical `AC<n>`→`Traces to:`→`Covers:` chain — `doctor` warns when a skill's required pillars are missing,
+  and the hard gate at `status: ready` folds into the R-061 work-item validator. As with the other backlog
+  epics, the §5 matrix, the §6 context tree, and the §12.1 guideline table get their rows **per item at ship
+  time**; the design record is `docs/design/documentation-pillars-R069-074.md`.
 
 ## 12. Scaffolded-guidelines standard & flow reference (R-015)
 

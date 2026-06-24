@@ -42,6 +42,7 @@ in Jira/Slack/people's heads).
 - Detect the target repo's **test stack** (Playwright TS/JS, Playwright Java, RestAssured/JUnit/TestNG) and tailor output.
 - Independent semantic versioning and release per package.
 - Idempotent, non-destructive scaffolding (never overwrite; delete `context/`/configs to regenerate).
+- QA work (plan → cases → implementation) rests on **pillars of generated documentation** (P1 app source / P2 Jira+Confluence / P3 framework code), each conforming to a documentation standard (planned, R-069→R-074).
 
 **Non-goals**
 - Not an application-development scaffolder (that was the prior `claude-agent-scaffold` framing — superseded).
@@ -154,6 +155,7 @@ Harness-engineering roadmap items (grounded in OpenAI's Codex report — see TEC
 - **Shared Markdown→Jira machine** — ✅ **shipped (v0.42.0, R-064).** One deterministic converter (`core/src/model/jira.ts`, `mdToJira` + the `JIRA_CONVERSION_TABLE` embedded verbatim into the producing skill bodies, snapshot-tested) is the single source of the Markdown→Jira-wiki transform, reused by the dual-output bug report (R-064) and ticket refinement (R-066) so the `.md` and `.jira` outputs can never diverge. It preserves `{code}/{panel}/{info}/{warning}/{noformat}` macros and falls back to `{noformat}` for inline code carrying `{N}` regex quantifiers.
 - **MCP content-fetch layer** — ✅ **shipped (v0.43.0, R-065).** Two opt-in MCP servers wired alongside `atlassian` (R-009) with `${VAR}` indirection + the platform-correct envelope: **`xray`** (Jira Test / Test Execution / Test Plan / Test Set) and **`markitdown`** (`microsoft/markitdown`, binary attachment → Markdown, local path only). A new **`mcp-content-fetch`** guideline codifies the load-bearing **download → verify → convert → read** ordering and source priority (Jira+Xray > Jira > Confluence > attachments) — skipping a step is the #1 cause of hallucinated summaries. `doctor` expects the guideline + its ✅/❌ examples.
 - **`tech-debt-tracker.md`** in `context/foundation/` — a versioned, agent-readable backlog of test debt, known flaky areas, and RCA history.
+- **Documentation pillars** — 🧊 **backlog (R-069 → R-074).** Make plan/cases/implementation rest on **pillars of generated documentation**: **P1** from the app source (`context/reference/`, shipped), **P2** from Jira/Confluence (`context/knowledge/` + `refinements/`, R-072), **P3** from the test-framework code (`context/foundation/framework-architecture.md`, R-071). Each generated doc conforms to a **meta documentation standard** — a `documentation` guideline + a machine frontmatter/section contract `doctor` enforces (R-069) — and a horizontal **`built-on:` provenance** field (R-070) records which pillars an artifact rests on, with `qa-doc-critic` (R-073) as the semantic gate. Full design in [`docs/design/documentation-pillars-R069-074.md`](docs/design/documentation-pillars-R069-074.md); tracked in **[`ROADMAP.md`](ROADMAP.md)**.
 
 ## 9. Success metrics
 
