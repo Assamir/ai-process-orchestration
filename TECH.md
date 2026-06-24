@@ -253,6 +253,19 @@ which tools it calls, how it validates, when it stops). The patterns below come 
 - **Plans as first-class artifacts.** `context/changes/<id>/` (active) and `context/archive/` (done)
   mirror Codex's `exec-plans/active|completed`. Add `context/foundation/tech-debt-tracker.md` (or
   `lessons.md`) as a versioned, agent-readable backlog of test debt / known flaky areas / RCA history.
+- **Single source of artifact shape (R-059).** The shape of those runtime artifacts is not left to prose
+  in each producing skill — it lives once in the **artifact template registry**
+  (`core/src/model/artifacts.ts`, `ARTIFACTS: ArtifactTemplate[]` + `tpl(name)`), the runtime-artifact
+  analog of `GUIDELINES`/`FOUNDATION` for the skeleton. Each entry carries the canonical seeded `template`,
+  the `requiredSections` a validator checks, and an optional `traceField`. The six producing skills
+  (`qa-new`, `qa-plan`, `qa-test-case-design`, `qa-test-automate`, `qa-performance`, `qa-bug-report`) embed
+  their template via `tpl(name)` inside a fenced `## Template` section, so the shape is single-sourced and
+  renders identically for both adapters (parity holds automatically; the doc generator is unaffected — it
+  reads only When-to-use/Procedure/Next). The registry formalizes **parseable trace markers** — `work.md`
+  ids every acceptance criterion `AC<n>` and seeds frontmatter `status: in-progress`, `cases.md` carries
+  `Traces to: AC<n>`, `automation.md` carries `Covers: TC<n>` — so the iron QA rule (AC ↔ case ↔ test) can
+  be checked on real files rather than asserted as prose. This is the foundation the persisted analyses
+  (R-060) and the `doctor` work-item validator + `status:` gating (R-061) both build on.
 - **Invariants over micromanagement.** Enforce a small set of inviolable rules, not implementation
   detail: the iron QA rule (tests in the detected framework), every test case traces to an acceptance
   criterion, every automated test carries a stable ID, deterministic work-item IDs. Leave *how* to the agent.

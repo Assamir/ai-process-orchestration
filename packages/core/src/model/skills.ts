@@ -6,7 +6,13 @@
  *
  * Bodies may contain `{{PLACEHOLDER}}` markers: phase 1 fills what it knows
  * (framework, report language, autonomy); phase 2 (in-tool LLM) fills the rest.
+ *
+ * The shape of the runtime artifacts a skill writes lives once in the artifact
+ * template registry (`model/artifacts.ts`); the producing skills embed it via
+ * `tpl(name)` inside a fenced `## Template` section (R-059).
  */
+import { tpl } from "./artifacts.js";
+
 export interface LogicalSkill {
   /** kebab-case, stable. Becomes the skill / prompt file name. */
   name: string;
@@ -70,11 +76,16 @@ Starting any unit of test work: a ticket to test, a regression to chase, a suite
 
 ## Procedure
 1. Derive a stable \`work-id\` as \`<stream>-<slug>\` (e.g. \`api-login-429\`). Keep it deterministic so re-runs stay stable.
-2. Create \`context/changes/<work-id>/work.md\` with: title, source (ticket link), goal, in/out of scope, and acceptance criteria.
+2. Create \`context/changes/<work-id>/work.md\` from the **Template** below — set frontmatter \`status: in-progress\` and give every acceptance criterion a stable \`AC<n>\` id (\`AC1\`, \`AC2\`, …) so downstream cases can trace to it.
 3. Do not start planning yet — hand off to \`qa-plan\` (or \`qa-ticket-review\` first if the requirement is unclear).
 
+## Template
+\`\`\`md
+${tpl("work")}
+\`\`\`
+
 ## Done when
-\`context/changes/<work-id>/work.md\` exists and states scope + acceptance criteria.
+\`context/changes/<work-id>/work.md\` exists, states scope, and gives every acceptance criterion a stable \`AC<n>\` id.
 
 ## Next
 - \`qa-ticket-review\` — if the requirement is unclear, assess testability first.
@@ -93,9 +104,14 @@ After a work-item exists and its scope is clear. The plan is a control mechanism
 
 ## Procedure
 1. Read the work-item and the foundation test-plan.
-2. Write \`context/changes/<work-id>/plan.md\`: test levels in play (unit/API/E2E), risk areas, data needs, environments, and the ordered steps (design → automate → run → analyze).
+2. Write \`context/changes/<work-id>/plan.md\` from the **Template** below: test levels in play (unit/API/E2E), risk areas, data needs, environments, and the ordered steps (design → automate → run → analyze).
 3. State assumptions and what is explicitly NOT covered.
 4. Pause for human approval before implementing (respect autonomy level: **{{AUTONOMY_LEVEL}}**).
+
+## Template
+\`\`\`md
+${tpl("plan")}
+\`\`\`
 
 ## Done when
 The plan lists ordered steps, risks, and success criteria, and has been approved.
@@ -239,12 +255,17 @@ After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
 1. For each acceptance criterion, derive positive, negative, and boundary cases. Do not stop at the happy path. Per the \`spec-driven-development\` guideline, derive cases from the documented criteria in \`work.md\`, not from the current code — a case that traces to no criterion is undocumented scope. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
-2. Write each case to \`context/changes/<work-id>/cases.md\` with: id, title, preconditions, steps, expected result, test level, and the criterion it traces to.
+2. Write each case to \`context/changes/<work-id>/cases.md\` using the **Template** below — give each case a stable \`TC<n>\` id and a \`Traces to:\` field naming the \`AC<n>\` acceptance-criterion id(s) it covers (a case that traces to no criterion is undocumented scope).
 3. Note required test data; hand off to \`qa-test-data-gen\` if it must be produced.
 4. Keep cases automation-ready (deterministic, independent).
 
+## Template
+\`\`\`md
+${tpl("cases")}
+\`\`\`
+
 ## Done when
-Every acceptance criterion maps to one or more traceable cases.
+Every acceptance criterion maps to one or more cases, and every case carries a \`Traces to:\` field.
 
 ## Next
 - \`qa-test-data-gen\` — if cases need data that does not exist yet.
@@ -292,11 +313,16 @@ After cases are designed and the framework is bootstrapped.
 ## Procedure
 1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions. Per the \`spec-driven-development\` guideline, automate from the designed cases (which trace to the spec) in spec → case → test order — never write a test ahead of its recorded criterion.
 2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure. Per the \`test-data-management\` guideline, each test owns its data lifecycle — set up and tear down its own isolated, uniquely-named data so the suite gives the same result run alone or in parallel, on a clean or full database.
-3. Run the new tests; record the command and result location in \`context/changes/<work-id>/automation.md\`.
+3. Run the new tests; record the run in \`context/changes/<work-id>/automation.md\` using the **Template** below — every test names the case it covers via a \`Covers: TC<n>\` field, plus the run command and result location.
 4. On failure, hand off to \`qa-rca\` rather than blindly retrying.
 
+## Template
+\`\`\`md
+${tpl("automation")}
+\`\`\`
+
 ## Done when
-The new tests pass locally and the run is recorded in \`automation.md\`.
+The new tests pass locally and the run is recorded in \`automation.md\` with a \`Covers:\` field per test.
 
 ## Next
 - \`qa-rca\` — on failure, find the real cause before retrying.
@@ -372,7 +398,12 @@ When a requirement carries a **non-functional** target — response time, throug
 1. **NFRs first.** Per the \`performance-testing\` guideline, define the budgets *before* scripting: p95/p99 response time, throughput (req/s), max error-rate, and the load profile (load / stress / soak / spike). Per the \`spec-driven-development\` guideline, every performance case **traces to an NFR / acceptance criterion** — the iron QA rule read from the non-functional side. An NFR that isn't written is a blocker to resolve, not a number to invent.
 2. **Generate or audit the \`.jmx\` plan.** Build thread groups (the load profile), HTTP/JDBC samplers, response/duration **assertions** that fail the run when an SLA is breached, **think-time timers** (real users pause — no think-time overstates throughput), **CSV Data Set Config** for parametrized/correlated data (never a single hard-coded user), and correlation of dynamic tokens. In **audit** mode, check an existing plan has assertions tied to the NFRs, think-time, and parametrized data; report each gap with one fix.
 3. **Run headless.** \`jmeter -n -t plan.jmx -l ./jmeter-results/results.jtl -e -o ./jmeter-report\` — non-GUI, writes the \`.jtl\` log + the HTML dashboard into the dirs the \`jmeter-results\` MCP server reads. GUI is for authoring only; a GUI run in CI is an anti-pattern.
-4. **Enforce SLAs and record.** Read the dashboard/\`.jtl\` through the \`jmeter-results\` MCP server; compare **percentiles** (p95/p99) and error-rate against the budgets — never an average, which hides the tail. Record the plan path, run command, the baseline compared against, and pass/fail per NFR in \`context/changes/<work-id>/performance.md\`. Per the \`grounding\` rule, every number cites the real result artifact you read; if a target has no recorded baseline, say so rather than inventing one.
+4. **Enforce SLAs and record.** Read the dashboard/\`.jtl\` through the \`jmeter-results\` MCP server; compare **percentiles** (p95/p99) and error-rate against the budgets — never an average, which hides the tail. Record the plan path, run command, the baseline compared against, and pass/fail per NFR in \`context/changes/<work-id>/performance.md\` using the **Template** below — every NFR carries a \`Traces to:\` field naming the \`AC<n>\` it enforces. Per the \`grounding\` rule, every number cites the real result artifact you read; if a target has no recorded baseline, say so rather than inventing one.
+
+## Template
+\`\`\`md
+${tpl("performance")}
+\`\`\`
 
 ## Done when
 A \`.jmx\` plan exists whose assertions enforce the NFRs, it has run headless, the percentile/error-rate results are compared against the budgets and recorded in \`performance.md\`, and each performance case traces to an NFR. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
@@ -549,21 +580,7 @@ After \`qa-rca\` concludes the failure is a product defect (not a test defect) a
 
 ## Template
 \`\`\`md
-# Bug: <one-line summary>
-- **Severity / Priority:** <S1-S4 / P1-P4>
-- **Environment:** <env, build/version, browser/runtime>
-- **Work-item / AC:** <work-id> · <criterion id>
-- **Suspected area (from qa-rca):** <component / module>
-
-## Steps to reproduce
-1. <step>
-
-## Expected vs actual
-- **Expected:** <...>
-- **Actual:** <...>
-
-## Evidence
-- <links to trace / screenshot / log via the result MCP server or tools.md paths>
+${tpl("bug-report")}
 \`\`\`
 
 ## Done when

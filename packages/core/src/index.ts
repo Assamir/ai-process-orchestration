@@ -10,6 +10,7 @@ export {
 } from "./labels.js";
 export { render } from "./render.js";
 export { SKILLS, type LogicalSkill } from "./model/skills.js";
+export { ARTIFACTS, tpl, type ArtifactTemplate } from "./model/artifacts.js";
 export { rootConfigMarkdown, GUIDELINES, FOUNDATION } from "./model/context.js";
 export { resultServers, browserServers, ticketingServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
 export type { PlatformAdapter } from "./adapters/types.js";

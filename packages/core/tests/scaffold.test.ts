@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeAdapter, copilotAdapter, GUIDELINES, scaffold, SKILLS } from "../src/index.js";
+import { ARTIFACTS, claudeAdapter, copilotAdapter, GUIDELINES, scaffold, SKILLS } from "../src/index.js";
 import type { DetectedStack, WizardAnswers } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -701,6 +701,17 @@ describe("scaffold (Claude)", () => {
 
     const archive = SKILLS.find((s) => s.name === "qa-archive");
     expect(archive!.writes).toContain("context/foundation/tech-debt-tracker.md");
+  });
+
+  it("the artifact registry is consistent with the producing skills (R-059)", () => {
+    for (const a of ARTIFACTS) {
+      const skill = SKILLS.find((s) => s.name === a.producedBy);
+      expect(skill, `${a.name}: producedBy ${a.producedBy}`).toBeDefined();
+      // The shape lives once in the registry and the producing skill declares the
+      // path it writes — so a future validator (R-061) never re-derives the shape.
+      expect(skill!.writes, `${a.name} path in ${a.producedBy}.writes`).toContain(a.pathTemplate);
+      expect(skill!.body, `${a.producedBy} embeds the ${a.name} template`).toContain(a.template);
+    }
   });
 
   it("writes a valid manifest listing every skill", () => {

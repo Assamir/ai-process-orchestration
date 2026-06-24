@@ -1,212 +1,217 @@
 # Plan: Runtime-artifact integrity epic (R-059 → R-061)
 
-> **CHECKPOINT (2026-06-23) — sesja planistyczna wstrzymana, wznowić w nowej sesji.**
-> Status: plan kompletny, wszystkie rozwidlenia rozstrzygnięte. **Nie rozpoczęto
-> implementacji.** Wznowienie: otwórz ten plik, wejdź w plan mode, zacznij od R-059.
+> **PROGRESS (2026-06-23): R-059 ✅ SHIPPED (v0.39.0).** Artifact template registry
+> (`packages/core/src/model/artifacts.ts`, `ARTIFACTS` + `tpl()`), 6 producing skills
+> compose from it via a fenced `## Template`, trace markers `AC<n>`/`Traces to:`/`Covers:`
+> + seeded `status: in-progress`, `tests/artifacts.test.ts` + scaffold consistency
+> assertion, all 167 core tests green, no doc drift, leaves bumped to 0.39.0. ROADMAP
+> Shipped-row commit hash still `(pending)` — record after commit. **Next: R-060.**
 >
-> **Decyzje zablokowane przez użytkownika:**
-> - Cele: egzekwowanie (walidator) + spójność kształtu + trwałość analiz. Rubryka jakości — pominięta.
-> - Analizy persystują jako pliki (wszystkie 5: rca/coverage/review/ticket-review/metrics).
-> - Walidator: rozszerza `doctor` + `status:` frontmatter (in-progress=warn, ready/done=error).
-> - Allowlista analiz: flip read-only→write (precedens `qa-reverse-engineer`); `qa-gardening` zostaje read-only.
-> - Rejestr R-059: zakres tylko `changes/<id>/*`.
-> - Cykl życia statusu: **qa-review: in-progress→ready; qa-archive: →done** (zgodnie z backbone).
-> - Wersjonowanie: **3 osobne minory** 0.39.0 / 0.40.0 / 0.41.0 (jeden R-### na shippable).
-> - Następne ID roadmapy są wolne (ostatni shipped R-058); R-059/060/061 nie kolidują.
+> **CHECKPOINT (2026-06-23) — plan complete, all forks resolved.**
+> To resume: open this file, enter plan mode, start from **R-060**.
+>
+> **Decisions locked by the user:**
+> - Goals: enforcement (validator) + shape consistency + analysis durability. Quality rubric — dropped.
+> - Analyses persist as files (all 5: rca/coverage/review/ticket-review/metrics).
+> - Validator: extends `doctor` + a `status:` frontmatter (in-progress=warn, ready/done=error).
+> - Analysis allowlist: flip read-only→write (precedent: `qa-reverse-engineer`); `qa-gardening` stays read-only.
+> - R-059 registry: scope is `changes/<id>/*` only.
+> - Status lifecycle: **qa-review: in-progress→ready; qa-archive: →done** (consistent with the backbone).
+> - Versioning: **3 separate minors** 0.39.0 / 0.40.0 / 0.41.0 (one R-### per shippable).
+> - The next roadmap IDs are free (last shipped R-058); R-059/060/061 do not collide.
 
 ## Context
 
-Cel sesji (przeformułowany przez użytkownika): **stała i wysoka jakość artefaktów
-dostarczanych przez orkiestrację QA**, wspierających cały proces testowy.
+Session goal (as restated by the user): **consistent, high quality of the artifacts
+delivered by the QA orchestration**, supporting the whole test process.
 
-Przegląd kodu (3 sondy nad `packages/core/src/model/{skills,context}.ts`,
-`scaffold/index.ts`, `doctor/index.ts`, testy) ujawnił, że produkt dzieli się na dwie
-warstwy spójności:
+A code review (3 probes over `packages/core/src/model/{skills,context}.ts`,
+`scaffold/index.ts`, `doctor/index.ts`, tests) revealed the product splits into two
+consistency layers:
 
-1. **Szkielet** (`context/foundation`, `reference`, guideline'y, root config) — kształt
-   *seeded* w `FOUNDATION`/`GUIDELINES`, a jakość **egzekwowana deterministycznie** przez
-   `doctor` (struktura, linki, placeholdery, kontrakty guideline'ów, żelazna reguła jako
-   *tekst* w root configu). Wpięte w CI jako brama (R-051).
-2. **Artefakty runtime** (`context/changes/<id>/{work,plan,cases,automation,performance,
-   bug-report}.md` + analizy) — kształt to **proza w ciałach skilli**, a jakość pilnuje
-   **wyłącznie ta proza + doradczy `qa-gardening`** (LLM, nie-deterministyczny, nigdy nie
-   blokuje).
+1. **Skeleton** (`context/foundation`, `reference`, guidelines, root config) — shape is
+   *seeded* in `FOUNDATION`/`GUIDELINES`, and quality is **enforced deterministically** by
+   `doctor` (structure, links, placeholders, guideline contracts, the iron rule as *text*
+   in the root config). Wired into CI as a gate (R-051).
+2. **Runtime artifacts** (`context/changes/<id>/{work,plan,cases,automation,performance,
+   bug-report}.md` + analyses) — shape is **prose in the skill bodies**, and quality is
+   policed **only by that prose + the advisory `qa-gardening`** (LLM, non-deterministic,
+   never blocks).
 
-Trzy luki, które ta zmiana zamyka (wybrane przez użytkownika; rubryka jakości świadomie
-pominięta):
+Three gaps this change closes (chosen by the user; the quality rubric is deliberately
+dropped):
 
-- **Brak jednego źródła kształtu artefaktów runtime** — szablony nie są wyniesione do
-  rejestru (jak `GUIDELINES`/`FOUNDATION`), więc każdy walidator dublowałby definicję.
-- **Najcenniejsze analizy znikają w czacie** — `qa-rca`, `qa-coverage-gap`, `qa-review`,
-  `qa-ticket-review`, `qa-metrics` są read-only i **nic nie zapisują**. Brak audytowalnego
-  śladu (RCA, coverage, go/no-go).
-- **Żelazna reguła QA nie jest egzekwowana na wytworach** — sprawdzana tylko jako *tekst w
-  root configu*, nigdy jako własność realnego `cases.md`/testów (AC↔case↔test trace).
+- **No single source of runtime-artifact shape** — templates are not lifted into a
+  registry (like `GUIDELINES`/`FOUNDATION`), so any validator would duplicate the definition.
+- **The most valuable analyses vanish into chat** — `qa-rca`, `qa-coverage-gap`, `qa-review`,
+  `qa-ticket-review`, `qa-metrics` are read-only and **write nothing**. No auditable trail
+  (RCA, coverage, go/no-go).
+- **The iron QA rule is not enforced on the artifacts** — it is checked only as *text in
+  the root config*, never as a property of a real `cases.md`/tests (AC↔case↔test trace).
 
-**Zakres egzekwowania (uczciwa kalibracja):** walidator deterministyczny gwarantuje
-**spójny kształt + kompletność trace'ów**, *nie* semantyczną poprawność treści. Ocena
-merytoryczna pozostaje przy `qa-gardening` (doradczo). To jest świadomy, nie-cel.
+**Enforcement scope (honest calibration):** the deterministic validator guarantees a
+**consistent shape + complete traces**, *not* semantic correctness of the content.
+Substantive judgement stays with `qa-gardening` (advisory). This is a conscious non-goal.
 
-Wszystko jest po **angielsku** (kod, identyfikatory, PRD/TECH/ROADMAP) — zgodnie z
-konwencją `packages/`. Łańcuch ma twardą kolejność zależności: **R-059 → R-060, R-059 →
-R-061** (rejestr jest fundamentem walidatora i persystencji).
+Everything is in **English** (code, identifiers, PRD/TECH/ROADMAP) — per the `packages/`
+convention. The chain has a hard dependency order: **R-059 → R-060, R-059 → R-061** (the
+registry is the foundation of both the validator and persistence).
 
 ---
 
 ## R-059 — Artifact template registry (single source of shape) — `v0.39.0`
 
-**Cel:** wynieść kształt artefaktów `context/changes/<id>/*` do jednego rejestru,
-analogicznie do `GUIDELINES`/`FOUNDATION`, z **parsowalnymi markerami trace** — fundament
-pod R-060 i R-061. Zakres: tylko `changes/<id>/*` (foundation/reference mają już seeded
-template i są sprawdzane przez doctora).
+**Goal:** lift the shape of the `context/changes/<id>/*` artifacts into one registry,
+analogous to `GUIDELINES`/`FOUNDATION`, with **parseable trace markers** — the foundation
+for R-060 and R-061. Scope: `changes/<id>/*` only (foundation/reference already have a
+seeded template and are checked by doctor).
 
-**Nowy plik:** `packages/core/src/model/artifacts.ts`
+**New file:** `packages/core/src/model/artifacts.ts`
 
 ```ts
 export interface ArtifactTemplate {
-  name: string;            // np. "cases"
+  name: string;            // e.g. "cases"
   pathTemplate: string;    // "context/changes/<work-id>/cases.md"
-  producedBy: string;      // nazwa skilla (musi istnieć w SKILLS)
-  requiredSections: string[]; // nagłówki, których wymaga walidator
-  traceField?: string;     // np. "Traces to" (dla cases.md → AC)
-  template: string;        // kanoniczny, seeded body
+  producedBy: string;      // skill name (must exist in SKILLS)
+  requiredSections: string[]; // headers the validator requires
+  traceField?: string;     // e.g. "Traces to" (for cases.md → AC)
+  template: string;        // canonical, seeded body
 }
 export const ARTIFACTS: ArtifactTemplate[] = [ /* work, plan, cases, automation,
-   performance, bug-report — wyjęte z dzisiejszych ciał skilli */ ];
+   performance, bug-report — extracted from today's skill bodies */ ];
 ```
 
-**Markery trace (parsowalne, stabilne):**
-- `work.md` — każde acceptance criterion jako stabilny id: `- **AC1**: …` (regex `AC\d+`).
-  **Plus** frontmatter `status:` (patrz R-061) — `in-progress` na starcie.
-- `cases.md` — każdy case ma pole `Traces to: AC1[, AC2]` (dziś prozą „criterion traced
-  to"; sformalizować).
-- `automation.md` — każdy test referuje case: `Covers: TC1`.
+**Trace markers (parseable, stable):**
+- `work.md` — every acceptance criterion as a stable id: `- **AC1**: …` (regex `AC\d+`).
+  **Plus** frontmatter `status:` (see R-061) — `in-progress` at the start.
+- `cases.md` — every case carries a `Traces to: AC1[, AC2]` field (today prose "the
+  criterion it traces to"; to be formalized).
+- `automation.md` — every test references its case: `Covers: TC1`.
 
-**Zmiany w `model/skills.ts`:** ciała skilli, które dziś opisują szablon prozą, **składają
-go z rejestru** (interpolacja stringa: `body: \`…procedura… ${tpl("cases")} …\``), więc
-tekst body pozostaje *identyczny dla obu adapterów* (test parzystości nie pęka) i kształt
-jest jednoźródłowy. Dotyczy: `qa-new`, `qa-plan`, `qa-test-case-design`, `qa-test-automate`,
-`qa-performance`, `qa-bug-report`.
+**Changes in `model/skills.ts`:** the skill bodies that today describe the template in prose
+**compose it from the registry** (string interpolation: `body: \`…procedure… ${tpl("cases")} …\``),
+so the body text stays *identical for both adapters* (the parity test does not break) and the
+shape is single-sourced. Applies to: `qa-new`, `qa-plan`, `qa-test-case-design`,
+`qa-test-automate`, `qa-performance`, `qa-bug-report`.
 
-**Reużycie istniejącego:** `LogicalSkill.writes: string[]` (już maszynowo-czytelne ścieżki
-artefaktów z tokenem `<work-id>`) — `ArtifactTemplate.pathTemplate` musi się z nimi zgadzać;
-dodać asercję spójności `ARTIFACTS ↔ SKILLS.writes` w teście.
+**Reuse of existing machinery:** `LogicalSkill.writes: string[]` (already machine-readable
+artifact paths with the `<work-id>` token) — `ArtifactTemplate.pathTemplate` must match them;
+add an `ARTIFACTS ↔ SKILLS.writes` consistency assertion in the test.
 
-**Testy:** nowy `tests/artifacts.test.ts` — snapshot rejestru + asercja, że każdy
-`producedBy` istnieje w `SKILLS`, każdy `pathTemplate` występuje w `writes` odpowiedniego
-skilla, a każdy szablon zawiera swoje `requiredSections`. Sprawdzić, że `skill-flows.ts`
-generator (parsuje body) dalej działa i `docs/skill-catalog.md` snapshot się zgadza
+**Tests:** new `tests/artifacts.test.ts` — registry snapshot + assertions that every
+`producedBy` exists in `SKILLS`, every `pathTemplate` appears in the matching skill's `writes`,
+and every template contains its `requiredSections`. Check that the `skill-flows.ts` generator
+(which parses the body) still works and the `docs/skill-catalog.md` snapshot matches
 (`WRITE_DOCS=1` regen).
 
-**Krytyczne pliki:** `model/artifacts.ts` (new), `model/skills.ts`, `tests/artifacts.test.ts`
-(new), `tests/scaffold.test.ts` (asercja spójności), ROADMAP/PRD §5/§8/TECH §11–§12.
+**Critical files:** `model/artifacts.ts` (new), `model/skills.ts`, `tests/artifacts.test.ts`
+(new), `tests/scaffold.test.ts` (consistency assertion), ROADMAP/PRD §5/§8/TECH §11–§12.
 
 ---
 
-## R-060 — Persist analysis artifacts — `v0.40.0` (zależy od R-059)
+## R-060 — Persist analysis artifacts — `v0.40.0` (depends on R-059)
 
-**Cel:** read-only „sędziowie" zapisują wersjonowany artefakt zamiast tylko czatu —
-audytowalność procesu. Wybór użytkownika: **flip na write** (precedens: `qa-reverse-engineer`
-czyta kod, jest `write` bo pisze dok).
+**Goal:** the read-only "judges" write a versioned artifact instead of only chat — process
+auditability. User's choice: **flip to write** (precedent: `qa-reverse-engineer` reads code,
+is `write` because it writes docs).
 
-**Flip `readOnly: true → false`** dla: `qa-rca`, `qa-coverage-gap`, `qa-review`,
-`qa-ticket-review`, `qa-metrics`. **`qa-gardening` zostaje read-only** (meta-sweep nad
-`context/`, nie producent artefaktu).
+**Flip `readOnly: true → false`** for: `qa-rca`, `qa-coverage-gap`, `qa-review`,
+`qa-ticket-review`, `qa-metrics`. **`qa-gardening` stays read-only** (a meta-sweep over
+`context/`, not an artifact producer).
 
-**Nowe artefakty (kształt z rejestru R-059):**
+**New artifacts (shape from the R-059 registry):**
 - work-item-scoped → `context/changes/<id>/`: `rca.md`, `coverage.md`, `review.md`,
   `ticket-review.md`.
-- cross-cutting → **nowy** `context/reports/`: `metrics-<YYYY-MM-DD>.md` (qa-metrics jest
-  ponad-work-itemowy). Dodać `context/reports/.gitkeep` do scaffoldu + legendy „Where things
-  live" w root configu.
+- cross-cutting → **new** `context/reports/`: `metrics-<YYYY-MM-DD>.md` (qa-metrics is
+  above the work-item level). Add `context/reports/.gitkeep` to the scaffold + a "Where things
+  live" legend in the root config.
 
-**Konsekwencje do obsłużenia:**
-- Allowlista: Claude `+Write,Edit,Bash`; Copilot `+editFiles,runCommands` — renderowane
-  automatycznie z `readOnly`. **Test parzystości** asercjonuje allowlisty → zaktualizować.
-- Root config buckets oznaczają read-only `*(read-only)*` — te skille znikną z oznaczenia;
-  zaktualizować oczekiwania w teście.
-- `model/skills.ts`: dodać ścieżki do `writes`, dopisać krok „write the report to
-  `<path>`" w procedurze + `## Next`; uzupełnić `ARTIFACTS` (R-059) o `rca/coverage/review/
+**Consequences to handle:**
+- Allowlist: Claude `+Write,Edit,Bash`; Copilot `+editFiles,runCommands` — rendered
+  automatically from `readOnly`. The **parity test** asserts the allowlists → update it.
+- Root-config buckets mark read-only skills `*(read-only)*` — these skills drop the marker;
+  update the test expectations.
+- `model/skills.ts`: add the paths to `writes`, add a "write the report to `<path>`" step to
+  the procedure + `## Next`; extend `ARTIFACTS` (R-059) with `rca/coverage/review/
   ticket-review/metrics`.
-- `qa-gardening`/`qa-archive` mogą teraz czytać te raporty (spójność z dotychczasowym
-  przepływem).
+- `qa-gardening`/`qa-archive` can now read these reports (consistent with the existing flow).
 
-**Krytyczne pliki:** `model/skills.ts`, `model/artifacts.ts`, `model/context.ts` (root
-config legenda + `context/reports/`), `scaffold/index.ts` (.gitkeep), `tests/scaffold.test.ts`
-(allowlisty + bucket read-only), `tests/artifacts.test.ts`, ROADMAP/PRD §5/TECH §5.
+**Critical files:** `model/skills.ts`, `model/artifacts.ts`, `model/context.ts` (root-config
+legend + `context/reports/`), `scaffold/index.ts` (.gitkeep), `tests/scaffold.test.ts`
+(allowlists + read-only bucket), `tests/artifacts.test.ts`, ROADMAP/PRD §5/TECH §5.
 
 ---
 
-## R-061 — Artifact validator in `doctor` (+ status gating) — `v0.41.0` (zależy od R-059)
+## R-061 — Artifact validator in `doctor` (+ status gating) — `v0.41.0` (depends on R-059)
 
-**Cel:** uczynić żelazną regułę QA *checkiem na realnych plikach*, nie tylko tekstem.
-Wybór użytkownika: **rozszerzyć `doctor`** (już brama CI z R-051) + **`status:` we
-frontmatterze** by nie blokować pracy w toku.
+**Goal:** make the iron QA rule a *check on real files*, not just text. User's choice:
+**extend `doctor`** (already the CI gate from R-051) + a **`status:`** frontmatter field so
+work in progress is not blocked.
 
-**Nowa funkcja:** `validateWorkItems(root, adapter)` w `doctor/index.ts`, wpięta w
-`runDoctor` (więc brama CI z R-051 łapie ją automatycznie). Bezpieczna domyślnie: brak
-`context/changes/*` → brak findingów (świeży scaffold ma tylko `.gitkeep`).
+**New function:** `validateWorkItems(root, adapter)` in `doctor/index.ts`, wired into
+`runDoctor` (so the R-051 CI gate catches it automatically). Safe by default: no
+`context/changes/*` → no findings (a fresh scaffold has only `.gitkeep`).
 
-**Bramkowanie wg statusu** (z `work.md` frontmatter `status:`):
-- `in-progress` → **warn** lub pominięcie (praca w toku jest z definicji niekompletna).
-- `ready` / `done` → **error** na brakach (pełna brama).
-- `context/archive/<id>/` → historia read-only → najwyżej **warn**, nigdy nie blokuje.
+**Status gating** (from `work.md` frontmatter `status:`):
+- `in-progress` → **warn** or skip (work in flight is incomplete by definition).
+- `ready` / `done` → **error** on gaps (the full gate).
+- `context/archive/<id>/` → read-only history → **warn** at most, never blocks.
 
-**Cykl życia `status:`** (zablokowane): `qa-new` tworzy `in-progress`; **`qa-review`
-przestawia `in-progress → ready`** (zgłasza do twardej bramy); **`qa-archive` → `done`** przy
-przeniesieniu do `archive/`. Brama doctora egzekwuje twardo dopiero od `ready`. To wymaga
-dopisania kroku „set status:" w procedurach `qa-review`/`qa-archive` (R-060/R-061 dotykają
-tych skilli, więc spójne).
+**`status:` lifecycle** (locked): `qa-new` creates `in-progress`; **`qa-review` moves it
+`in-progress → ready`** (submits to the hard gate); **`qa-archive` → `done`** when moving to
+`archive/`. The doctor gate enforces hard only from `ready`. This requires adding a "set
+status:" step to the `qa-review`/`qa-archive` procedures (R-060/R-061 touch these skills, so
+it is consistent).
 
-**Checki (stabilne, deterministyczne id):**
-- `WORKITEM:<id>:missing:<artifact>` — oczekiwany artefakt (z `SKILLS.writes` /
-  `ARTIFACTS`) nie istnieje dla itemu `ready`/`done`. *(error)*
-- `WORKITEM:<id>:section:<artifact>:<header>` — brak wymaganej sekcji
+**Checks (stable, deterministic ids):**
+- `WORKITEM:<id>:missing:<artifact>` — an expected artifact (from `SKILLS.writes` /
+  `ARTIFACTS`) does not exist for a `ready`/`done` item. *(error)*
+- `WORKITEM:<id>:section:<artifact>:<header>` — a required section is missing
   (`ArtifactTemplate.requiredSections`). *(error)*
-- `WORKITEM:<id>:uncovered:<AC>` — AC z `work.md` nie ma żadnego case z `Traces to: <AC>`
-  (żelazna reguła!). *(error)*
-- `WORKITEM:<id>:untraced-case:<TC>` — case bez `Traces to`. *(warn)*
-- `WORKITEM:<id>:orphan-case:<TC>` — case nie pokryty żadnym `Covers:` w automation.
+- `WORKITEM:<id>:uncovered:<AC>` — an AC from `work.md` has no case with `Traces to: <AC>`
+  (the iron rule!). *(error)*
+- `WORKITEM:<id>:untraced-case:<TC>` — a case with no `Traces to`. *(warn)*
+- `WORKITEM:<id>:orphan-case:<TC>` — a case covered by no `Covers:` in automation.
   *(warn)*
-- `WORKITEM:<id>:status` — brak/niepoprawny `status:`. *(warn)*
+- `WORKITEM:<id>:status` — missing/invalid `status:`. *(warn)*
 
-**Parsowanie trace** wykorzystuje markery z R-059 (regexy `AC\d+`, `Traces to:`,
-`Covers:`) — *dlatego R-059 jest prerekwizytem*.
+**Trace parsing** uses the R-059 markers (regexes `AC\d+`, `Traces to:`, `Covers:`) —
+*this is why R-059 is a prerequisite*.
 
-**Testy:** rozszerzyć `tests/doctor.test.ts` o fixture'y work-itemów: (a) `in-progress` z
-brakami → brak errorów; (b) `ready` z niepokrytym AC → error `WORKITEM:*:uncovered`;
-(c) `ready` kompletny → czysto; (d) archive niekompletny → tylko warn. Asercja, że pusty
-`changes/` nie generuje findingów.
+**Tests:** extend `tests/doctor.test.ts` with work-item fixtures: (a) `in-progress` with
+gaps → no errors; (b) `ready` with an uncovered AC → error `WORKITEM:*:uncovered`;
+(c) `ready` complete → clean; (d) incomplete archive → warn only. Assert that an empty
+`changes/` produces no findings.
 
-**Krytyczne pliki:** `doctor/index.ts` (`validateWorkItems`), `model/artifacts.ts` (import
-`requiredSections`/`traceField`), `tests/doctor.test.ts`, `cli.ts` (jeśli trzeba flagi
-zakresu), ROADMAP/PRD §8/TECH §11.
+**Critical files:** `doctor/index.ts` (`validateWorkItems`), `model/artifacts.ts` (import
+`requiredSections`/`traceField`), `tests/doctor.test.ts`, `cli.ts` (if a scope flag is
+needed), ROADMAP/PRD §8/TECH §11.
 
 ---
 
-## Weryfikacja (end-to-end)
+## Verification (end-to-end)
 
 ```powershell
 npm install
 npm run typecheck
 npm test            # core: artifacts (new) + scaffold/parity + doctor + skill-flows
 npm run build
-npm run docs        # regen docs/skill-catalog.md jeśli body skilli się zmieniły
+npm run docs        # regen docs/skill-catalog.md if the skill bodies changed
 
-# Ręczny smoke na świeżym targecie:
+# Manual smoke on a fresh target:
 node packages/claude-qa-orchestrator/dist/index.js init --root <tmp> --yes
-node packages/claude-qa-orchestrator/dist/index.js doctor --root <tmp>   # czysto: pusty changes/
+node packages/claude-qa-orchestrator/dist/index.js doctor --root <tmp>   # clean: empty changes/
 
-# R-061: zasymuluj work-item 'ready' z niepokrytym AC → doctor zwraca WORKITEM:*:uncovered (exit≠0)
-# R-060: uruchom qa-rca w narzędziu → powstaje context/changes/<id>/rca.md
+# R-061: simulate a 'ready' work-item with an uncovered AC → doctor returns WORKITEM:*:uncovered (exit≠0)
+# R-060: run qa-rca in the tool → context/changes/<id>/rca.md is produced
 ```
 
-Definicja „done" per item (konwencja ROADMAP): kod + testy (w tym parzystość) zielone,
-ROADMAP flip na ✅ z wersją+commitem, bump wersji pakietów, aktualizacja PRD/TECH;
-`doctor` czysty przed shipem.
+Definition of "done" per item (ROADMAP convention): code + tests (incl. parity) green,
+ROADMAP flipped to ✅ with version+commit, package version bump, PRD/TECH updated;
+`doctor` clean before ship.
 
-## Świadome nie-cele
-- Walidacja **semantycznej** poprawności treści (czy RCA trafne) — zostaje przy
-  `qa-gardening` (doradczo).
-- Rejestr **wszystkich** artefaktów (foundation/reference) — poza zakresem startowym.
-- Rubryka/score jakości (opcja 4 z sesji) — świadomie pominięta.
+## Conscious non-goals
+- Validating the **semantic** correctness of content (whether an RCA is right) — stays with
+  `qa-gardening` (advisory).
+- A registry of **all** artifacts (foundation/reference) — out of the starting scope.
+- A quality rubric/score (option 4 from the session) — deliberately dropped.
