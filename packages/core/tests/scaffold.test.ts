@@ -586,7 +586,7 @@ describe("scaffold (Claude)", () => {
     const copilotProject = tempProject();
     try {
       scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
-      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting", "mcp-content-fetch"]) {
+      for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "documentation", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting", "mcp-content-fetch"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
         expect(claude, `claude ${name} bad`).toContain("❌");
@@ -818,6 +818,144 @@ describe("scaffold (Claude)", () => {
     }
     // C4 architecture layer is untouched.
     expect(overview).toContain("[c4-context.md](./c4-context.md)");
+  });
+
+  it("enriches the reference with an API/endpoint inventory + completeness check (R-074)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const overview = readFileSync(join(project.dir, "context/reference/system-overview.md"), "utf8");
+    expect(overview).toContain("### API / endpoint inventory");
+    expect(overview).toContain("### Completeness verification");
+    // The completeness check is a grounded self-check (no silently dropped endpoints).
+    expect(overview.toLowerCase()).toContain("none silently dropped");
+    // qa-reverse-engineer fills both.
+    const re = SKILLS.find((s) => s.name === "qa-reverse-engineer")!;
+    expect(re.body).toContain("API / endpoint inventory");
+    expect(re.body).toContain("Completeness verification");
+  });
+
+  it("ships the documentation meta-standard guideline + durable docs born compliant (R-069)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const std = readFileSync(join(project.dir, ".ai/guidelines/documentation.md"), "utf8");
+    // The contract doctor enforces: frontmatter, a when-to-use lede, length discipline.
+    expect(std.toLowerCase()).toContain("frontmatter");
+    expect(std.toLowerCase()).toContain("when to use");
+    expect(std.toLowerCase()).toContain("length");
+    // It composes the existing guidelines rather than duplicating them.
+    for (const ref of ["grounding", "diagram-conventions", "documentation-as-code"]) {
+      expect(std, ref).toContain(ref);
+    }
+    // Tiered: durable vs runtime.
+    expect(std).toContain("Durable docs");
+    expect(std).toContain("Runtime artifacts");
+    // Phase-2 slots per the R-026 guideline standard.
+    expect(std).toContain("{{DOCUMENTATION_PATTERNS}}");
+    expect(std).toContain("{{PROJECT_DOCUMENTATION_WORKFLOW}}");
+
+    // Every durable foundation/reference doc is born compliant: full frontmatter.
+    for (const rel of [
+      "context/foundation/test-strategy.md",
+      "context/foundation/tools.md",
+      "context/foundation/repo-map.md",
+      "context/reference/system-overview.md",
+      "context/reference/c4-context.md",
+    ]) {
+      const text = readFileSync(join(project.dir, rel), "utf8");
+      expect(text.startsWith("---\n"), `${rel} opens with frontmatter`).toBe(true);
+      for (const key of ["title:", "version:", "last-updated:", "owner-skill:", "status:"]) {
+        expect(text, `${rel} frontmatter ${key}`).toContain(key);
+      }
+    }
+
+    // Parity: the guideline ships on Copilot (only the path differs).
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(
+        join(copilotProject.dir, ".github/instructions/documentation.instructions.md"),
+        "utf8",
+      );
+      expect(copilot.toLowerCase()).toContain("frontmatter");
+      const copilotDoc = readFileSync(join(copilotProject.dir, "context/foundation/tools.md"), "utf8");
+      expect(copilotDoc.startsWith("---\n")).toBe(true);
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
+  it("ships qa-framework-analyze generating the P3 framework-architecture doc (R-071)", () => {
+    const fa = SKILLS.find((s) => s.name === "qa-framework-analyze");
+    expect(fa, "qa-framework-analyze registered").toBeDefined();
+    expect(fa!.readOnly).toBe(false);
+    expect(fa!.writes).toContain("context/foundation/framework-architecture.md");
+    // It's the framework twin of qa-reverse-engineer (P3, not P1).
+    expect(fa!.body).toContain("P3");
+    expect(fa!.body).toContain("grounding");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // The skill renders with the write allowlist.
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-framework-analyze/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+
+    // The P3 foundation doc is scaffolded, born compliant, and distinct from test-framework.md.
+    const fadoc = join(project.dir, "context/foundation/framework-architecture.md");
+    expect(existsSync(fadoc), "framework-architecture.md scaffolded").toBe(true);
+    const text = readFileSync(fadoc, "utf8");
+    expect(text.startsWith("---\n")).toBe(true);
+    expect(text).toContain("owner-skill: qa-framework-analyze");
+    expect(text).toContain("Base classes");
+    expect(text).toContain("Extension points");
+    // test-framework.md (R-067) still exists as the hand-authored onboarding guide.
+    expect(existsSync(join(project.dir, "context/foundation/test-framework.md"))).toBe(true);
+
+    // qa-test-automate reads the P3 map so its code matches the documented framework.
+    const automate = SKILLS.find((s) => s.name === "qa-test-automate")!;
+    expect(automate.reads).toContain("context/foundation/framework-architecture.md");
+    expect(automate.body).toContain("framework-architecture.md");
+  });
+
+  it("ships qa-knowledge building the P2 knowledge base under context/knowledge/ (R-072)", () => {
+    const k = SKILLS.find((s) => s.name === "qa-knowledge");
+    expect(k, "qa-knowledge registered").toBeDefined();
+    expect(k!.readOnly).toBe(false);
+    expect(k!.writes).toContain("context/knowledge/<topic>.md");
+    // Uses the R-065 fetch layer and grounds every fact.
+    expect(k!.body).toContain("mcp-content-fetch");
+    expect(k!.body).toContain("grounding");
+    // Embeds the registered knowledge template.
+    const knowledge = ARTIFACTS.find((a) => a.name === "knowledge")!;
+    expect(knowledge.producedBy).toBe("qa-knowledge");
+    expect(knowledge.requiredSections).toEqual(["Domain", "Glossary", "Business rules", "Decisions"]);
+    expect(k!.body).toContain(knowledge.template);
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // The skill renders with the write allowlist; the knowledge area is scaffolded.
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-knowledge/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+    expect(existsSync(join(project.dir, "context/knowledge/.gitkeep")), "knowledge area scaffolded").toBe(true);
+    // The root map names the P2 pillar.
+    const root = readFileSync(join(project.dir, "CLAUDE.md"), "utf8");
+    expect(root).toContain("context/knowledge/");
+  });
+
+  it("ships qa-doc-critic as a read-only semantic doc quality gate (R-073)", () => {
+    const dc = SKILLS.find((s) => s.name === "qa-doc-critic");
+    expect(dc, "qa-doc-critic registered").toBeDefined();
+    expect(dc!.readOnly).toBe(true);
+    expect(dc!.bucket).toBe("analysis");
+    expect(dc!.writes).toEqual([]);
+    // Its criteria are the R-069 standard + grounding + assumptions.
+    expect(dc!.body).toContain("documentation");
+    expect(dc!.body).toContain("grounding");
+    expect(dc!.body).toContain("assumptions");
+    // Sharp role separation from its siblings.
+    for (const sib of ["doctor", "qa-gardening", "qa-review"]) {
+      expect(dc!.body, `mentions ${sib}`).toContain(sib);
+    }
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-doc-critic/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob");
+    expect(skill).not.toContain("Write, Edit, Bash");
   });
 
   it("writes a valid manifest listing every skill", () => {

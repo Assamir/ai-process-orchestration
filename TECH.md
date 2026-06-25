@@ -153,6 +153,9 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-reverse-engineer` | analysis | write | `opus` | reverse-engineer code → project docs | reads app source (read-only on code) |
 | `qa-coverage-gap` | analysis | read | `opus` | AC ↔ case ↔ test traceability + uncovered criteria | result servers |
 | `qa-metrics` | analysis | read | `sonnet` | pass/fail/flake + coverage digest across runs | result servers (+ Allure history) |
+| `qa-framework-analyze` | analysis | write | `opus` | reverse-engineer the test framework → `framework-architecture.md` (P3) | reads framework code (read-only on code) |
+| `qa-knowledge` | analysis | write | `opus` | synthesize durable P2 knowledge from Jira/Confluence → `context/knowledge/` | `atlassian` / `xray` / `markitdown` (opt-in, R-065) |
+| `qa-doc-critic` | analysis | read | `opus` | per-document semantic gate vs the documentation standard + grounding + assumptions | reads `context/` docs |
 
 "Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
 `pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`). When detection finds **Allure**
@@ -181,12 +184,23 @@ call `adapter.renderSkill` → `scaffold` `context/` + guidelines + adapter outp
 
 ```
 context/
-├── foundation/   test-strategy.md, test-plan.md, tools.md, test-framework.md (R-067), environments.md, lessons.md, tech-debt-tracker.md, repo-map.md
-├── changes/<work-id>/   work.md, plan.md (3-perspective, R-062), cases.md (detailed, R-063), automation.md, bug-report.md + bug-report.jira (R-064), performance.md
-├── refinements/   <YYYY-MM-DD>-<KEY>-<slug>.md + .jira  (standalone ticket refinements, qa-ticket-review, R-066)
+├── foundation/   test-strategy.md, test-plan.md, tools.md, test-framework.md (R-067), framework-architecture.md (P3, R-071), environments.md, lessons.md, tech-debt-tracker.md, repo-map.md
+├── changes/<work-id>/   work.md, plan.md (3-perspective, R-062), cases.md (detailed, R-063), automation.md, bug-report.md + bug-report.jira (R-064), performance.md  — runtime artifacts carry status/work-id + built-on: provenance (R-069/R-070)
+├── refinements/   <YYYY-MM-DD>-<KEY>-<slug>.md + .jira  (standalone ticket refinements, qa-ticket-review, R-066)  — P2
+├── knowledge/   <topic>.md  (durable domain knowledge from Jira/Confluence, qa-knowledge, R-072)  — P2
 ├── archive/<work-id>/   (read-only)
-└── reference/   system-overview.md (incl. the QA test-surface lens, R-068) + reverse-engineered C4 docs (qa-reverse-engineer)
+└── reference/   system-overview.md (QA test-surface lens R-068 + API inventory/completeness R-074) + reverse-engineered C4 docs (qa-reverse-engineer)  — P1
 ```
+
+**Documentation pillars (R-069 → R-074).** The three authoring outputs rest on **pillars of generated
+documentation**, each with an on-disk home so `doctor` reads a pillar's type from a path: **P1** =
+`reference/` (app source, `qa-reverse-engineer`), **P2** = `knowledge/` + `refinements/`
+(Jira/Confluence, `qa-knowledge` / `qa-ticket-review`), **P3** = `foundation/framework-architecture.md`
+(test-framework code, `qa-framework-analyze`). Every durable doc conforms to the `documentation`
+meta-standard (R-069: frontmatter `title`/`version`/`last-updated`/`owner-skill`/`status`, single H1,
+when-to-use lede, length discipline — `doctor`-checked, born compliant). A runtime artifact records the
+pillars it rests on in `built-on:` frontmatter (R-070), a *horizontal* provenance dimension orthogonal to
+the vertical `AC<n>`→`Traces to:`→`Covers:` chain; `doctor` warns on a missing required pillar.
 
 - The lean root config is an **index**, not a repository; skills fetch from `context/` just-in-time
   (hierarchical / pull-based retrieval, not upfront injection). Critical, non-negotiable rules live in
@@ -262,15 +276,19 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   in each producing skill — it lives once in the **artifact template registry**
   (`core/src/model/artifacts.ts`, `ARTIFACTS: ArtifactTemplate[]` + `tpl(name)`), the runtime-artifact
   analog of `GUIDELINES`/`FOUNDATION` for the skeleton. Each entry carries the canonical seeded `template`,
-  the `requiredSections` a validator checks, and an optional `traceField`. The six producing skills
-  (`qa-new`, `qa-plan`, `qa-test-case-design`, `qa-test-automate`, `qa-performance`, `qa-bug-report`) embed
-  their template via `tpl(name)` inside a fenced `## Template` section, so the shape is single-sourced and
-  renders identically for both adapters (parity holds automatically; the doc generator is unaffected — it
-  reads only When-to-use/Procedure/Next). The registry formalizes **parseable trace markers** — `work.md`
-  ids every acceptance criterion `AC<n>` and seeds frontmatter `status: in-progress`, `cases.md` carries
+  the `requiredSections` a validator checks, an optional `traceField`, and (R-070) an optional
+  `requiredPillars`. The producing skills (`qa-new`, `qa-plan`, `qa-test-case-design`, `qa-test-automate`,
+  `qa-performance`, `qa-bug-report`, `qa-ticket-review`, and `qa-knowledge`) embed their template via
+  `tpl(name)` inside a fenced `## Template` section, so the shape is single-sourced and renders identically
+  for both adapters (parity holds automatically; the doc generator is unaffected — it reads only
+  When-to-use/Procedure/Next). The registry formalizes **parseable trace markers** — `work.md` ids every
+  acceptance criterion `AC<n>` and seeds frontmatter `status: in-progress`, `cases.md` carries
   `Traces to: AC<n>`, `automation.md` carries `Covers: TC<n>` — so the iron QA rule (AC ↔ case ↔ test) can
-  be checked on real files rather than asserted as prose. This is the foundation the persisted analyses
-  (R-060) and the `doctor` work-item validator + `status:` gating (R-061) both build on.
+  be checked on real files rather than asserted as prose. **R-070** adds a horizontal `built-on:` frontmatter
+  provenance dimension + `requiredPillars` per artifact, and **R-069** the per-tier frontmatter/section
+  contract (`docTier`, `DURABLE_DOC_FRONTMATTER`); `doctor` enforces both (`DOCSTD:*`, `BUILTON:*`). This is
+  the foundation the persisted analyses (R-060) and the `doctor` work-item validator + `status:` gating
+  (R-061) both build on.
 - **Invariants over micromanagement.** Enforce a small set of inviolable rules, not implementation
   detail: the iron QA rule (tests in the detected framework), every test case traces to an acceptance
   criterion, every automated test carries a stable ID, deterministic work-item IDs. Leave *how* to the agent.
@@ -428,7 +446,7 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   **dual output** (canonical Markdown + a paste-ready `.jira`) via the one `model/jira.ts` transform (R-064).
 - **Compaction survival.** The handful of inviolable rules live in the lean root so they persist when
   the conversation is compacted over long QA sessions.
-- **Documentation pillars (planned, R-069→R-074).** The authoring chain (plan → cases → implementation)
+- **Documentation pillars (✅ shipped v0.47.0–v0.52.0, R-069→R-074).** The authoring chain (plan → cases → implementation)
   rests on **three pillars of generated documentation**: **P1** from the application source
   (`context/reference/`, `qa-reverse-engineer` — shipped), **P2** from Jira/Confluence
   (`context/knowledge/` + `refinements/`, `qa-knowledge`, R-072), and **P3** from the test-framework code
@@ -439,9 +457,10 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   enforces (R-069, the same rule-plus-check pattern as `ENVMGMT:contract`/`GROUNDING:contract`). A horizontal
   **`built-on:` provenance** field (R-070) records which pillar docs an artifact rests on — orthogonal to the
   vertical `AC<n>`→`Traces to:`→`Covers:` chain — `doctor` warns when a skill's required pillars are missing,
-  and the hard gate at `status: ready` folds into the R-061 work-item validator. As with the other backlog
-  epics, the §5 matrix, the §6 context tree, and the §12.1 guideline table get their rows **per item at ship
-  time**; the design record is `docs/design/documentation-pillars-R069-074.md`.
+  and the hard gate at `status: ready` folds into the R-061 work-item validator. The §5 matrix, the §6
+  context tree, and the §12.1 guideline table carry the shipped rows; `qa-doc-critic` (R-073) is the
+  read-only per-document semantic gate and R-074 closes P1 with an API/endpoint inventory + completeness
+  check. The design record is `docs/design/documentation-pillars-R069-074.md`.
 
 ## 12. Scaffolded-guidelines standard & flow reference (R-015)
 
@@ -460,6 +479,7 @@ Current set:
 | `test-naming` | naming + traceability of cases/specs | project language, framework, ✅/❌ examples | `NAMING_RULES`, `NAMING_EXAMPLES`, `NAMING_PATTERNS` |
 | `diagram-conventions` | the Mermaid standard for diagrams in `context/` + reports (R-025), incl. the **C4 architecture mapping** (R-032) | the standard + a ✅/❌ example diagram + the C4 level→type table | `PROJECT_DIAGRAMS`, `DIAGRAM_PATTERNS` |
 | `documentation-as-code` | docs are versioned in-repo, reviewed in PR, validated by `doctor`, synced via CI (R-028) | the contract + a ✅/❌ example | `DOCS_AS_CODE_PATTERNS`, `PROJECT_DOC_WORKFLOW` |
+| `documentation` | the **meta-standard** every generated doc conforms to (R-069): YAML frontmatter, single H1 + hierarchy, a "When to use this document" lede, length/anti-bloat — tiered (durable docs full, runtime artifacts light); references — never duplicates — `grounding`/`diagram-conventions`/`documentation-as-code` | the tiered standard + the frontmatter table + a ✅/❌ example | `DOCUMENTATION_PATTERNS`, `PROJECT_DOCUMENTATION_WORKFLOW` |
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 | `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
 | `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
@@ -532,6 +552,23 @@ Standard each guideline follows:
   (`DOCASCODE:contract`), parallel to the iron-QA-rule content check so gutting the standard fails. Like
   every guideline it carries ✅/❌ examples (kept link-free so they don't trip the broken-link check) and
   a phase-2 `DOCS_AS_CODE_PATTERNS` / `PROJECT_DOC_WORKFLOW` slot.
+
+- **Documentation meta-standard (R-069) — the keystone of the documentation pillars.** A `documentation`
+  guideline gives every *generated* doc one shape, so the `context/` system is uniform and machine-checkable.
+  It does not restate the rules other guidelines own — it **references** `grounding` (cite), `diagram-conventions`
+  (Mermaid, guarded), and `documentation-as-code` (versioned, CI-gated) — and adds the four structural rules
+  that make a doc parseable: **YAML frontmatter**, a **single H1** + hierarchy, a **"When to use this document"**
+  lede, and **length/anti-bloat** discipline. It is **tiered by path**: durable docs (`foundation/`/`reference/`/
+  `knowledge/`) carry the full frontmatter (`title`/`version`/`last-updated`/`owner-skill`/`status`); runtime
+  artifacts (`changes/<id>/*`) carry a light `status`/`work-id` + the trace markers + `requiredSections`. The
+  machine half lives in `core/src/model/artifacts.ts` (`docTier`, `DURABLE_DOC_FRONTMATTER` /
+  `RUNTIME_DOC_FRONTMATTER`, `frontmatterKeys`), and `doctor` enforces it on two axes: the guideline must keep
+  its contract (`DOCSTD:contract` — mentions frontmatter + when-to-use + length, an **error** parallel to
+  `DOCASCODE:contract` / `GROUNDING:contract`), and every durable doc must carry the required frontmatter keys
+  (`DOCSTD:frontmatter:<rel>`, **error**). The seeded foundation/reference docs are **born compliant** — they
+  ship with the frontmatter, so a fresh scaffold is `doctor`-clean. The light `status:` is the lifecycle field
+  R-060/R-061 gate on. Like every guideline it carries ✅/❌ examples and phase-2 `DOCUMENTATION_PATTERNS` /
+  `PROJECT_DOCUMENTATION_WORKFLOW` slots.
 
 - **Spec-driven development (R-030).** A `spec-driven-development` guideline codifies the spec-first
   flow: a documented spec — acceptance criteria, expected behavior, edge conditions — precedes case

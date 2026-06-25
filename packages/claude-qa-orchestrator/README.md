@@ -12,7 +12,7 @@ Two phases:
 1. **Phase 1 — installer (`npx`, deterministic, no LLM).** Detects your test stack (Playwright
    TS/Java, RestAssured/JUnit/TestNG, pytest, JMeter), runs a short wizard, and writes:
    - `CLAUDE.md` — a lean root "map" (table of contents, not a manual).
-   - `.claude/skills/<name>/SKILL.md` — the **21-skill** suite (every skill is `qa-<name>`): the
+   - `.claude/skills/<name>/SKILL.md` — the **24-skill** suite (every skill is `qa-<name>`): the
      `qa-init` + `qa-new → … → qa-archive` backbone; design (`qa-ticket-review`, `qa-test-plan`,
      `qa-test-case-design`); automation (`qa-automation-bootstrapper`, `qa-test-automate`,
      `qa-playwright-cli`, `qa-ci-pipeline`, `qa-performance`); and analysis (`qa-rca`,

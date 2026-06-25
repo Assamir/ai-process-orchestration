@@ -109,7 +109,7 @@ After a work-item exists and its scope is clear. The plan is a living control me
    - **Business view** — the business driver, the acceptance criteria mirrored from \`work.md\`, P1–P3 priorities each with a business justification, and what is out of scope.
    - **Architecture view** — a coverage overview (area/AC × positive/negative/edge × current/target), risk areas, open questions for review, and a sign-off checklist.
    - **Implementation view** — the test-case summary table (TC | Traces to | Type | Priority | Level | Dependencies | Status), the **business-level** test cases (the detailed/automatable cases live in \`cases.md\`), a reference pattern, work division, dependencies & prerequisites, and a Mermaid dependency diagram (per \`diagram-conventions\`, wrapped in \`@formatter:off\`/\`@formatter:on\`).
-3. Fill the clarification checklist, source references (grounding — cite each \`file:line\`/ticket the plan derives from), assumptions, and changelog. Per the \`spec-driven-development\` guideline every business test case carries \`Traces to: AC<n>\`.
+3. Fill the clarification checklist, source references (grounding — cite each \`file:line\`/ticket the plan derives from), assumptions, and changelog. Per the \`spec-driven-development\` guideline every business test case carries \`Traces to: AC<n>\`. Per the \`documentation\` standard, record the pillar docs this plan rests on in the \`built-on:\` frontmatter — the **P1** application reference (\`context/reference/\`) and the **P2** domain knowledge (\`context/knowledge/\`) it derives from; the validator link-checks them.
 4. Pause for human approval before implementing (respect autonomy level: **{{AUTONOMY_LEVEL}}**).
 
 ## Template
@@ -272,7 +272,7 @@ After acceptance criteria are clear (post \`qa-ticket-review\`).
 
 ## Procedure
 1. Start from the plan's **business test cases** (\`plan.md\`, Implementation view) and the acceptance criteria in \`work.md\`. \`cases.md\` is the detailed, executable layer: each business case expands into one or more concrete cases that each become a single automated test. Per the \`spec-driven-development\` guideline, derive cases from the documented criteria, not from the current code — a case that traces to no criterion is undocumented scope. If a \`playwright-browser\` MCP server is configured, explore the live UI (navigate, snapshot, inspect) to discover states and edge cases you would otherwise miss.
-2. For each acceptance criterion derive positive, negative, parameterized, and boundary/edge cases — do not stop at the happy path. Write each to \`context/changes/<work-id>/cases.md\` using the **Template** below: a stable \`TC<n>\` id, a \`Traces to:\` field naming the \`AC<n>\` id(s) it covers (+ the parent business-TC where applicable), Type / Priority / Test level, Preconditions, the named **Test data** factory/fixture, Steps, the asserted Expected result, and a **Variants** table for parameterized/boundary/invalid inputs.
+2. For each acceptance criterion derive positive, negative, parameterized, and boundary/edge cases — do not stop at the happy path. Write each to \`context/changes/<work-id>/cases.md\` using the **Template** below: a stable \`TC<n>\` id, a \`Traces to:\` field naming the \`AC<n>\` id(s) it covers (+ the parent business-TC where applicable), Type / Priority / Test level, Preconditions, the named **Test data** factory/fixture, Steps, the asserted Expected result, and a **Variants** table for parameterized/boundary/invalid inputs. Per the \`documentation\` standard, record the pillar docs the cases rest on in the \`built-on:\` frontmatter (the **P1** application reference and **P2** domain knowledge); the validator link-checks them.
 3. Note required test data and name the factory/fixture for each case; hand off to \`qa-test-data-gen\` if it must be produced. Per the \`test-data-management\` guideline, the Variants table is where boundary/invalid inputs live as overrides of a valid baseline.
 4. Keep cases automation-ready (deterministic, independent) — one behavior per case.
 
@@ -323,15 +323,19 @@ A smoke test passes, result-artifact paths are recorded in \`tools.md\`, and \`t
     readOnly: false,
     bucket: "automation",
     suggestedModel: "opus",
-    reads: ["context/changes/<work-id>/cases.md", "context/foundation/tools.md"],
+    reads: [
+      "context/changes/<work-id>/cases.md",
+      "context/foundation/tools.md",
+      "context/foundation/framework-architecture.md",
+    ],
     writes: ["context/changes/<work-id>/automation.md"],
     body: `## When to use
 After cases are designed and the framework is bootstrapped.
 
 ## Procedure
-1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions. Per the \`spec-driven-development\` guideline, automate from the designed cases (which trace to the spec) in spec → case → test order — never write a test ahead of its recorded criterion.
+1. Implement the designed cases as automated tests in **{{AUTOMATION_FRAMEWORK}}**, following the QA conventions **and the documented framework architecture** — read \`context/foundation/framework-architecture.md\` (pillar **P3**, from \`qa-framework-analyze\`) so the code reuses the documented base classes, fixtures, and page-objects/clients rather than reinventing them. Per the \`spec-driven-development\` guideline, automate from the designed cases (which trace to the spec) in spec → case → test order — never write a test ahead of its recorded criterion.
 2. Keep tests independent, deterministic, and parallel-safe; externalize URLs/credentials; capture trace/screenshot on failure. Per the \`test-data-management\` guideline, each test owns its data lifecycle — set up and tear down its own isolated, uniquely-named data so the suite gives the same result run alone or in parallel, on a clean or full database.
-3. Run the new tests; record the run in \`context/changes/<work-id>/automation.md\` using the **Template** below — every test names the case it covers via a \`Covers: TC<n>\` field, plus the run command and result location.
+3. Run the new tests; record the run in \`context/changes/<work-id>/automation.md\` using the **Template** below — every test names the case it covers via a \`Covers: TC<n>\` field, plus the run command and result location. Per the \`documentation\` standard, record the **P3** framework map (\`context/foundation/framework-architecture.md\`) the test code conforms to in the \`built-on:\` frontmatter; the validator link-checks it.
 4. On failure, hand off to \`qa-rca\` rather than blindly retrying.
 
 ## Template
@@ -416,7 +420,7 @@ When a requirement carries a **non-functional** target — response time, throug
 1. **NFRs first.** Per the \`performance-testing\` guideline, define the budgets *before* scripting: p95/p99 response time, throughput (req/s), max error-rate, and the load profile (load / stress / soak / spike). Per the \`spec-driven-development\` guideline, every performance case **traces to an NFR / acceptance criterion** — the iron QA rule read from the non-functional side. An NFR that isn't written is a blocker to resolve, not a number to invent.
 2. **Generate or audit the \`.jmx\` plan.** Build thread groups (the load profile), HTTP/JDBC samplers, response/duration **assertions** that fail the run when an SLA is breached, **think-time timers** (real users pause — no think-time overstates throughput), **CSV Data Set Config** for parametrized/correlated data (never a single hard-coded user), and correlation of dynamic tokens. In **audit** mode, check an existing plan has assertions tied to the NFRs, think-time, and parametrized data; report each gap with one fix.
 3. **Run headless.** \`jmeter -n -t plan.jmx -l ./jmeter-results/results.jtl -e -o ./jmeter-report\` — non-GUI, writes the \`.jtl\` log + the HTML dashboard into the dirs the \`jmeter-results\` MCP server reads. GUI is for authoring only; a GUI run in CI is an anti-pattern.
-4. **Enforce SLAs and record.** Read the dashboard/\`.jtl\` through the \`jmeter-results\` MCP server; compare **percentiles** (p95/p99) and error-rate against the budgets — never an average, which hides the tail. Record the plan path, run command, the baseline compared against, and pass/fail per NFR in \`context/changes/<work-id>/performance.md\` using the **Template** below — every NFR carries a \`Traces to:\` field naming the \`AC<n>\` it enforces. Per the \`grounding\` rule, every number cites the real result artifact you read; if a target has no recorded baseline, say so rather than inventing one.
+4. **Enforce SLAs and record.** Read the dashboard/\`.jtl\` through the \`jmeter-results\` MCP server; compare **percentiles** (p95/p99) and error-rate against the budgets — never an average, which hides the tail. Record the plan path, run command, the baseline compared against, and pass/fail per NFR in \`context/changes/<work-id>/performance.md\` using the **Template** below — every NFR carries a \`Traces to:\` field naming the \`AC<n>\` it enforces. Per the \`grounding\` rule, every number cites the real result artifact you read; if a target has no recorded baseline, say so rather than inventing one. Per the \`documentation\` standard, record the **P1** application reference (\`context/reference/\`) the NFRs derive from in the \`built-on:\` frontmatter; the validator link-checks it.
 
 ## Template
 \`\`\`md
@@ -628,7 +632,7 @@ To understand an existing application before planning tests, or to onboard onto 
 2. Read \`context/foundation/repo-map.md\` — phase 1 already inventoried the build roots, test directories, and test/CI configs there (deterministically, no LLM). Use it as your starting map instead of blind-searching, especially in a large or multi-module/polyglot repo.
 3. **Propose the documentation structure before writing.** For a large or monolithic codebase, propose how to split it (by module / domain / bounded context / C4 container) and pause for approval (respect autonomy **{{AUTONOMY_LEVEL}}**) — do not dump one giant file.
 4. Document the architecture with the **C4 model** (see the \`diagram-conventions\` guideline), top-down: L1 system context in \`c4-context.md\`, L2 containers in \`c4-container.md\`, L3 components (for the testing-critical containers) in \`c4-component.md\`. Skip L4 (code) unless a specific component needs it — link to source instead. Index everything from \`system-overview.md\` and fill its business-context section.
-   Then fill the **Test surface (QA lens)** — the testing view that sits over the C4 architecture: **Integration points** (every system this one talks to, with direction/protocol/data/test-focus — the map for integration-test planning), the **Entry-point inventory** (each HTTP route / CLI / job / consumer at its \`file:line\`, marked covered/uncovered), **Data model & boundaries** (each field/entity with its valid vs invalid/boundary values, for case design), a **Test scenarios summary**, and a **Questions & issues** table. Every cell is grounded at \`file:line\`; anything inferred goes in the Assumptions table, not the lens.
+   Then fill the **Test surface (QA lens)** — the testing view that sits over the C4 architecture: **Integration points** (every system this one talks to, with direction/protocol/data/test-focus — the map for integration-test planning), the **Entry-point inventory** (each HTTP route / CLI / job / consumer at its \`file:line\`, marked covered/uncovered), the **API / endpoint inventory** (each callable API with its method/path, auth, request/response fields, and status codes at its \`file:line\` — the contract detail API case design needs), **Data model & boundaries** (each field/entity with its valid vs invalid/boundary values, for case design), a **Test scenarios summary**, and a **Questions & issues** table. Every cell is grounded at \`file:line\`; anything inferred goes in the Assumptions table, not the lens. Finally, run the **Completeness verification** checklist — confirm every endpoint/entry-point is inventoried and grounded, and that gaps are recorded rather than silently dropped.
 5. Each C4 level carries one Mermaid diagram (\`C4Context\` / \`C4Container\` / \`C4Component\`, or the \`flowchart\` fallback) plus supporting prose. Zoom in only as far as the testing question needs — most QA work lives at L1–L3.
 6. Enrich \`repo-map.md\`'s phase-2 sections: fill **Test ↔ source map** (map each test directory from the inventory to the C4 container/component it exercises, reusing those names so the two maps agree) and **Entry points** (each route/CLI/job/consumer linked to the test directory that covers it, or flagged uncovered). Leave the phase-1 inventory section as the auto-generated map — don't hand-edit it.
 7. Link to real paths in the repo; never paste large code — reference it. Keep each doc lean and verifiable. Per the \`grounding\` rule, confirm every path / symbol / integration by opening it before documenting it — never invent an architecture. Per the \`assumptions\` guideline, record anything you could not verify in a \`## Assumptions\` table (basis, impact, verification, calibrated confidence) and reference it inline as \`(A1)\` — inferred architecture stated as fact is a hallucination.
@@ -638,7 +642,100 @@ To understand an existing application before planning tests, or to onboard onto 
 
 ## Next
 - \`qa-ticket-review\` / \`qa-test-plan\` — now informed by the system map and the test↔source repo map.
+- \`qa-doc-critic\` — semantic-review the generated reference docs against the documentation standard + grounding.
 - \`qa-gardening\` — can read \`context/reference/\` and \`repo-map.md\` to flag drift between the map and the code.`,
+  },
+  {
+    name: "qa-framework-analyze",
+    description: "Reverse-engineer the test-framework code into a generated structural map (framework-architecture.md = pillar P3) so authored test code matches the framework as documented.",
+    readOnly: false,
+    bucket: "analysis",
+    suggestedModel: "opus",
+    reads: [
+      "context/.scaffold/manifest.json",
+      "context/foundation/repo-map.md",
+      "context/foundation/test-framework.md",
+    ],
+    writes: ["context/foundation/framework-architecture.md"],
+    body: `## When to use
+To document the test-automation framework's structure before authoring tests in an unfamiliar/legacy suite, or to refresh the map after the framework evolves. Read-only on the framework code — it reads the base classes / fixtures / page-objects / config and writes the **generated structural map** \`context/foundation/framework-architecture.md\` (pillar **P3**). Twin of \`qa-reverse-engineer\` (which maps the *application* source, P1); this maps the *test framework*. Distinct from \`test-framework.md\`, the hand-authored how-to-run onboarding guide.
+
+## Procedure
+1. Recon the framework from \`context/.scaffold/manifest.json\`, \`context/foundation/repo-map.md\` (test directories), and \`context/foundation/test-framework.md\` (the onboarding guide) — identify the framework **{{AUTOMATION_FRAMEWORK}}**, the test roots, and the obvious building blocks.
+2. Read the framework code read-only: base test class(es) and lifecycle hooks, shared fixtures / DI, page objects / request builders / clients, configuration & environment wiring, and extension points. Open each before documenting it (\`grounding\`) — never infer a base class or fixture you didn't read.
+3. Write \`context/foundation/framework-architecture.md\` from its seeded template, filling each section grounded at \`file:line\`: the architecture diagram (one guarded Mermaid component/flowchart per \`diagram-conventions\`), base classes & lifecycle, fixtures, abstractions, config, and extension points. Per the \`documentation\` standard keep it lean and conformant — single H1, the seeded frontmatter (bump \`version\` / \`last-updated\`, set \`status\`), link to source rather than pasting it.
+4. Per the \`assumptions\` guideline, anything you couldn't verify in the framework code goes in a \`## Assumptions\` table (basis, impact, verification, calibrated confidence), referenced inline as \`(A1)\` — never state an inferred structure as fact.
+
+## Done when
+\`framework-architecture.md\` documents the base classes, fixtures, abstractions, config, and extension points — each grounded at \`file:line\`, with a guarded architecture diagram and no unresolved \`{{PLACEHOLDER}}\` markers. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-test-automate\` — author tests against the documented framework architecture (P3).
+- \`qa-doc-critic\` — semantic-review the generated map against the documentation standard + grounding.
+- \`qa-gardening\` — can read \`framework-architecture.md\` to flag drift between the map and the framework code.`,
+  },
+  {
+    name: "qa-knowledge",
+    description: "Build a durable P2 knowledge base (domain, glossary, business rules, decisions) under context/knowledge/ from Jira/Confluence via the MCP fetch layer.",
+    readOnly: false,
+    bucket: "analysis",
+    suggestedModel: "opus",
+    reads: ["context/foundation/test-strategy.md", "context/reference/system-overview.md"],
+    writes: ["context/knowledge/<topic>.md"],
+    body: `## When to use
+To build a durable **P2** knowledge base from Jira/Confluence — domain concepts, glossary, business rules, decisions — so plans and cases rest on documented requirements knowledge instead of one-off per-run fetches. Run when onboarding a domain or when the requirements space has moved. Uses the R-065 MCP fetch layer; writes durable knowledge docs under \`context/knowledge/\` (sibling to \`context/reference/\`, the P1 pillar). "Querying" the knowledge base = the agent just reads these docs — there is no separate oracle skill.
+
+## Procedure
+1. **Fetch through MCP — never summarize from a title.** Per the \`mcp-content-fetch\` guideline, follow download → verify → convert → read: the indicated Confluence pages (\`getPage\` / \`searchConfluence\`), linked Jira epics (\`getIssue\`), and attachments (\`getAttachments\` / \`getAttachmentContent\` → \`markitdown\` on the local path). What's not fetched doesn't exist.
+2. **Synthesize one durable doc per topic** at \`context/knowledge/<topic>.md\` from the **Template** below: Domain, Glossary, Business rules, Decisions — each fact cited to its Confluence page / Jira key (\`grounding\`). Per the \`documentation\` standard, write conformant durable frontmatter (\`title\`/\`version\`/\`last-updated\`/\`owner-skill\`/\`status\`), a single H1, and keep it lean — link out to the source page, don't restate it.
+3. Per the \`assumptions\` guideline, anything you infer beyond the fetched sources goes in a \`## Assumptions\` table referenced inline as \`(A1)\`; flag conflicting sources explicitly rather than silently picking one.
+4. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Template
+\`\`\`md
+${tpl("knowledge")}
+\`\`\`
+
+## Done when
+\`context/knowledge/<topic>.md\` exists with Domain / Glossary / Business rules / Decisions, every fact cited to a fetched source, conformant durable frontmatter, and no unresolved \`{{PLACEHOLDER}}\` markers.
+
+## Next
+- \`qa-plan\` / \`qa-test-case-design\` — plan and design cases resting on the P2 knowledge base (record it in \`built-on:\`).
+- \`qa-doc-critic\` — semantic-review the knowledge docs against the documentation standard + grounding.`,
+  },
+  {
+    name: "qa-doc-critic",
+    description: "Semantic quality gate over a single generated document — hallucination, assumptions-table, citation, and documentation-standard conformance (read-only).",
+    readOnly: true,
+    bucket: "analysis",
+    suggestedModel: "opus",
+    reads: [
+      "context/reference/",
+      "context/knowledge/",
+      "context/foundation/",
+      "context/changes/",
+    ],
+    writes: [],
+    body: `## When to use
+After a document is generated or substantially edited (a P1 reference, a P2 knowledge doc, the P3 \`framework-architecture.md\`, a refinement, or a plan) — to semantic-review **that one document** before it's relied on. Read-only: it reports findings in chat, it never edits. Single-document quality is its lane, distinct from its siblings:
+- \`doctor\` — mechanical, no-LLM (structure, links, placeholders, frontmatter presence).
+- \`qa-gardening\` — repo-wide drift sweep across \`context/\`.
+- \`qa-review\` — work-item coverage / traceability.
+- \`qa-doc-critic\` — the semantic quality of one document.
+
+## Procedure
+1. Read the target document and the standards it must meet: the \`documentation\` meta-standard (frontmatter, single H1, "when to use", length discipline), \`grounding\` (every claim cited), and \`assumptions\` (inference legal only inside the table).
+2. **Hallucination check.** For every factual claim — path, symbol, endpoint, ticket key, result — confirm it cites a real artifact; run the identifier scrub from the \`grounding\` guideline and flag any uncited or unverifiable claim.
+3. **Assumptions-table completeness.** Every inferred claim sits in a \`## Assumptions\` table with a concrete basis (never "common practice") and a calibrated confidence; every inline \`(A1)\` resolves to a row; flag any inference stated as fact outside the table.
+4. **Standard conformance.** Frontmatter keys present and sensible, exactly one H1, a when-to-use lede, length discipline (no restating source that should be linked), and every Mermaid block guarded per \`diagram-conventions\`.
+5. Output a prioritized findings list in **{{REPORT_LANGUAGE_NAME}}**: each item names what's wrong, where (\`file:line\` / section), why it matters, and the single fix — to be handed to the document's owning write skill. Reinforce \`grounding\` and the iron QA rule — never propose weakening them.
+
+## Done when
+A prioritized critique of the single document exists — hallucination, assumptions, citation, and standard-conformance findings, each with a concrete fix. No files were modified.
+
+## Next
+- \`qa-reverse-engineer\` / \`qa-knowledge\` / \`qa-framework-analyze\` / \`qa-ticket-review\` / \`qa-plan\` — hand each finding to the skill that owns the document.
+- \`qa-gardening\` — fold recurring doc-quality issues into the next repo-wide drift sweep.`,
   },
 ];
 

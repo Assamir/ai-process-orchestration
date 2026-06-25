@@ -5,7 +5,7 @@ review, case design, automation, RCA, performance, and test-data generation — 
 your repository, for **Claude Code** or **GitHub Copilot**, with functional parity.
 
 This is *harness engineering for QA*: it doesn't ship a smarter model, it ships a
-lean root "map", a `context/` system of record, and a single-purpose **21-skill**
+lean root "map", a `context/` system of record, and a single-purpose **24-skill**
 suite, so an agent stays grounded across long sessions and compaction.
 
 ## The two packages

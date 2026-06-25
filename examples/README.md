@@ -25,7 +25,7 @@ root "map" and the `context/` system of record. Key files created:
 - `CLAUDE.md` — the lean root map (stack, the iron QA rule, the grounding rule, the skill index).
 - `.ai/guidelines/qa-conventions.md` — QA conventions (one of eleven guideline docs, incl. `code-formatting`).
 - `context/foundation/test-strategy.md` — durable strategy doc (seeded with `{{PLACEHOLDER}}` markers for phase 2).
-- `.claude/skills/qa-init/SKILL.md` — the bootstrap skill (one of the 21-skill suite).
+- `.claude/skills/qa-init/SKILL.md` — the bootstrap skill (one of the 24-skill suite).
 - `.mcp.json` — a read-only `playwright-results` MCP server over the HTML report + traces.
 
 `--yes` accepts the detected defaults (CI-friendly); drop it for the interactive

@@ -1,4 +1,4 @@
-import { appendFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claudeAdapter, copilotAdapter, runDoctor, scaffold } from "../src/index.js";
@@ -162,6 +162,67 @@ describe("runDoctor", () => {
     expect(finding!.severity).toBe("warn");
     // Optional check: it must not, on its own, make the scaffold fail.
     expect(report.findings.some((f) => f.id === "READFIRST:missing" && f.severity === "error")).toBe(false);
+  });
+
+  it("flags a gutted documentation guideline that drops its frontmatter/when-to-use/length contract (R-069)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Keep the ✅/❌ markers but drop the meta-standard contract.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/documentation.md"),
+      "# Documentation standard\n\nWrite good docs. ✅ good ❌ bad.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.id === "DOCSTD:contract" && f.severity === "error")).toBe(true);
+  });
+
+  it("flags a durable doc missing its required frontmatter (R-069)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // Strip the frontmatter from a durable foundation doc.
+    writeFileSync(
+      join(project.dir, "context/foundation/tools.md"),
+      "# Tools & result artifacts\n\nNo frontmatter here.\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(
+      report.findings.some(
+        (f) => f.id === "DOCSTD:frontmatter:context/foundation/tools.md" && f.severity === "error",
+      ),
+    ).toBe(true);
+  });
+
+  it("warns when a runtime artifact's built-on omits a required pillar (R-070)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // A filled cases.md that rests on P1 (which exists) but names no P2 doc.
+    mkdirSync(join(project.dir, "context/changes/api-login"), { recursive: true });
+    writeFileSync(
+      join(project.dir, "context/changes/api-login/cases.md"),
+      "---\nstatus: in-progress\nwork-id: api-login\nbuilt-on:\n  - context/reference/system-overview.md\n---\n# Test cases\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    // Missing P2 is a warn (not an error — the hard gate folds into R-061).
+    const warn = report.findings.find(
+      (f) => f.id === "BUILTON:pillar:context/changes/api-login/cases.md:P2",
+    );
+    expect(warn, "P2 pillar warn present").toBeDefined();
+    expect(warn!.severity).toBe("warn");
+    // P1 is satisfied (system-overview.md exists) → no P1 warn.
+    expect(report.findings.some((f) => f.id.endsWith("cases.md:P1"))).toBe(false);
+  });
+
+  it("errors on a broken pillar-provenance link (R-070)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    mkdirSync(join(project.dir, "context/changes/api-login"), { recursive: true });
+    writeFileSync(
+      join(project.dir, "context/changes/api-login/automation.md"),
+      "---\nstatus: in-progress\nwork-id: api-login\nbuilt-on:\n  - context/foundation/does-not-exist.md\n---\n# Automation\n",
+    );
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(false);
+    expect(
+      report.findings.some((f) => f.id.startsWith("BUILTON:link:") && f.severity === "error"),
+    ).toBe(true);
   });
 
   it("detects a platform mismatch via the manifest", () => {

@@ -77,11 +77,12 @@ ${skillList}
 
 ## Where things live
 
-- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, test-framework guide, lessons, tech-debt tracker, repo map (test surface ↔ source).
+- \`context/foundation/\` — durable: test strategy, test plan, environments, tools, test-framework guide, framework-architecture (P3, generated), lessons, tech-debt tracker, repo map (test surface ↔ source).
 - \`context/changes/<work-id>/\` — in-flight work (work.md, plan.md, cases.md, automation.md).
 - \`context/refinements/\` — standalone ticket-refinement deliverables (\`.md\` + paste-ready \`.jira\`), produced by \`qa-ticket-review\` (no work-id required).
 - \`context/archive/<work-id>/\` — completed work (read-only history).
-- \`context/reference/\` — reverse-engineered system docs (produced by \`qa-reverse-engineer\`).
+- \`context/reference/\` — reverse-engineered system docs, the **P1** application pillar (produced by \`qa-reverse-engineer\`).
+- \`context/knowledge/\` — durable domain knowledge, the **P2** requirements pillar synthesized from Jira/Confluence (produced by \`qa-knowledge\`).
 - Guidelines — QA conventions & naming (see the guidelines files).
 `;
 }
@@ -490,6 +491,79 @@ context/foundation/tools.md links to ./does-not-exist.html   # broken link, no C
 `,
   },
   {
+    name: "documentation",
+    title: "Documentation standard",
+    body: `# Documentation standard
+
+> Phase 1 seeded this standard. Phase 2 records this project's doc conventions in the \`{{PLACEHOLDER}}\` section.
+
+Every document this orchestration generates — a foundation doc, a reference/knowledge pillar, a refinement, a runtime artifact under \`context/changes/\` — conforms to **one shape**, so the whole \`context/\` system of record is uniform and machine-checkable. This is the meta-standard the pillars rest on. It does **not** restate the rules other guidelines already own; it **composes** them and adds the four structural rules that make a generated doc parseable. It references — never duplicates — \`grounding\` (every claim cites a real artifact), \`diagram-conventions\` (diagrams are Mermaid, fenced and guarded), and \`documentation-as-code\` (docs are versioned in-repo, reviewed in PR, and gated by \`doctor\` in CI).
+
+## Two tiers (read from the path)
+A document's tier is read from where it lives, so \`doctor\` checks the right contract:
+- **Durable docs** — \`context/foundation/\`, \`context/reference/\` (P1), \`context/knowledge/\` (P2), \`context/refinements/\` (P2). The long-lived structural map of the system. Get the **full** standard below.
+- **Runtime artifacts** — \`context/changes/<work-id>/*\`. The trace of one unit of work; their shape lives in the artifact registry (\`work\`/\`plan\`/\`cases\`/\`automation\`/…). Get the **light** standard.
+
+## The full standard (durable docs)
+- **YAML frontmatter** at the very top, between \`---\` fences, carrying at least:
+  | Key | Meaning |
+  |-----|---------|
+  | \`title\` | the document's human title (matches the H1) |
+  | \`version\` | semver of the doc, bumped on a substantive edit |
+  | \`last-updated\` | ISO date of the last substantive edit |
+  | \`owner-skill\` | the skill responsible for keeping it current |
+  | \`status\` | \`seeded\` (phase-1 skeleton) → \`draft\` → \`current\` |
+- **A single H1.** Exactly one \`#\` heading — the document title — then a strict \`##\` → \`###\` hierarchy. Never a second H1; never skip a level.
+- **"When to use this document."** An opening lede (the \`>\` blockquote the seeded docs carry) that says in one or two sentences when a reader should reach for this doc and what they'll get — so an agent pulls the right doc just-in-time instead of reading everything.
+- **Length discipline (anti-bloat).** A doc earns its length. Link out to source (\`grounding\`) and to sibling docs instead of restating them; a foundation/reference doc that grows past ~1–2 screens of prose is a smell — split it (by C4 level, by the repo map, or by domain) rather than letting it sprawl. "What's not in context doesn't exist" is not a licence to write everything down: record what an agent can't infer, link the rest.
+
+## The light standard (runtime artifacts)
+- Frontmatter carries \`status\` (the work-item lifecycle the validator gates on) and the \`work-id\`; the rest of the shape is the trace markers (\`AC<n>\` / \`Traces to:\` / \`Covers:\`) and the \`requiredSections\` the artifact registry defines. Don't bolt the durable five-key frontmatter onto a runtime artifact — its provenance lives in the registry, not in frontmatter.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — a durable doc with conformant frontmatter, one H1, a when-to-use lede, and a link instead of a restatement:
+\`\`\`markdown
+---
+title: System reference — C4 index
+version: 1.2.0
+last-updated: 2026-06-25
+owner-skill: qa-reverse-engineer
+status: current
+---
+# System reference — C4 index
+
+> Read this first to orient on the architecture before planning tests; it links to the C4 levels and the test surface.
+
+## Architecture (C4)
+- L1 — System context: [c4-context.md](./c4-context.md)   <!-- link, don't restate -->
+\`\`\`
+
+❌ **Avoid** — no frontmatter, two H1s, a wall of prose that duplicates the source instead of citing it:
+\`\`\`markdown
+# Overview
+…three screens restating what AuthService already does, with no file:line citation…
+# Also the database            <!-- second H1; should be a ## under one title -->
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: the doc patterns this project standardizes on (a frontmatter linter, a docs ToC,
+> "one concept per file", generated-from-source reference docs) so agents follow them.
+
+{{DOCUMENTATION_PATTERNS}}
+
+## Project-specific documentation workflow
+
+> Record this project's concrete conventions once known: where the doc version/owner registry lives, the
+> max-length rule you enforce, and who signs off a \`status: current\`.
+
+{{PROJECT_DOCUMENTATION_WORKFLOW}}
+`,
+  },
+  {
     name: "spec-driven-development",
     title: "Spec-driven development",
     body: `# Spec-driven development
@@ -805,7 +879,14 @@ markitdown https://jira/secure/attachment/9001/spec.docx   # markitdown is local
 export const FOUNDATION: Array<{ rel: string; body: string }> = [
   {
     rel: "context/foundation/test-strategy.md",
-    body: `# Test strategy
+    body: `---
+title: Test strategy
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-init
+status: seeded
+---
+# Test strategy
 
 > Durable. Filled by \`qa-init\` in phase 2. Keep lean; link out, don't duplicate.
 
@@ -817,7 +898,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/test-plan.md",
-    body: `# Test plan
+    body: `---
+title: Test plan
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-test-plan
+status: seeded
+---
+# Test plan
 
 > Durable. Owned by the \`test-plan\` skill.
 
@@ -830,7 +918,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/environments.md",
-    body: `# Environments
+    body: `---
+title: Environments
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-init
+status: seeded
+---
+# Environments
 
 > Durable. How to reach each test environment. "What's not in context doesn't exist."
 
@@ -842,7 +937,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/tools.md",
-    body: `# Tools & result artifacts
+    body: `---
+title: Tools & result artifacts
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-automation-bootstrapper
+status: seeded
+---
+# Tools & result artifacts
 
 > Durable. Records where test results live so skills can read outcomes directly.
 
@@ -855,7 +957,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/test-framework.md",
-    body: `# Test framework
+    body: `---
+title: Test framework
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-automation-bootstrapper
+status: seeded
+---
+# Test framework
 
 > Durable. How the automation framework is organized and how to work in it.
 > Owned by qa-automation-bootstrapper; enriched in phase 2.
@@ -898,8 +1007,69 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 `,
   },
   {
+    rel: "context/foundation/framework-architecture.md",
+    body: `---
+title: Framework architecture (P3)
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-framework-analyze
+status: seeded
+---
+# Framework architecture (P3)
+
+> Durable. The **generated structural map** of the test-automation framework — base
+> classes, fixtures, page objects/clients, config, and extension points — produced by
+> \`qa-framework-analyze\` (phase 2) from the framework code, grounded at \`file:line\`. This
+> is pillar **P3**: \`qa-test-automate\` reads it so authored test code matches the framework
+> *as documented*, not as guessed. Distinct from \`test-framework.md\` (the hand-authored
+> how-to-run onboarding guide); re-run as the framework evolves. Paths are inline code, not
+> links (\`grounding\` — confirm each before relying on it).
+
+## Architecture diagram
+> One guarded Mermaid diagram (component / flowchart per \`diagram-conventions\`) of the
+> framework's building blocks and how a test flows through them.
+
+{{FRAMEWORK_ARCH_DIAGRAM}}
+
+## Base classes & test lifecycle
+> The base test class(es) and setup/teardown hooks every test inherits, each at its source.
+
+{{FRAMEWORK_BASE_CLASSES}}
+
+## Fixtures & dependency wiring
+> Shared fixtures / dependency injection (Playwright fixtures, pytest fixtures, JUnit
+> extensions, Spring test context) and what each provides.
+
+{{FRAMEWORK_FIXTURES}}
+
+## Page objects / request builders / clients
+> The abstractions tests drive the system through, and where to add a new one.
+
+{{FRAMEWORK_ABSTRACTIONS}}
+
+## Configuration & environment wiring
+> How config / env reaches a test (see \`environments.md\`, \`environment-management\`) — base
+> URLs, profiles, secrets indirection — at its source.
+
+{{FRAMEWORK_CONFIG}}
+
+## Extension points
+> Where and how to extend the framework (a new fixture, client, custom matcher, reporter
+> hook) without breaking existing tests.
+
+{{FRAMEWORK_EXTENSION_POINTS}}
+`,
+  },
+  {
     rel: "context/foundation/lessons.md",
-    body: `# Lessons & golden rules
+    body: `---
+title: Lessons & golden rules
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-archive
+status: seeded
+---
+# Lessons & golden rules
 
 > Append-only playbook. \`qa-archive\` adds reusable lessons here so future runs
 > don't repeat mistakes (flaky areas, data tricks, tooling gotchas).
@@ -909,7 +1079,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/tech-debt-tracker.md",
-    body: `# Tech-debt tracker
+    body: `---
+title: Tech-debt tracker
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-archive
+status: seeded
+---
+# Tech-debt tracker
 
 > Durable, append-only — a first-class, versioned backlog of test debt and
 > known-flaky areas. \`qa-archive\` appends entries as work-items close. Nothing
@@ -931,7 +1108,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/foundation/repo-map.md",
-    body: `# Repo map — test surface ↔ source
+    body: `---
+title: Repo map — test surface ↔ source
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-reverse-engineer
+status: seeded
+---
+# Repo map — test surface ↔ source
 
 > Durable navigation aid for large / multi-module / polyglot repos: find the right
 > place fast instead of blind-searching. **Two-phase.** Phase 1 wrote the
@@ -965,7 +1149,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/reference/system-overview.md",
-    body: `# System reference — C4 index
+    body: `---
+title: System reference — C4 index
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-reverse-engineer
+status: seeded
+---
+# System reference — C4 index
 
 > Durable. Produced by \`qa-reverse-engineer\` in phase 2 from the application source, following the
 > **C4 model** (L1 Context → L2 Container → L3 Component → L4 Code) rendered with Mermaid — see the
@@ -1001,6 +1192,15 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 |-------------|------|--------------------|-------------------|
 | <METHOD /path · CLI · job · consumer> | HTTP / CLI / job / event | <path#Lnn> | yes / no / partial |
 
+### API / endpoint inventory
+> Every callable API surface with the contract detail case design needs (richer than the
+> coverage-focused entry-point inventory above): method, path, auth, request/response shape,
+> and status codes — each grounded at \`file:line\` (R-074).
+
+| Method · path | Auth | Request (key fields) | Responses (status codes) | Source (file:line) |
+|---------------|------|----------------------|--------------------------|--------------------|
+| <GET /things/{id}> | <scheme / none> | <key request fields> | <200 / 400 / 404 / …> | <path#Lnn> |
+
 ### Data model & boundaries
 > The fields/entities under test, with their valid and invalid/boundary values for case design.
 
@@ -1013,11 +1213,28 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
 ### Questions & issues
 | ID | Question / uncertainty | Impact | Status |
 |----|------------------------|--------|--------|
+
+### Completeness verification
+> Self-check before this reference is trusted (R-074): confirm the inventories are exhaustive
+> and grounded. Per the \`documentation\` standard, this is part of earning the doc's length —
+> an inventory that silently drops an endpoint is worse than one that flags the gap.
+
+- [ ] Every entry point / endpoint discoverable in the source is listed above — none silently dropped.
+- [ ] Every inventory row cites a real \`file:line\` (\`grounding\`); nothing inferred sits outside the **Assumptions** table.
+- [ ] Every integration point has a direction, protocol, and test focus.
+- [ ] Gaps and uncertainties are recorded in **Questions & issues** / **Assumptions**, not omitted.
 `,
   },
   {
     rel: "context/reference/c4-context.md",
-    body: `# C4 L1 — System context
+    body: `---
+title: C4 L1 — System context
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-reverse-engineer
+status: seeded
+---
+# C4 L1 — System context
 
 > Durable. Filled by \`qa-reverse-engineer\` (phase 2). One \`C4Context\` (or \`flowchart\` fallback) Mermaid
 > diagram per the \`diagram-conventions\` guideline: the system as one box, its users, and the external
@@ -1033,7 +1250,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/reference/c4-container.md",
-    body: `# C4 L2 — Containers
+    body: `---
+title: C4 L2 — Containers
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-reverse-engineer
+status: seeded
+---
+# C4 L2 — Containers
 
 > Durable. Filled by \`qa-reverse-engineer\` (phase 2). A \`C4Container\` (fallback: \`flowchart\`) diagram of
 > the deployable/runnable units inside the system boundary (apps, services, data stores, queues) and how
@@ -1049,7 +1273,14 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/reference/c4-component.md",
-    body: `# C4 L3 — Components
+    body: `---
+title: C4 L3 — Components
+version: 0.1.0
+last-updated: {{LAST_UPDATED}}
+owner-skill: qa-reverse-engineer
+status: seeded
+---
+# C4 L3 — Components
 
 > Durable. Filled by \`qa-reverse-engineer\` (phase 2), zooming into the testing-critical container(s). A
 > \`C4Component\` (fallback: \`flowchart\`) diagram of the components inside a container plus the entry
@@ -1073,6 +1304,10 @@ export const FOUNDATION: Array<{ rel: string; body: string }> = [
   },
   {
     rel: "context/refinements/.gitkeep",
+    body: "",
+  },
+  {
+    rel: "context/knowledge/.gitkeep",
     body: "",
   },
 ];

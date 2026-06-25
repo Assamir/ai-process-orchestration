@@ -2,7 +2,7 @@
 
 > **Auto-generated** from `packages/core/src/model/skills.ts` by `packages/core/src/docs/skill-flows.ts` (R-052). **Do not edit by hand** — the snapshot test `packages/core/tests/skill-flows.test.ts` fails on drift; regenerate with `npm run docs`. Every diagram is wrapped in `@formatter:off` / `@formatter:on` guards (R-054) so an autoformatter can't reflow it.
 
-The suite ships **21 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
+The suite ships **24 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
 
 ## How the suite fits together
 
@@ -39,6 +39,9 @@ flowchart LR
     qa_metrics["qa-metrics"]
     qa_bug_report["qa-bug-report"]
     qa_reverse_engineer["qa-reverse-engineer"]
+    qa_framework_analyze["qa-framework-analyze"]
+    qa_knowledge["qa-knowledge"]
+    qa_doc_critic["qa-doc-critic"]
   end
   qa_init --> qa_reverse_engineer
   qa_init --> qa_new
@@ -94,7 +97,20 @@ flowchart LR
   qa_bug_report --> qa_archive
   qa_reverse_engineer --> qa_ticket_review
   qa_reverse_engineer --> qa_test_plan
+  qa_reverse_engineer --> qa_doc_critic
   qa_reverse_engineer --> qa_gardening
+  qa_framework_analyze --> qa_test_automate
+  qa_framework_analyze --> qa_doc_critic
+  qa_framework_analyze --> qa_gardening
+  qa_knowledge --> qa_plan
+  qa_knowledge --> qa_test_case_design
+  qa_knowledge --> qa_doc_critic
+  qa_doc_critic --> qa_reverse_engineer
+  qa_doc_critic --> qa_knowledge
+  qa_doc_critic --> qa_framework_analyze
+  qa_doc_critic --> qa_ticket_review
+  qa_doc_critic --> qa_plan
+  qa_doc_critic --> qa_gardening
 ```
 <!-- @formatter:on -->
 
@@ -152,7 +168,7 @@ flowchart TD
 ```
 <!-- @formatter:on -->
 
-## Skills (21)
+## Skills (24)
 
 ### Backbone — process & context
 
@@ -510,7 +526,7 @@ flowchart TD
 Author and maintain automated tests in the chosen framework from designed cases.
 
 - **Model:** opus (heavy reasoning) · **Mode:** write
-- **Reads:** `context/changes/<work-id>/cases.md`, `context/foundation/tools.md`
+- **Reads:** `context/changes/<work-id>/cases.md`, `context/foundation/tools.md`, `context/foundation/framework-architecture.md`
 - **Writes:** `context/changes/<work-id>/automation.md`
 - **Next:** `qa-rca` → `qa-playwright-cli` → `qa-performance` → `qa-ci-pipeline`
 
@@ -524,6 +540,8 @@ flowchart TD
   r0 --> qa_test_automate
   r1[("reads: context/foundation/tools.md")]
   r1 --> qa_test_automate
+  r2[("reads: context/foundation/framework-architectu…")]
+  r2 --> qa_test_automate
   s0["1. Implement the designed cases as automated tests in…"]
   qa_test_automate --> s0
   s1["2. Keep tests independent, deterministic, and parallel…"]
@@ -885,7 +903,7 @@ Reverse-engineer the application source into structured project documentation un
 - **Model:** opus (heavy reasoning) · **Mode:** write
 - **Reads:** `context/.scaffold/manifest.json`, `context/foundation/repo-map.md`
 - **Writes:** `context/reference/`, `context/foundation/repo-map.md`
-- **Next:** `qa-ticket-review` → `qa-test-plan` → `qa-gardening`
+- **Next:** `qa-ticket-review` → `qa-test-plan` → `qa-doc-critic` → `qa-gardening`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -917,6 +935,121 @@ flowchart TD
   s6 --> w1
   s6 -->|next| qa_ticket_review["qa-ticket-review"]
   s6 -->|next| qa_test_plan["qa-test-plan"]
+  s6 -->|next| qa_doc_critic["qa-doc-critic"]
   s6 -->|next| qa_gardening["qa-gardening"]
+```
+<!-- @formatter:on -->
+
+#### `qa-framework-analyze`
+
+Reverse-engineer the test-framework code into a generated structural map (framework-architecture.md = pillar P3) so authored test code matches the framework as documented.
+
+- **Model:** opus (heavy reasoning) · **Mode:** write
+- **Reads:** `context/.scaffold/manifest.json`, `context/foundation/repo-map.md`, `context/foundation/test-framework.md`
+- **Writes:** `context/foundation/framework-architecture.md`
+- **Next:** `qa-test-automate` → `qa-doc-critic` → `qa-gardening`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ To document the test-automation framework's structure before au…"]
+  qa_framework_analyze["qa-framework-analyze<br/>opus · write"]
+  trig --> qa_framework_analyze
+  r0[("reads: context/.scaffold/manifest.json")]
+  r0 --> qa_framework_analyze
+  r1[("reads: context/foundation/repo-map.md")]
+  r1 --> qa_framework_analyze
+  r2[("reads: context/foundation/test-framework.md")]
+  r2 --> qa_framework_analyze
+  s0["1. Recon the framework from context/"]
+  qa_framework_analyze --> s0
+  s1["2. Read the framework code read-only"]
+  s0 --> s1
+  s2["3. Write context/foundation/framework-architecture"]
+  s1 --> s2
+  s3["4. Per the assumptions guideline, anything you couldn'…"]
+  s2 --> s3
+  w0[("writes: context/foundation/framework-architectu…")]
+  s3 --> w0
+  s3 -->|next| qa_test_automate["qa-test-automate"]
+  s3 -->|next| qa_doc_critic["qa-doc-critic"]
+  s3 -->|next| qa_gardening["qa-gardening"]
+```
+<!-- @formatter:on -->
+
+#### `qa-knowledge`
+
+Build a durable P2 knowledge base (domain, glossary, business rules, decisions) under context/knowledge/ from Jira/Confluence via the MCP fetch layer.
+
+- **Model:** opus (heavy reasoning) · **Mode:** write
+- **Reads:** `context/foundation/test-strategy.md`, `context/reference/system-overview.md`
+- **Writes:** `context/knowledge/<topic>.md`
+- **Next:** `qa-plan` → `qa-test-case-design` → `qa-doc-critic`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ To build a durable P2 knowledge base from Jira/Confluence — dom…"]
+  qa_knowledge["qa-knowledge<br/>opus · write"]
+  trig --> qa_knowledge
+  r0[("reads: context/foundation/test-strategy.md")]
+  r0 --> qa_knowledge
+  r1[("reads: context/reference/system-overview.md")]
+  r1 --> qa_knowledge
+  s0["1. Fetch through MCP — never summarize from a title."]
+  qa_knowledge --> s0
+  s1["2. Synthesize one durable doc per topic"]
+  s0 --> s1
+  s2["3. Per the assumptions guideline, anything you infer b…"]
+  s1 --> s2
+  s3["4. Output prose in {{REPORT_LANGUAGE_NAME}}"]
+  s2 --> s3
+  w0[("writes: context/knowledge/<topic>.md")]
+  s3 --> w0
+  s3 -->|next| qa_plan["qa-plan"]
+  s3 -->|next| qa_test_case_design["qa-test-case-design"]
+  s3 -->|next| qa_doc_critic["qa-doc-critic"]
+```
+<!-- @formatter:on -->
+
+#### `qa-doc-critic` *(read-only)*
+
+Semantic quality gate over a single generated document — hallucination, assumptions-table, citation, and documentation-standard conformance (read-only).
+
+- **Model:** opus (heavy reasoning) · **Mode:** read-only
+- **Reads:** `context/reference/`, `context/knowledge/`, `context/foundation/`, `context/changes/`
+- **Writes:** —
+- **Next:** `qa-reverse-engineer` → `qa-knowledge` → `qa-framework-analyze` → `qa-ticket-review` → `qa-plan` → `qa-gardening`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ After a document is generated or substantially edited (a P1 ref…"]
+  qa_doc_critic["qa-doc-critic<br/>opus · read-only"]
+  trig --> qa_doc_critic
+  r0[("reads: context/reference/")]
+  r0 --> qa_doc_critic
+  r1[("reads: context/knowledge/")]
+  r1 --> qa_doc_critic
+  r2[("reads: context/foundation/")]
+  r2 --> qa_doc_critic
+  r3[("reads: context/changes/")]
+  r3 --> qa_doc_critic
+  s0["1. Read the target document and the standards it must…"]
+  qa_doc_critic --> s0
+  s1["2. Hallucination check."]
+  s0 --> s1
+  s2["3. Assumptions-table completeness."]
+  s1 --> s2
+  s3["4. Standard conformance."]
+  s2 --> s3
+  s4["5. Output a prioritized findings list in {{REPORT_LANG…"]
+  s3 --> s4
+  s4 -->|next| qa_reverse_engineer["qa-reverse-engineer"]
+  s4 -->|next| qa_knowledge["qa-knowledge"]
+  s4 -->|next| qa_framework_analyze["qa-framework-analyze"]
+  s4 -->|next| qa_ticket_review["qa-ticket-review"]
+  s4 -->|next| qa_plan["qa-plan"]
+  s4 -->|next| qa_gardening["qa-gardening"]
 ```
 <!-- @formatter:on -->

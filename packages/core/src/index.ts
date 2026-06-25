@@ -10,7 +10,20 @@ export {
 } from "./labels.js";
 export { render } from "./render.js";
 export { SKILLS, type LogicalSkill } from "./model/skills.js";
-export { ARTIFACTS, tpl, type ArtifactTemplate } from "./model/artifacts.js";
+export {
+  ARTIFACTS,
+  tpl,
+  docTier,
+  frontmatterKeys,
+  frontmatterList,
+  pathIsPillar,
+  PILLAR_PREFIXES,
+  DURABLE_DOC_FRONTMATTER,
+  RUNTIME_DOC_FRONTMATTER,
+  type ArtifactTemplate,
+  type DocTier,
+  type Pillar,
+} from "./model/artifacts.js";
 export {
   mdToJira,
   JIRA_CONVERSION_TABLE,

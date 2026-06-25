@@ -1,13 +1,13 @@
 # Design — Documentation pillars (foundation for plan / cases / implementation)
 
-> **Status:** 🧊 backlog (unscheduled) · **Epic:** R-069 → R-074 (documentation pillars) ·
-> **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) · **Product sections:** PRD §2/§8, TECH §11.
+> **Status:** ✅ shipped (v0.47.0–v0.52.0) · **Epic:** R-069 → R-074 (documentation pillars) ·
+> **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) (Shipped table) · **Product sections:** PRD §5/§8, TECH §5/§6/§11/§12.1.
 >
-> This is a **design record only** — no code ships with it. It captures the pillar model, the gap analysis,
-> and the user-locked decisions so the epic can be picked up later (the same way R-062→R-068 was first
-> captured in [`qa-artifact-templates.md`](qa-artifact-templates.md), then shipped). When an item is
-> implemented, generalize the `.external` reference material stack-agnostically into `core` (the R-062→R-068
-> pattern), run `npm test` (parity included), and flip the item to ✅ in `ROADMAP.md`.
+> This was the **design record**; the epic has since shipped. It captures the pillar model, the gap
+> analysis, and the user-locked decisions the implementation followed (the same way R-062→R-068 was first
+> captured in [`qa-artifact-templates.md`](qa-artifact-templates.md), then shipped). Kept for provenance;
+> the authoritative per-item record is now the **Shipped** table in `ROADMAP.md`. Deferred follow-ups
+> R-075–R-078 remain in the backlog.
 
 ## Why
 

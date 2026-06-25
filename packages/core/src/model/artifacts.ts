@@ -38,9 +38,26 @@ export interface ArtifactTemplate {
   requiredSections: string[];
   /** The field carrying this artifact's trace pointer, when it has one (e.g. "Traces to"). */
   traceField?: string;
+  /**
+   * (R-070) The documentation **pillars** this artifact must rest on — the
+   * horizontal provenance dimension orthogonal to the vertical `AC<n>` → `Traces
+   * to:` → `Covers:` trace chain. A filled artifact records the concrete pillar
+   * docs in its `built-on:` frontmatter; `doctor` warns when a required pillar is
+   * absent (the hard gate at `status: ready` folds into R-061).
+   */
+  requiredPillars?: Pillar[];
   /** The canonical, seeded body (no outer code fence — the skill body wraps it). */
   template: string;
 }
+
+/**
+ * (R-070) The three pillars of generated documentation. Each maps to an on-disk
+ * home so `doctor` can read a pillar's type straight from a `built-on:` path:
+ * **P1** the application source (`qa-reverse-engineer`), **P2** Jira/Confluence
+ * (`qa-knowledge` + `qa-ticket-review`), **P3** the test-framework code
+ * (`qa-framework-analyze`).
+ */
+export type Pillar = "P1" | "P2" | "P3";
 
 const WORK_TEMPLATE = `---
 status: in-progress
@@ -60,6 +77,10 @@ status: in-progress
 
 const PLAN_TEMPLATE = `---
 status: in-progress
+work-id: <work-id>
+built-on:
+  - context/reference/system-overview.md   # P1 — app source (qa-reverse-engineer)
+  - context/knowledge/<topic>.md           # P2 — domain knowledge (qa-knowledge)
 ---
 # Test plan: <work-id> — <title>
 
@@ -134,7 +155,14 @@ graph LR
 | Date | Author | Change |
 |------|--------|--------|`;
 
-const CASES_TEMPLATE = `# Test cases: <work-id>
+const CASES_TEMPLATE = `---
+status: in-progress
+work-id: <work-id>
+built-on:
+  - context/reference/system-overview.md   # P1 — app source (qa-reverse-engineer)
+  - context/knowledge/<topic>.md           # P2 — domain knowledge (qa-knowledge)
+---
+# Test cases: <work-id>
 
 > Detailed, executable test-case specs derived from the plan's business test cases.
 > Each case traces to an acceptance criterion and becomes one automated test
@@ -158,7 +186,13 @@ const CASES_TEMPLATE = `# Test cases: <work-id>
   | <boundary> | <…> |
   | <invalid> | <error / rejection> |`;
 
-const AUTOMATION_TEMPLATE = `# Automation: <work-id>
+const AUTOMATION_TEMPLATE = `---
+status: in-progress
+work-id: <work-id>
+built-on:
+  - context/foundation/framework-architecture.md   # P3 — framework code (qa-framework-analyze)
+---
+# Automation: <work-id>
 
 ## Run
 - **Command:** <exact command to run the new tests>
@@ -170,7 +204,14 @@ const AUTOMATION_TEMPLATE = `# Automation: <work-id>
 ## Result
 <pass / fail summary of the recorded run>`;
 
-const PERFORMANCE_TEMPLATE = `# Performance: <work-id>
+const PERFORMANCE_TEMPLATE = `---
+status: in-progress
+work-id: <work-id>
+built-on:
+  - context/reference/system-overview.md           # P1 — app source (qa-reverse-engineer)
+  - context/foundation/framework-architecture.md   # P3 — framework code (optional)
+---
+# Performance: <work-id>
 
 ## NFRs
 - **NFR1**: <p95 / p99 / throughput / error-rate budget> — Traces to: AC1
@@ -274,6 +315,41 @@ related_docs: []
 ## Definition of Done
 - <the checklist that closes this ticket>`;
 
+const KNOWLEDGE_TEMPLATE = `---
+title: <topic> — domain knowledge
+version: 0.1.0
+last-updated: <YYYY-MM-DD>
+owner-skill: qa-knowledge
+status: draft
+---
+# <topic> — domain knowledge
+
+> Durable **P2** knowledge synthesized from Jira / Confluence via the MCP fetch layer.
+> Cite every fact (\`grounding\`); inferred content lives in the Assumptions table only.
+
+## Domain
+<what this area of the product does, in business terms>
+
+## Glossary
+| Term | Definition | Source |
+|------|------------|--------|
+| <term> | <definition> | <Confluence page / Jira key> |
+
+## Business rules
+- <rule> — <source>
+
+## Decisions
+| Decision | Rationale | Date | Source |
+|----------|-----------|------|--------|
+
+## Assumptions
+| ID | Claim | Basis | Impact | Verification | Confidence |
+|----|-------|-------|--------|--------------|------------|
+
+## Source references
+| Source | URL / key | What was extracted |
+|--------|-----------|--------------------|`;
+
 /** The runtime artifacts under `context/changes/<work-id>/`, plus standalone areas, in workflow order. */
 export const ARTIFACTS: ArtifactTemplate[] = [
   {
@@ -288,6 +364,7 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     pathTemplate: "context/changes/<work-id>/plan.md",
     producedBy: "qa-plan",
     requiredSections: ["Business view", "Architecture view", "Implementation view"],
+    requiredPillars: ["P1", "P2"],
     template: PLAN_TEMPLATE,
   },
   {
@@ -296,6 +373,7 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     producedBy: "qa-test-case-design",
     requiredSections: [],
     traceField: "Traces to",
+    requiredPillars: ["P1", "P2"],
     template: CASES_TEMPLATE,
   },
   {
@@ -304,6 +382,7 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     producedBy: "qa-test-automate",
     requiredSections: ["Run", "Tests", "Result"],
     traceField: "Covers",
+    requiredPillars: ["P3"],
     template: AUTOMATION_TEMPLATE,
   },
   {
@@ -312,6 +391,7 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     producedBy: "qa-performance",
     requiredSections: ["NFRs", "Plan", "Results"],
     traceField: "Traces to",
+    requiredPillars: ["P1"],
     template: PERFORMANCE_TEMPLATE,
   },
   {
@@ -331,6 +411,16 @@ export const ARTIFACTS: ArtifactTemplate[] = [
     requiredSections: ["Context", "Recommendation", "Acceptance criteria"],
     template: REFINEMENT_TEMPLATE,
   },
+  {
+    // R-072 — durable P2 knowledge doc synthesized from Jira/Confluence. A
+    // standalone area (no work-id) like refinements; its shape is registered here
+    // so qa-knowledge embeds it and a future validator (R-061) can check it.
+    name: "knowledge",
+    pathTemplate: "context/knowledge/<topic>.md",
+    producedBy: "qa-knowledge",
+    requiredSections: ["Domain", "Glossary", "Business rules", "Decisions"],
+    template: KNOWLEDGE_TEMPLATE,
+  },
 ];
 
 const BY_NAME = new Map(ARTIFACTS.map((a) => [a.name, a]));
@@ -344,4 +434,109 @@ export function tpl(name: string): string {
   const a = BY_NAME.get(name);
   if (a === undefined) throw new Error(`Unknown artifact template: ${name}`);
   return a.template;
+}
+
+/**
+ * R-069 — the **documentation meta-standard, machine half.** The `documentation`
+ * guideline carries the human-readable rules; this is the parseable contract
+ * `doctor` enforces (the product's "rule + check" pattern). Tiered, read from a
+ * doc's path:
+ *
+ * - **Durable docs** (`foundation/`, `reference/`, `knowledge/`) carry the **full**
+ *   frontmatter — the long-lived structural map of the system.
+ * - **Runtime artifacts** (`changes/<work-id>/*`) carry a **light** frontmatter
+ *   (`status` feeds R-060/R-061) plus the trace markers + `requiredSections` above.
+ *
+ * Frontmatter is recorded as *keys* (values are project-specific); `doctor` checks
+ * the keys are present on each existing durable doc, so the seeded skeleton is
+ * born compliant.
+ */
+export const DURABLE_DOC_FRONTMATTER = [
+  "title",
+  "version",
+  "last-updated",
+  "owner-skill",
+  "status",
+] as const;
+
+export const RUNTIME_DOC_FRONTMATTER = ["status", "work-id"] as const;
+
+export type DocTier = "durable" | "runtime";
+
+/**
+ * The documentation tier of a `context/` doc, read from its path, or `null` for a
+ * file the standard doesn't govern (guidelines, `.gitkeep`, the manifest). Durable
+ * pillars live under `foundation/`/`reference/`/`knowledge/`; runtime artifacts
+ * under `changes/<work-id>/`.
+ */
+export function docTier(rel: string): DocTier | null {
+  const p = rel.replace(/\\/g, "/");
+  if (/^context\/changes\/[^/]+\/.+\.md$/.test(p)) return "runtime";
+  if (/^context\/(foundation|reference|knowledge)\/.+\.md$/.test(p)) return "durable";
+  return null;
+}
+
+/**
+ * Parse the keys of a leading YAML frontmatter block (between the first pair of
+ * `---` fences). Returns an empty set when the doc has no frontmatter. Minimal —
+ * top-level `key:` lines only, which is all the doc standard requires.
+ */
+export function frontmatterKeys(text: string): Set<string> {
+  const keys = new Set<string>();
+  if (!text.startsWith("---\n")) return keys;
+  const end = text.indexOf("\n---", 4);
+  if (end === -1) return keys;
+  for (const line of text.slice(4, end).split("\n")) {
+    const m = line.match(/^([A-Za-z][A-Za-z0-9_-]*):/);
+    if (m) keys.add(m[1]!);
+  }
+  return keys;
+}
+
+/**
+ * (R-070) On-disk prefixes that identify each pillar, so `doctor` can read a
+ * pillar's type from a `built-on:` path. P1 = the app-source reference docs; P2 =
+ * the durable knowledge base + refinements; P3 = the generated framework map.
+ */
+export const PILLAR_PREFIXES: Record<Pillar, string[]> = {
+  P1: ["context/reference/"],
+  P2: ["context/knowledge/", "context/refinements/"],
+  P3: ["context/foundation/framework-architecture.md"],
+};
+
+/** True when a `built-on:` entry path belongs to the given pillar. */
+export function pathIsPillar(rel: string, pillar: Pillar): boolean {
+  const p = rel.replace(/\\/g, "/").trim();
+  return PILLAR_PREFIXES[pillar].some((prefix) => p === prefix || p.startsWith(prefix));
+}
+
+/**
+ * (R-070) Parse a list-valued frontmatter key (block `- item` form, or inline
+ * `[a, b]`), stripping trailing `# comments`. Returns [] when absent. Used by
+ * `doctor` to read an artifact's `built-on:` provenance.
+ */
+export function frontmatterList(text: string, key: string): string[] {
+  if (!text.startsWith("---\n")) return [];
+  const end = text.indexOf("\n---", 4);
+  if (end === -1) return [];
+  const lines = text.slice(4, end).split("\n");
+  const idx = lines.findIndex((l) => l.match(new RegExp(`^${key}:`)));
+  if (idx === -1) return [];
+  const header = lines[idx]!.slice(key.length + 1).trim();
+  const strip = (s: string): string => s.replace(/#.*$/, "").trim();
+  if (header.startsWith("[")) {
+    return header
+      .replace(/^\[|\]$/g, "")
+      .split(",")
+      .map((s) => strip(s))
+      .filter((s) => s.length > 0);
+  }
+  const out: string[] = [];
+  for (let i = idx + 1; i < lines.length; i++) {
+    const m = lines[i]!.match(/^\s*-\s+(.*)$/);
+    if (!m) break;
+    const v = strip(m[1]!);
+    if (v.length > 0) out.push(v);
+  }
+  return out;
 }

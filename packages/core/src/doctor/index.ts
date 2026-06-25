@@ -1,6 +1,14 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, posix, relative } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
+import {
+  ARTIFACTS,
+  DURABLE_DOC_FRONTMATTER,
+  docTier,
+  frontmatterKeys,
+  frontmatterList,
+  pathIsPillar,
+} from "../model/artifacts.js";
 import { FOUNDATION, GUIDELINES } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
 import { PHASE1_VAR_NAMES } from "../scaffold/index.js";
@@ -254,9 +262,109 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
   }
 
+  // 10. Documentation meta-standard (R-069) — the keystone of the documentation
+  // pillars. Two halves of the "rule + check" pattern:
+  //  (a) the `documentation` guideline must keep its core contract (frontmatter +
+  //      "when to use" + length discipline), a content check parallel to the
+  //      docs-as-code / grounding / env-management / formatter checks; and
+  //  (b) every durable doc (foundation/reference/knowledge) carries the full
+  //      frontmatter, so the seeded skeleton is born compliant and R-070/R-061 can
+  //      read `owner-skill`/`status`/`built-on` off it.
+  const docStdRel = adapter.guidelineRel("documentation");
+  const docStdAbs = join(root, docStdRel);
+  if (existsSync(docStdAbs)) {
+    const text = readFileSync(docStdAbs, "utf8").toLowerCase();
+    if (!text.includes("frontmatter") || !text.includes("when to use") || !text.includes("length")) {
+      findings.push({
+        id: "DOCSTD:contract",
+        severity: "error",
+        message: `The documentation guideline (${docStdRel}) no longer states its core contract (YAML frontmatter, a "When to use this document" lede, and length discipline).`,
+        remediation:
+          "Restore the contract: every generated doc carries frontmatter, a single H1, a when-to-use lede, and earns its length (link out, don't restate). It composes grounding/diagram-conventions/documentation-as-code. It must not be weakened.",
+      });
+    }
+  }
+  for (const rel of mdFiles) {
+    if (docTier(rel) !== "durable") continue;
+    const keys = frontmatterKeys(readFileSync(join(root, rel), "utf8"));
+    const missing = DURABLE_DOC_FRONTMATTER.filter((k) => !keys.has(k));
+    if (missing.length > 0) {
+      findings.push({
+        id: `DOCSTD:frontmatter:${rel}`,
+        severity: "error",
+        message: `Durable doc ${rel} is missing required frontmatter key(s): ${missing.join(", ")}.`,
+        remediation: `Add a YAML frontmatter block with ${DURABLE_DOC_FRONTMATTER.join(", ")} (the documentation standard). It must sit at the top, between \`---\` fences.`,
+      });
+    }
+  }
+
+  // 11. Pillar provenance (R-070) — every runtime artifact records the
+  // documentation pillars it rests on in its `built-on:` frontmatter. A broken
+  // provenance link is an error (it points at a pillar doc that isn't there); a
+  // required pillar with no resolved entry is a warn (the hard gate at `status:
+  // ready` folds into R-061). Safe on a fresh scaffold: `context/changes/` is
+  // empty, so nothing is checked.
+  validateProvenance(root, findings);
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };
+}
+
+/**
+ * (R-070) Walk `context/changes/<work-id>/` for the runtime artifacts that
+ * declare `requiredPillars`, and check each filled artifact's `built-on:`
+ * provenance: real-but-missing entries error (`BUILTON:link`), and a required
+ * pillar with no resolved entry warns (`BUILTON:pillar`). Unresolved placeholder
+ * entries (`<topic>`) are ignored for the link check and don't count as covering
+ * a pillar — so a not-yet-filled `built-on:` surfaces as the warn, not a false
+ * broken-link error.
+ */
+function validateProvenance(root: string, findings: DoctorFinding[]): void {
+  const changesAbs = join(root, "context/changes");
+  if (!existsSync(changesAbs)) return;
+  const runtime = ARTIFACTS.filter(
+    (a) => a.requiredPillars && a.requiredPillars.length > 0 && a.pathTemplate.startsWith("context/changes/<work-id>/"),
+  ).map((a) => ({ artifact: a, base: posix.basename(a.pathTemplate) }));
+  if (runtime.length === 0) return;
+
+  let dirs: import("node:fs").Dirent[];
+  try {
+    dirs = readdirSync(changesAbs, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const d of dirs) {
+    if (!d.isDirectory()) continue;
+    for (const { artifact, base } of runtime) {
+      const rel = `context/changes/${d.name}/${base}`;
+      const abs = join(root, rel);
+      if (!existsSync(abs)) continue;
+      const builtOn = frontmatterList(readFileSync(abs, "utf8"), "built-on");
+      const resolved = builtOn.filter((e) => !/[<>]/.test(e));
+      for (const e of resolved) {
+        if (!existsSync(join(root, e))) {
+          findings.push({
+            id: `BUILTON:link:${rel}:${e}`,
+            severity: "error",
+            message: `Broken pillar-provenance link in ${rel}: built-on points at ${e}, which does not exist.`,
+            remediation: `Fix the \`built-on:\` path or generate ${e} (e.g. via qa-reverse-engineer / qa-knowledge / qa-framework-analyze).`,
+          });
+        }
+      }
+      for (const pillar of artifact.requiredPillars!) {
+        const covered = resolved.some((e) => pathIsPillar(e, pillar) && existsSync(join(root, e)));
+        if (!covered) {
+          findings.push({
+            id: `BUILTON:pillar:${rel}:${pillar}`,
+            severity: "warn",
+            message: `${rel} (${artifact.name}) should rest on pillar ${pillar} but its \`built-on:\` lists no resolved ${pillar} doc.`,
+            remediation: `Add the ${pillar} pillar doc this artifact is built on to its \`built-on:\` frontmatter (P1=context/reference/, P2=context/knowledge/ or refinements/, P3=context/foundation/framework-architecture.md).`,
+          });
+        }
+      }
+    }
+  }
 }
 
 /** Every file phase 1 writes for this platform (mirrors `scaffold`). */
