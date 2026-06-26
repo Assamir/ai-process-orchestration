@@ -124,6 +124,27 @@ export function scaffoldFiles(
   ];
 }
 
+/**
+ * (R-079) The repo-root-relative paths phase 1 writes for one platform: the
+ * template set of `scaffoldFiles` **plus** the generated manifest. Path-only and
+ * context-independent — every rel is fixed by the adapter + the static
+ * `SKILLS`/`GUIDELINES`/`FOUNDATION` model, and the MCP file path is constant, so
+ * a neutral ctx suffices. Single source of truth for `doctor`'s structure check:
+ * the expected-file contract lives next to `scaffoldFiles` (its content sibling)
+ * and the manifest path is the one exported `MANIFEST_REL`, so the two can't drift.
+ */
+export function expectedFilePaths(adapter: PlatformAdapter): string[] {
+  const files = new Set<string>();
+  files.add(adapter.rootConfigRel);
+  for (const g of GUIDELINES) files.add(adapter.guidelineRel(g.name));
+  for (const f of FOUNDATION) files.add(f.rel);
+  for (const s of SKILLS) for (const w of adapter.renderSkill(s)) files.add(w.rel);
+  for (const w of adapter.orchestratorFiles(SKILLS)) files.add(w.rel);
+  files.add(adapter.mcpFile({ framework: "unknown", buildTool: "unknown" }).rel);
+  files.add(MANIFEST_REL);
+  return [...files];
+}
+
 /** sha256 hex of UTF-8 content — the pristine-baseline fingerprint for `update`. */
 export function hashContent(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");

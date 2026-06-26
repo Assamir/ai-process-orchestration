@@ -9,9 +9,8 @@ import {
   frontmatterList,
   pathIsPillar,
 } from "../model/artifacts.js";
-import { FOUNDATION, GUIDELINES } from "../model/context.js";
-import { SKILLS } from "../model/skills.js";
-import { PHASE1_VAR_NAMES } from "../scaffold/index.js";
+import { GUIDELINES } from "../model/context.js";
+import { expectedFilePaths, MANIFEST_REL, PHASE1_VAR_NAMES } from "../scaffold/index.js";
 
 export interface DoctorFinding {
   /** Deterministic, stable across runs. */
@@ -31,8 +30,6 @@ export interface DoctorReport {
   ok: boolean;
 }
 
-const MANIFEST_REL = "context/.scaffold/manifest.json";
-
 /**
  * Deterministic validator for a scaffolded QA orchestration — the QA analog of
  * `vscode/auditskill`, run **outside the agent loop**. Checks structure, the
@@ -41,7 +38,7 @@ const MANIFEST_REL = "context/.scaffold/manifest.json";
  */
 export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport {
   const findings: DoctorFinding[] = [];
-  const expected = expectedFiles(adapter);
+  const expected = expectedFilePaths(adapter);
 
   // 1. Structure — every file phase 1 should have written must exist.
   for (const rel of expected) {
@@ -367,20 +364,6 @@ function validateProvenance(root: string, findings: DoctorFinding[]): void {
   }
 }
 
-/** Every file phase 1 writes for this platform (mirrors `scaffold`). */
-function expectedFiles(adapter: PlatformAdapter): string[] {
-  const files = new Set<string>();
-  files.add(adapter.rootConfigRel);
-  for (const g of GUIDELINES) files.add(adapter.guidelineRel(g.name));
-  for (const f of FOUNDATION) files.add(f.rel);
-  for (const s of SKILLS) for (const w of adapter.renderSkill(s)) files.add(w.rel);
-  for (const w of adapter.orchestratorFiles(SKILLS)) files.add(w.rel);
-  // The MCP path is constant regardless of context; a neutral ctx is fine here.
-  files.add(adapter.mcpFile({ framework: "unknown", buildTool: "unknown" }).rel);
-  files.add(MANIFEST_REL);
-  return [...files];
-}
-
 /** Extract relative markdown link target paths (skips http/mailto/anchors). */
 function relativeLinks(md: string): string[] {
   return scanLinks(md).map((l) => l.path);
@@ -451,7 +434,9 @@ export function fixLinks(
   const unfixable: { file: string; target: string }[] = [];
   const editsByFile = new Map<string, Array<{ from: string; to: string }>>();
 
-  const mdFiles = expectedFiles(adapter).filter((r) => r.endsWith(".md") && existsSync(join(root, r)));
+  const mdFiles = expectedFilePaths(adapter).filter(
+    (r) => r.endsWith(".md") && existsSync(join(root, r)),
+  );
   for (const rel of mdFiles) {
     const filePosix = toPosix(rel);
     const text = readFileSync(join(root, rel), "utf8");

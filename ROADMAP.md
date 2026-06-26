@@ -86,6 +86,7 @@
 | 0.50.0 | **R-072** `qa-knowledge` skill + `context/knowledge/` (**P2**) — a write skill that fetches the indicated Confluence pages / epics via the R-065 MCP fetch layer and synthesizes **durable** knowledge docs (domain, glossary, business rules, decisions) into a new top-level `context/knowledge/` area, sibling to `context/reference/` — so `doctor` reads a pillar's type from its path (P1=`reference/`, P2=`knowledge/`+`refinements/`). A `knowledge` artifact (durable frontmatter + `requiredSections`) is registered in `ARTIFACTS`. Suite → **23 skills**. | `0754239` | `model/skills.ts`, `model/context.ts` (`knowledge/` area + root map), `model/artifacts.ts`, `tests/{scaffold,artifacts}.test.ts`, `docs/skill-catalog.md`, `PRD.md` §5, `TECH.md` §6 |
 | 0.51.0 | **R-073** `qa-doc-critic` read-only semantic quality gate — a read-only skill doing post-generation **per-document** semantic review against the R-069 meta-standard + `grounding` (R-029) + `assumptions` (R-044): hallucination check, Assumptions-table completeness, citation presence, standard conformance; reports in chat. Sharp role separation — `doctor` (mechanical/no-LLM) · `qa-gardening` (repo-wide drift sweep) · `qa-review` (work-item coverage/traceability) · `qa-doc-critic` (single-document quality). Wired from the doc producers' `## Next`. Suite → **24 skills**. *Depends on R-069.* | `0754239` | `model/skills.ts`, `tests/scaffold.test.ts`, `docs/skill-catalog.md`, `PRD.md` §5, `TECH.md` §5 |
 | 0.52.0 | **R-074** `qa-reverse-engineer` enrichment: API/endpoint inventory + Completeness Verification — light **P1** closure: an explicit **API / endpoint inventory** (method/path · auth · request/response · status codes, each at `file:line`) and a **Completeness verification** self-check (every endpoint/entry-point inventoried and grounded; gaps recorded, not silently dropped) added to `system-overview.md`, governed by the R-069 length guidance. *Completes the documentation-pillars epic R-069→R-074.* | `0754239` | `model/context.ts` (`system-overview.md`), `model/skills.ts` (`qa-reverse-engineer`), `tests/scaffold.test.ts`, `PRD.md` §5 |
+| 0.53.0 | **R-079** Single-source the scaffold file-list / manifest contract — removed the codebase's one real DRY violation: `MANIFEST_REL` was declared in both `scaffold` (exported) and `doctor` (a local copy), and `doctor`'s `expectedFiles()` re-derived the expected-file set that `scaffold`'s `scaffoldFiles()` already owns, so a manifest-path change or a new generated file could silently desync `doctor` from `scaffold`/`update`. `scaffold` now exports the single `MANIFEST_REL` **and** a path-only `expectedFilePaths(adapter)` (the context-independent companion to `scaffoldFiles`, returning the template set + the manifest); `doctor` imports both and drops its local copies (now-unused `FOUNDATION`/`SKILLS` imports trimmed). Pure refactor — **zero change to generated output**, parity structurally safe. First item of the internal-quality & cost-legibility epic (R-079→R-081). | `_pending_` | `packages/core/src/scaffold/index.ts` (`expectedFilePaths`), `doctor/index.ts`, `ROADMAP.md`, both leaf `package.json` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -114,6 +115,11 @@ scheduled to a version; the next work is pulled from the **Backlog** below._
   guideline, scheduled together), **R-049** (`test-strategy` guideline), **R-050** (`qa-release-readiness`
   skill), **R-053** (`qa-mobile` skill), **R-055** + **R-058** (`qa-security` skill + `security-testing`
   guideline, scheduled together).
+- **Internal quality & cost-legibility** — **R-079** (single-source the scaffold file-list / manifest
+  contract) **shipped v0.53.0**; remaining: **R-080** (integration & smoke test hardening), **R-081**
+  (`doctor` token-budget check). No dependency chain; both are low/low-med risk with **zero change to
+  generated output**. R-081 is the strategic one — it makes the "lean root map" principle a *measured*,
+  CI-gated invariant (composes with the R-051 `doctor`-as-PR-gate) rather than a hand-checked aspiration.
 - **Documentation-pillars follow-ups (deferred)** — **R-075** (per-service `context/reference/` split),
   **R-076** (`qa-postman-analysis`), **R-077** (`git-sync-changelog`), **R-078** (service-analysis-updates).
   Recorded with the now-shipped epic; not yet scheduled.
@@ -161,6 +167,43 @@ rich-artifact-templates epic).
   and `context/refinements/` (R-066) is a **separate area** from `changes/` (validated, but not work-item
   status-gated). *Likely lands in:* `doctor/index.ts`, `model/artifacts.ts`,
   `model/skills.ts` (status transitions), `tests/doctor.test.ts`, PRD §8, TECH §11.
+
+**Epic: internal quality & cost-legibility (R-079 → R-081).** Outcome of a quality / responsibility /
+token-cost review of the shipped product (`core` 0.32.0, leaves 0.52.0). The review's headline: the
+~37k tokens of generated content are **not resident at once** — by design (TECH §11) the always-resident
+surface is the lean root map (~67 lines) plus the *one* active skill, and guidelines are pulled
+just-in-time; the repeated material that looks like boilerplate (iron + grounding rules, the per-write-skill
+`READ_FIRST_STEP`, the ✅/❌ examples) is **deliberately load-bearing** (R-026/R-029/R-033) and trimming it
+is low-benefit / high-risk. So this epic targets the *safe* wins — remove the last DRY violation, cover the
+untested CLI/wizard/leaf/parity glue, and **make leanness measurable** instead of guessed. No dependency
+chain; all three are **zero-change-to-generated-output** (so parity is structurally safe). Content-trimming
+and `doctor`/`update` cosmetic refactors were considered and **declined** (poor ROI / cosmetic; trimming is
+premature without R-081's numbers).
+
+- **R-079 (v0.53.0 — ✅ shipped, in Shipped table).** Single-source the scaffold file-list / manifest
+  contract; `scaffold` now exports the one `MANIFEST_REL` + a path-only `expectedFilePaths(adapter)` that
+  `doctor` consumes. Pure refactor, zero generated-output change. Full detail in the **Shipped** row.
+- **R-080** — **Integration & smoke test hardening (backlog, no deps).** Closes the untested glue layer:
+  every core module is well-tested in isolation, but `runCli` routing (`--yes`/`--fix`/`--write`/`-i`/
+  `--root` + exit codes), the wizard (happy-path + cancel), and the leaf bins are not, and the parity test
+  (`scaffold.test.ts:1015`) asserts only the shared skill set + one shared file — an adapter frontmatter/
+  field-name typo can ship green. Add `tests/cli.test.ts` + `tests/wizard.test.ts`, a leaf smoke
+  (`node dist/index.js --help` → shebang + version), and **widen the parity test** to assert both adapters'
+  root-config / MCP-file / guideline-path *shapes*. Additive — can only *find* regressions, not introduce
+  them (~3–4h, low risk). *Likely lands in:* `tests/cli.test.ts` (new), `tests/wizard.test.ts` (new), a leaf
+  smoke test, `tests/scaffold.test.ts` (widened parity).
+- **R-081** — **`doctor` token-budget check (backlog, no deps).** The strategic item: `doctor` validates
+  structure, links, and load-bearing rules but **never counts tokens** — unlike its sibling
+  `vscode/auditskill`, which does exactly this for Copilot configs. Add a deterministic, **warn-only**
+  footprint report (per-file: root map / each guideline / each skill, plus totals) with configurable
+  thresholds, the tokenizer named, reusing the auditskill estimator pattern (`tiktoken` cl100k when globally
+  importable, else `chars/4` — **no new npm dependency** in `core`). Findings `TOKENS:rootmap` /
+  `TOKENS:guideline:<name>` / `TOKENS:total` (warn — size is a smell, not a defect; can't fail a clean
+  scaffold or break parity). Makes the "map, not a thousand-page manual / lean root survives compaction"
+  principle a **measured, CI-gated invariant** (composes with the R-051 `doctor`-as-PR-gate) and makes any
+  *future* trim evidence-led rather than a guess (~3–5h, low-med risk — calibration only). *Likely lands in:*
+  `doctor/index.ts`, a thresholds surface in `model/`/`doctor/`, `cli.ts` (output), `tests/doctor.test.ts`,
+  TECH §11.
 
 **Functional-coverage candidates (R-048 → R-050, R-053, R-055, R-057, R-058).** Net-new QA capabilities
 that fill gaps in the shipped 21-skill suite — independent of each other (no dependency chain), except two
