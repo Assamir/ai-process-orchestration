@@ -2,7 +2,16 @@
 
 export * from "./types.js";
 export { detectStack } from "./detect/index.js";
-export { defaultAnswers, runWizard } from "./wizard/index.js";
+export {
+  buildRepoInventory,
+  renderRepoInventory,
+  repoMapMarkdown,
+  enumerateRepos,
+  chooseTestRepo,
+  renderDeveloperRepos,
+  type RepoInventory,
+} from "./detect/repo-map.js";
+export { defaultAnswers, runWizard, defaultWorkspace, runWorkspaceWizard } from "./wizard/index.js";
 export {
   frameworkLabel,
   frameworkChoices,

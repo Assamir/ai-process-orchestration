@@ -461,6 +461,24 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   context tree, and the §12.1 guideline table carry the shipped rows; `qa-doc-critic` (R-073) is the
   read-only per-document semantic gate and R-074 closes P1 with an API/endpoint inventory + completeness
   check. The design record is `docs/design/documentation-pillars-R069-074.md`.
+- **Multi-repo workspace — scan-root / write-root split (R-083 → R-088, v0.54.0–v0.59.0).** The harness now
+  scopes to a **parent folder holding several repos**: one **test repo** (the only writable area — where the
+  whole `context/` + skill suite + manifest land) and read-only **developer repos** (application source).
+  `init --root <parent>` enumerates the sub-repos (`detect/repo-map.ts:enumerateRepos`), the wizard / `--yes`
+  picks the test repo (`chooseTestRepo`), and the single seam in `scaffold` — `join(root, rel)` — becomes
+  `join(writeRoot, rel)` with a new `ScaffoldInput.writeRoot?`; the adapter interface is untouched, so parity
+  is structurally safe. The manifest gains an additive `workspace { testRepo, devRepos, workspaceFile }` (still
+  `schemaVersion: 1`, parent-relative names). Source legibility across the workspace is the `DEVELOPER_REPOS`
+  phase-1 var (an inline-`../<repo>/` section in `repo-map.md`/`system-overview.md`, the source-reading skills
+  grounding at `../<dev>/file:line`). The "never write to a dev repo" invariant is enforced in **four layers**:
+  the load-bearing `MULTI_REPO_RULE` (root config + every write skill, the same shape as the iron/grounding
+  rules), the `multi-repo-boundaries` guideline, `doctor`'s `MULTIREPO:contract` + `MULTIREPO:leak:<repo>`
+  checks (the out-of-loop gate, composing with the R-051 CI gate), and the generated `.code-workspace`'s
+  `files.readonlyInclude` (the native editor pin) — persuasion + a native guardrail + a mechanical check, no
+  single one a hard sandbox. **Backward-compatibility invariant:** a single-repo `--root` (no sibling repos)
+  produces byte-identical output — no `workspace` block, no `.code-workspace`, no boundary rule — so every var
+  renders to "" and the parity test stays green unchanged. `doctor`/`update` run pointed at the test repo and
+  read topology from the co-located manifest. The design record is `docs/design/multi-repo-orchestration.md`.
 
 ## 12. Scaffolded-guidelines standard & flow reference (R-015)
 
@@ -486,6 +504,7 @@ Current set:
 | `performance-testing` | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047) | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
 | `code-formatting` | deterministic, tool-owned formatting — the formatter is the source of truth, deterministic import-order, and the generalized `@formatter:off` / `@formatter:on` autoformatter guards around content the formatter would mangle (chiefly Mermaid diagrams) (R-054) | the policy + the detected linters + a ✅/❌ example | `FORMATTER_PATTERNS`, `PROJECT_FORMATTING_WORKFLOW` |
 | `mcp-content-fetch` | fetch tickets/specs/attachments through MCP, never summarize from the title — the **download → verify → convert → read** ordering + source priority (Jira+Xray > Jira > Confluence > attachments) (R-065) | the flow + the ordering guarantees + a ✅/❌ example | `MCP_FETCH_PATTERNS`, `PROJECT_MCP_FETCH_WORKFLOW` |
+| `multi-repo-boundaries` | in a multi-repo workspace the test repo is the only writable area; developer repos are read-only source, read at `../<repo>/file:line`, never modified (R-085) | the boundary contract + a ✅/❌ example | `MULTI_REPO_PATTERNS`, `PROJECT_MULTI_REPO_WORKFLOW` |
 
 Standard each guideline follows:
 

@@ -264,7 +264,18 @@ export function runUpdate(
   // The repo-map inventory (R-037) is re-walked fresh from the repo — "always
   // fresh": on a pristine repo-map it refreshes to match the current layout; a
   // phase-2-enriched repo-map is drift and is preserved untouched, as ever.
-  const vars = buildVars(manifest.stack, manifest.choices, manifest.generatedAt, repoMapMarkdown(root));
+  // (R-088) Reproduce the multi-repo vars from the manifest's workspace block so a
+  // re-render is byte-identical to the live scaffold (the DEVELOPER_REPOS section
+  // and the MULTI_REPO_RULE must survive — without this, update would re-render
+  // them empty, see drift/pristine-update, and silently strip the dev-repo content).
+  const vars = buildVars(
+    manifest.stack,
+    manifest.choices,
+    manifest.generatedAt,
+    repoMapMarkdown(root),
+    manifest.workspace?.devRepos ?? [],
+    manifest.workspace?.testRepo,
+  );
   // (R-042) The template-side delta from the scaffolded version to the running
   // tool, computed from the same vars so unchanged templates render identically
   // and don't show up as spurious changes. Independent of on-disk state below.

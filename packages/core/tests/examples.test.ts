@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claudeAdapter, runDoctor, scaffold } from "../src/index.js";
-import type { DetectedStack, WizardAnswers } from "../src/index.js";
+import type { DetectedStack, WizardAnswers, WorkspaceInfo } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
 // Repo root: packages/core/tests → up three levels.
@@ -68,5 +68,29 @@ describe("examples walkthrough is test-backed (R-052)", () => {
     const report = runDoctor(project.dir, claudeAdapter);
     expect(report.errorCount, "scaffold is doctor-clean").toBe(0);
     expect(report.ok).toBe(true);
+  });
+
+  it("the multi-repo walkthrough (section 6) matches real behavior (R-088)", () => {
+    const md = readFileSync(WALKTHROUGH, "utf8");
+    expect(md, "documents the multi-repo section").toContain("Multi-repo workspaces");
+    expect(md).toContain(".code-workspace");
+    expect(md).toContain("MULTIREPO:leak");
+
+    // The behavior the section claims: artifacts in the test repo, dev repos untouched,
+    // a parent .code-workspace, a doctor-clean test repo.
+    const workspace: WorkspaceInfo = { testRepo: "test-repo", devRepos: ["app-a"] };
+    mkdirSync(join(project.dir, "test-repo"));
+    mkdirSync(join(project.dir, "app-a", ".git"), { recursive: true });
+    writeFileSync(join(project.dir, "app-a", "README.md"), "source\n");
+    const writeRoot = join(project.dir, "test-repo");
+    scaffold({ root: project.dir, writeRoot, workspace, adapter: claudeAdapter, stack, answers });
+
+    expect(existsSync(join(writeRoot, "CLAUDE.md")), "artifacts land in the test repo").toBe(true);
+    expect(existsSync(join(project.dir, "app-a", "CLAUDE.md")), "dev repo untouched").toBe(false);
+    expect(
+      existsSync(join(project.dir, `${basename(project.dir)}.code-workspace`)),
+      ".code-workspace in the parent",
+    ).toBe(true);
+    expect(runDoctor(writeRoot, claudeAdapter).errorCount, "test repo is doctor-clean").toBe(0);
   });
 });

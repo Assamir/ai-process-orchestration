@@ -185,6 +185,46 @@ with `npm rm -g claude-qa-orchestrator`.
 
 ---
 
+## Multi-repo workspace (a parent of several repos)
+
+If you work in **one parent folder that contains several git repos** — a dedicated
+**test repo** (the test framework) plus one or more **developer repos** (application
+source) — point `init` at the **parent**, not at a single repo:
+
+```text
+node <abs-path>/dist/index.js init --root <parent> --yes
+```
+
+`init` enumerates the immediate sub-repos (a directory is a repo if it has a `.git`
+or a build manifest), picks the most **test-like** one as the test repo (or asks you,
+without `--yes`), and treats the rest as **read-only developer repos**. The contract:
+
+- **One writable root.** All orchestration artifacts (`context/`, the skills, the MCP
+  config, the manifest) are written **only into the test repo**. The developer repos
+  are never modified — their source is read at `../<repo>/file:line` to plan and ground
+  tests. The dev-repo list is recorded in the manifest's `workspace` block and in
+  `context/foundation/repo-map.md`.
+- **A generated `.code-workspace`.** `init` writes `<parent-name>.code-workspace` into
+  the parent (the one sanctioned write outside the test repo). Open *that* file in VS
+  Code: it lists the test repo first and pins each developer-repo folder read-only
+  (`files.readonlyInclude`), so the editor itself blocks edits to source.
+- **Guardrails.** A load-bearing workspace-boundary rule is added to the root map and
+  every write skill, and `doctor` fails the build (`MULTIREPO:leak:<repo>`) if any
+  scaffold output leaks into a developer-repo tree.
+
+Run `doctor` and `update` pointed **at the test repo** (the manifest lives there):
+
+```text
+node <abs-path>/dist/index.js doctor --root <parent>/<test-repo>
+node <abs-path>/dist/index.js update --root <parent>/<test-repo> --write
+```
+
+A **single repo** `--root` (no sibling repos found under it) behaves exactly as the
+rest of this guide describes — no workspace block, no `.code-workspace`, no boundary
+rule. Multi-repo behavior activates only when the parent holds ≥2 qualifying repos.
+
+---
+
 ## After init — Phase 2 (LLM)
 
 `init` only runs Phase 1: it detects your stack, writes the lean root config, the

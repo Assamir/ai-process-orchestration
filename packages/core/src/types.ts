@@ -101,6 +101,31 @@ export interface WizardAnswers {
 /** A single platform we can scaffold for. */
 export type PlatformId = "claude" | "copilot";
 
+/**
+ * (R-083) Multi-repo workspace topology, recorded in the manifest when `init` ran
+ * over a **parent folder holding several repos**: the chosen **test repo** (the
+ * write root — where all orchestration artifacts land) and the sibling
+ * **developer repos** (read-only application source the skills read but never
+ * write). Paths are relative to the parent (just the directory name), never
+ * absolute, so the test repo stays portable and nothing machine-specific is
+ * committed. Absent on a single-repo scaffold — in which case every command
+ * behaves exactly as it did before this field existed (the backward-compatibility
+ * invariant).
+ */
+export interface WorkspaceInfo {
+  /** The test repo's directory name relative to the parent (the write root). */
+  testRepo: string;
+  /** The developer repos' directory names relative to the parent (read-only source). */
+  devRepos: string[];
+  /**
+   * (R-086) The generated `.code-workspace` file's path **relative to the test
+   * repo** (e.g. `../my-workspace.code-workspace`, since it lives in the parent,
+   * one level up). The one sanctioned write outside the test repo; recorded so
+   * `doctor` can grant it a leak-check exception and `update` knows it exists.
+   */
+  workspaceFile?: string;
+}
+
 /** Persisted handoff state written to context/.scaffold/manifest.json for phase 2. */
 export interface ScaffoldManifest {
   schemaVersion: 1;
@@ -121,6 +146,13 @@ export interface ScaffoldManifest {
   choices: WizardAnswers;
   /** Logical skill names that were rendered, for phase-2 reference. */
   skills: string[];
+  /**
+   * (R-083) Multi-repo workspace topology, present only when `init` ran over a
+   * parent folder with ≥2 qualifying repos and a test repo was selected. Absent on
+   * a single-repo scaffold — its absence is exactly what keeps every command on the
+   * single-root code path (the backward-compatibility invariant).
+   */
+  workspace?: WorkspaceInfo;
   /**
    * Map of root-relative path → recorded baseline of the canonical rendered
    * content written at scaffold/update time. Lets `update` prove a file is

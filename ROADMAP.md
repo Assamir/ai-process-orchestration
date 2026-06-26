@@ -88,6 +88,12 @@
 | 0.52.0 | **R-074** `qa-reverse-engineer` enrichment: API/endpoint inventory + Completeness Verification — light **P1** closure: an explicit **API / endpoint inventory** (method/path · auth · request/response · status codes, each at `file:line`) and a **Completeness verification** self-check (every endpoint/entry-point inventoried and grounded; gaps recorded, not silently dropped) added to `system-overview.md`, governed by the R-069 length guidance. *Completes the documentation-pillars epic R-069→R-074.* | `0754239` | `model/context.ts` (`system-overview.md`), `model/skills.ts` (`qa-reverse-engineer`), `tests/scaffold.test.ts`, `PRD.md` §5 |
 | 0.53.0 | **R-079** Single-source the scaffold file-list / manifest contract — removed the codebase's one real DRY violation: `MANIFEST_REL` was declared in both `scaffold` (exported) and `doctor` (a local copy), and `doctor`'s `expectedFiles()` re-derived the expected-file set that `scaffold`'s `scaffoldFiles()` already owns, so a manifest-path change or a new generated file could silently desync `doctor` from `scaffold`/`update`. `scaffold` now exports the single `MANIFEST_REL` **and** a path-only `expectedFilePaths(adapter)` (the context-independent companion to `scaffoldFiles`, returning the template set + the manifest); `doctor` imports both and drops its local copies (now-unused `FOUNDATION`/`SKILLS` imports trimmed). Pure refactor — **zero change to generated output**, parity structurally safe. First item of the internal-quality & cost-legibility epic (R-079→R-081). | `d6a7746` | `packages/core/src/scaffold/index.ts` (`expectedFilePaths`), `doctor/index.ts`, `ROADMAP.md`, both leaf `package.json` |
 | 0.53.1 | **R-082** "How to run" docs — single canonical [`docs/RUNNING.md`](docs/RUNNING.md) with the complete install/run lifecycle and **exact commands for PowerShell, Windows cmd, and macOS/Linux**, documenting both distribution paths as equals: **from npm** (`npx`, *once published*) and **from source** (`npm run build` → `node …/dist/index.js`, plus `npm link` / `npm pack`) — the path that works today. Fixes the doc/reality gap where every README advertised `npx <pkg>` though the leaves are **not yet published** (verified `E404`): root + package READMEs now carry a not-published note, drop the bare `npx`, and link the guide; `examples/README.md` + `docs/README.md` point to it too. Includes the `@clack/prompts`/"keep dist in the monorepo" caveat and a troubleshooting section. **Docs-only — zero code / generated-output change.** | `87a216f` | `docs/RUNNING.md` (new), `README.md`, `docs/README.md`, `examples/README.md`, both leaf `README.md` + `package.json` (version) |
+| 0.54.0 | **R-083** Multi-repo backbone — **scan-root / write-root split**. `init --root <parent>` now enumerates the immediate sub-repos (`detect/repo-map.ts:enumerateRepos`, a dir with a `.git` or a build manifest; skips noise/dotdirs, sorted/deterministic); with ≥2 candidates the wizard picks the **test repo** + read-only **developer repos** (`wizard/runWorkspaceWizard`), and `--yes`/CI picks the most test-like deterministically (`chooseTestRepo`). `ScaffoldInput` gains `writeRoot?` (every `join(root, rel)` → `join(writeRoot, rel)`, manifest under `writeRoot`; absent ⇒ `writeRoot === root`, today's path) and `workspace?`; `detectStack` runs on the chosen test repo. `ScaffoldManifest` gains optional `workspace { testRepo, devRepos, workspaceFile }` (parent-relative names; stays `schemaVersion: 1`). **Backward-compatible invariant:** a single-repo `--root` produces byte-identical output (no workspace block, no `.code-workspace`, no boundary rule) — the parity test + all prior tests stay green unchanged. Adapter interface untouched (split lives in `scaffold`/`cli`), so parity is structurally safe. Foundation of the multi-repo epic. | `pending` | `detect/repo-map.ts`, `scaffold/index.ts`, `types.ts` (`WorkspaceInfo`), `wizard/index.ts`, `cli.ts`, `index.ts`, `tests/multi-repo.test.ts` (new) |
+| 0.55.0 | **R-084** Source model — new phase-1 var **`DEVELOPER_REPOS`** (added to `PHASE1_VAR_NAMES` + `buildVars`, rendered by `repo-map.ts:renderDeveloperRepos`) injects an "External source repositories" section into `context/foundation/repo-map.md` and `context/reference/system-overview.md`, each dev repo an **inline-code relative path** (`../<dev>/`, never a link — can't trip the broken-link check, like the R-037 inventory). The source-reading skills (`qa-reverse-engineer`, `qa-framework-analyze`, `qa-coverage-gap`, `qa-metrics`) now ground at `../<dev>/file:line` and read source from the dev repos. Renders to "" on a single-repo scaffold (section omitted → snapshot-stable). *Depends on R-083.* | `pending` | `detect/repo-map.ts`, `scaffold/index.ts`, `model/context.ts`, `model/skills.ts`, `tests/multi-repo.test.ts` |
+| 0.56.0 | **R-085** Write guardrail — "never write to dev repos", four reinforcing layers. (1) A load-bearing **`MULTI_REPO_RULE`** in the lean root config beside the iron-QA/grounding rules and injected into every write skill's preamble (rendered to "" on single-repo, so byte-stable); names the test repo, marks dev repos read-only. (2) A new **`multi-repo-boundaries`** guideline (standard ✅/❌ + `## Applicable patterns` + `MULTI_REPO_PATTERNS`/`PROJECT_MULTI_REPO_WORKFLOW` slots). (3) `doctor` adds **`MULTIREPO:contract`** (error — the guideline must state the boundary, parallel to `ENVMGMT:contract`) and, when the manifest has a `workspace` block, **`MULTIREPO:leak:<repo>`** (error — no scaffold output may land in a dev-repo tree, resolved at `../<repo>`). (4) the R-086 editor pin. Inert on a single-repo scaffold. *Depends on R-083.* | `pending` | `model/context.ts` (root config + `GUIDELINES`), `model/skills.ts`, `scaffold/index.ts`, `doctor/index.ts`, `tests/multi-repo.test.ts` |
+| 0.57.0 | **R-086** VS Code `.code-workspace` + read-only pinning — `scaffold` (not the adapter → identical for both platforms, parity-safe) emits `<parent>/<parent-name>.code-workspace` listing the test repo first + the dev repos as `folders`, with `settings."files.readonlyInclude"` globbing the dev folders so VS Code itself blocks edits there. This is the **one sanctioned write outside `writeRoot`** (into the parent); its path is recorded in the manifest's `workspace.workspaceFile` (`../<name>.code-workspace`, test-repo-relative), and it lives in the parent so `doctor`'s leak check (which scans `../<dev>`) never flags it — the sanctioned write needs no special-casing. Emitted only with a `workspace` block. *Depends on R-083.* | `pending` | `scaffold/index.ts` (`emitCodeWorkspace`), `doctor/index.ts`, `docs/RUNNING.md`, `tests/multi-repo.test.ts` |
+| 0.58.0 | **R-087** Hybrid `context/reference/` (absorbs R-075) — `qa-reverse-engineer` now produces, in a multi-repo workspace, a **top-level `system-overview.md`** (cross-repo landscape + C4 **L1** spanning all dev repos) plus per-repo **`context/reference/<repo>/`** (C4 **L2/L3** + the R-068 test-surface lens), mapping cleanly onto C4 levels and scaling to many repos. The top-level index is already seeded + structure-checked by `doctor`; per-repo folders are created on demand (kept out of the fixed structure check, so an un-documented repo isn't an error). **Closes the deferred R-075** (per-service `context/reference/` split). *Depends on R-083.* | `pending` | `model/skills.ts` (`qa-reverse-engineer`), `model/context.ts`, `tests/multi-repo.test.ts`, `ROADMAP.md` |
+| 0.59.0 | **R-088** `doctor`/`update` topology awareness + docs — both run with **`--root <test-repo>`** (the manifest is co-located there), read the `workspace` block, and resolve dev repos via `../<dev>` for the R-085 leak check + the R-086 workspace exception. Critically, `update` re-derives `DEVELOPER_REPOS`/`MULTI_REPO_RULE` from the manifest's `workspace` block when re-rendering, so a migration is byte-identical to the live scaffold and **never strips the dev-repo content** (without it, a pristine-`update` would silently delete the section). New **"Multi-repo workspace"** section in `docs/RUNNING.md` + a **test-backed** multi-repo walkthrough in `examples/README.md` (`examples.test.ts`). Completes the epic R-083→R-088. *Depends on R-083→R-087.* | `pending` | `doctor/index.ts`, `update/index.ts`, `docs/RUNNING.md`, `examples/README.md`, `tests/{examples,multi-repo}.test.ts` |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -101,8 +107,9 @@ PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 
 
 ## Next (planned)
 
-_Every scheduled item through **v0.52.0** is shipped — see the **Shipped** table. The
-**documentation-pillars epic (R-069 → R-074) shipped** in v0.47.0–v0.52.0. Nothing is currently
+_Every scheduled item through **v0.59.0** is shipped — see the **Shipped** table. The
+**documentation-pillars epic (R-069 → R-074) shipped** in v0.47.0–v0.52.0 and the **multi-repo workspace
+epic (R-083 → R-088) shipped** in v0.54.0–v0.59.0 (closing the deferred R-075). Nothing is currently
 scheduled to a version; the next work is pulled from the **Backlog** below._
 
 **Queued next** (scoped, dependency-ready, not yet versioned):
@@ -121,9 +128,9 @@ scheduled to a version; the next work is pulled from the **Backlog** below._
   (`doctor` token-budget check). No dependency chain; both are low/low-med risk with **zero change to
   generated output**. R-081 is the strategic one — it makes the "lean root map" principle a *measured*,
   CI-gated invariant (composes with the R-051 `doctor`-as-PR-gate) rather than a hand-checked aspiration.
-- **Documentation-pillars follow-ups (deferred)** — **R-075** (per-service `context/reference/` split),
-  **R-076** (`qa-postman-analysis`), **R-077** (`git-sync-changelog`), **R-078** (service-analysis-updates).
-  Recorded with the now-shipped epic; not yet scheduled.
+- **Documentation-pillars follow-ups (deferred)** — **R-075** (per-service `context/reference/` split)
+  **shipped as part of R-087** (multi-repo epic, v0.58.0); remaining: **R-076** (`qa-postman-analysis`),
+  **R-077** (`git-sync-changelog`), **R-078** (service-analysis-updates). Not yet scheduled.
 
 ## Backlog (unscheduled)
 
@@ -284,6 +291,20 @@ R-048 skill, and **R-058** is the guideline for the R-055 skill. (R-051, `doctor
   together, as R-046+R-047 shipped together). *Likely lands in:* `core/src/model/context.ts`
   (`GUIDELINES`), `tests/scaffold.test.ts`, TECH §12.1, PRD §8. *Traces to:* PRD §8, TECH §12.1.
 
+> **Epic: multi-repo workspace orchestration (R-083 → R-088) — ✅ shipped (v0.54.0–v0.59.0).** The tool now
+> runs over **a parent folder holding several git repos** — one **test repo** (the test framework; where
+> *all* orchestration artifacts land) and several **developer repos** (application source; **read-only**,
+> never modified). A **scan-root / write-root split** (R-083) lets `init --root <parent>` scan/read the
+> parent but write only into the chosen test repo; the `DEVELOPER_REPOS` source model (R-084) points the
+> source-reading skills at `../<dev>/file:line`; a four-layer write guardrail (R-085: root rule +
+> `multi-repo-boundaries` guideline + `doctor` `MULTIREPO:contract`/`MULTIREPO:leak`) plus the generated
+> `.code-workspace` with read-only pinning (R-086) enforce "never write to dev repos"; the hybrid
+> `context/reference/` (R-087, **absorbs R-075**) splits the cross-repo C4 L1 from per-repo L2/L3; and
+> `doctor`/`update` are topology-aware (R-088). **Backward-compatible invariant:** a single-repo `--root`
+> behaves exactly as before (no `workspace` block, no `.code-workspace`, no guardrail) — the parity test
+> stayed green unchanged. Full detail in the **Shipped** table; design record (now implemented) in
+> [`docs/design/multi-repo-orchestration.md`](docs/design/multi-repo-orchestration.md).
+
 > **R-054 (v0.37.0) and R-052 (v0.38.0) both shipped** — see **Shipped**. They were scoped here during
 > backlog review; full detail moved into their Shipped rows on delivery.
 
@@ -298,8 +319,10 @@ R-048 skill, and **R-058** is the guideline for the R-055 skill. (R-051, `doctor
 > P1 with an API inventory + completeness check. Full detail in the **Shipped** table; design record (now
 > implemented) in [`docs/design/documentation-pillars-R069-074.md`](docs/design/documentation-pillars-R069-074.md).
 
-> **Deferred (recorded with the now-shipped epic, not scheduled).** **R-075** — per-service split of
-> `context/reference/` (microservice/polyglot repos). **R-076** — `qa-postman-analysis` skill (when teams
+> **Deferred (recorded with the now-shipped documentation-pillars epic).** **R-075** — per-service split of
+> `context/reference/` (microservice/polyglot repos) — **✅ shipped as part of R-087** (multi-repo epic,
+> v0.58.0), which delivered the hybrid top-level-index + per-repo `reference/<repo>/` split; the ID stays a
+> permanent pointer to R-087, no separate work remains. **R-076** — `qa-postman-analysis` skill (when teams
 > use Postman collections). **R-077** — `git-sync-changelog` skill (from `.external/`: sync service repos +
 > a combined changelog for quarterly doc refresh). **R-078** — service-analysis-updates flow (from
 > `.external/`: periodic refresh of P1 docs on source drift). The hard `built-on:` gate at `status: ready`

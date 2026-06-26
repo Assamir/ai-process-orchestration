@@ -1,4 +1,5 @@
-import { cancel, confirm, isCancel, note, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, multiselect, note, select, text } from "@clack/prompts";
+import { chooseTestRepo } from "../detect/repo-map.js";
 import { defaultQaConventions, frameworkChoices, frameworkLabel } from "../labels.js";
 import type {
   AutomationFramework,
@@ -6,7 +7,59 @@ import type {
   DetectedStack,
   ReportLanguage,
   WizardAnswers,
+  WorkspaceInfo,
 } from "../types.js";
+
+/**
+ * (R-083) Pick the test repo + developer repos non-interactively (used by
+ * `--yes` / CI). The most test-like candidate becomes the test repo (deterministic
+ * — {@link chooseTestRepo}); every other candidate is a read-only developer repo.
+ * `candidates` must hold ≥2 names.
+ */
+export function defaultWorkspace(candidates: string[]): WorkspaceInfo {
+  const testRepo = chooseTestRepo(candidates);
+  return { testRepo, devRepos: candidates.filter((c) => c !== testRepo).sort() };
+}
+
+/**
+ * (R-083) Interactive workspace pick when the parent holds ≥2 repos: choose the
+ * **test repo** (where all artifacts land) and confirm the **developer repos**
+ * (read-only source). Returns null on cancel so the caller exits cleanly.
+ */
+export async function runWorkspaceWizard(candidates: string[]): Promise<WorkspaceInfo | null> {
+  note(
+    [
+      "This folder holds several repositories. One is the test repo — where all QA",
+      "orchestration artifacts (context/, skills, MCP config, manifest) will be written.",
+      "The others are read-only developer repos: their source is read, never modified.",
+      "",
+      `Repos found: ${candidates.join(", ")}`,
+    ].join("\n"),
+    "Multi-repo workspace",
+  );
+
+  const testRepo = (await select({
+    message: "Which repo is the test repo (the only writable area)?",
+    initialValue: chooseTestRepo(candidates),
+    options: candidates.map((c) => ({ value: c, label: c })),
+  })) as string | symbol;
+  if (isCancel(testRepo)) return abort();
+
+  const rest = candidates.filter((c) => c !== testRepo);
+  if (rest.length === 0) {
+    return { testRepo, devRepos: [] };
+  }
+
+  const devRepos = (await multiselect({
+    message: "Which repos are read-only developer (source) repos?",
+    initialValues: rest,
+    options: rest.map((c) => ({ value: c, label: c })),
+    required: false,
+  })) as string[] | symbol;
+  if (isCancel(devRepos)) return abort();
+
+  return { testRepo, devRepos: [...devRepos].sort() };
+}
 
 /**
  * Build answers straight from static analysis, no prompting. Used by `--yes`

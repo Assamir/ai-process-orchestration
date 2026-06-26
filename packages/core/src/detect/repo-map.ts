@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 /**
@@ -211,6 +211,113 @@ function hasDir(parentAbs: string, name: string): boolean {
 
 function posixRel(root: string, abs: string): string {
   return relative(root, abs).split("\\").join("/");
+}
+
+// --- R-083: multi-repo workspace enumeration --------------------------------
+//
+// `init --root <parent>` can be pointed at a **parent folder holding several git
+// repos** — one "test repo" (where all orchestration artifacts land) and several
+// read-only "developer repos" (application source). `enumerateRepos` lists the
+// immediate sub-directories that qualify as a repo; `chooseTestRepo` picks the
+// most test-like one deterministically for the non-interactive (`--yes`/CI) path.
+// Multi-repo behavior activates only when ≥2 of these are found — otherwise every
+// command behaves exactly as the single-root tool always has.
+
+/** Name fragments that mark a sub-dir as the likely test repo (most-specific first). */
+const TEST_REPO_HINTS = [
+  "e2e",
+  "qa",
+  "test-automation",
+  "test-automate",
+  "automation",
+  "acceptance",
+  "integration-tests",
+  "tests",
+  "test",
+];
+
+/**
+ * List the immediate sub-directories of `parent` that qualify as a sibling repo:
+ * a directory that is itself a git repository (holds a `.git`) **or** carries a
+ * build manifest ({@link MODULE_MANIFESTS}) directly inside it. Noise directories
+ * ({@link SKIP_DIRS}) are skipped. The result is sorted, so enumeration is
+ * deterministic and re-running on an unchanged parent yields the identical list.
+ *
+ * This is intentionally shallow (immediate children only) — the parent is a
+ * *container of repos*, not a repo to recurse into.
+ */
+export function enumerateRepos(parent: string): string[] {
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = readdirSync(parent, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const repos: string[] = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    if (SKIP_DIRS.has(e.name)) continue;
+    if (e.name.startsWith(".")) continue;
+    const dir = join(parent, e.name);
+    if (isRepo(dir)) repos.push(e.name);
+  }
+  return repos.sort();
+}
+
+/**
+ * (R-084) Render the "External source repositories" section that points the
+ * source-reading skills at the read-only developer repos. Returns "" when there
+ * are none (single-repo scaffold), so the docs that embed `{{DEVELOPER_REPOS}}`
+ * stay byte-identical to before. When non-empty it is a self-contained block that
+ * ends with a blank line, so it slots cleanly in front of the next heading. Paths
+ * are inline code (`../<repo>/`), never links, so they can't trip `doctor`'s
+ * broken-link check (the same trick the phase-1 inventory uses).
+ */
+export function renderDeveloperRepos(devRepos: string[]): string {
+  if (devRepos.length === 0) return "";
+  const list = devRepos.map((d) => `- \`../${d}/\``).join("\n");
+  return `## External source repositories
+
+> Read-only application source lives in sibling **developer repos** under the parent
+> workspace folder. Read them at \`../<repo>/file:line\`; **never write to them** (see the
+> \`multi-repo-boundaries\` guideline). Paths are inline code, not links — confirm each
+> before relying on it (\`grounding\`).
+
+${list}
+
+`;
+}
+
+/** A directory qualifies as a repo if it is a git repo or holds a build manifest. */
+function isRepo(dir: string): boolean {
+  if (existsSync(join(dir, ".git"))) return true;
+  return Object.keys(MODULE_MANIFESTS).some((m) => existsSync(join(dir, m)));
+}
+
+/**
+ * Deterministically pick the most **test-like** candidate from a repo list (used
+ * by `--yes` / CI, where there is no wizard to ask). Scores each name against
+ * {@link TEST_REPO_HINTS}; ties (and the no-hint case) fall back to the first name
+ * in sorted order, so the choice is stable. `candidates` must be non-empty.
+ */
+export function chooseTestRepo(candidates: string[]): string {
+  const sorted = [...candidates].sort();
+  const score = (name: string): number => {
+    const lower = name.toLowerCase();
+    const idx = TEST_REPO_HINTS.findIndex((h) => lower.includes(h));
+    // Earlier hint = stronger signal = higher score; no hint = 0.
+    return idx === -1 ? 0 : TEST_REPO_HINTS.length - idx;
+  };
+  let best = sorted[0]!;
+  let bestScore = score(best);
+  for (const name of sorted) {
+    const s = score(name);
+    if (s > bestScore) {
+      best = name;
+      bestScore = s;
+    }
+  }
+  return best;
 }
 
 function joinPosix(dirRel: string, name: string): string {

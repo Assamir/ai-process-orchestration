@@ -55,7 +55,7 @@ export function rootConfigMarkdown(skills: LogicalSkill[], invoke: string): stri
 > test you didn't observe pass is not evidence. What's not in context doesn't
 > exist. See the \`grounding\` guideline.
 
-## Read before you write (standing rule)
+{{MULTI_REPO_RULE}}## Read before you write (standing rule)
 
 > Before any **write** skill changes a file, read the guidelines/standards that
 > bear on the task — at minimum \`qa-conventions\` and \`test-naming\`, plus any that
@@ -873,6 +873,53 @@ markitdown https://jira/secure/attachment/9001/spec.docx   # markitdown is local
 {{PROJECT_MCP_FETCH_WORKFLOW}}
 `,
   },
+  {
+    name: "multi-repo-boundaries",
+    title: "Multi-repo workspace boundaries",
+    body: `# Multi-repo workspace boundaries
+
+> Phase 1 seeded this standard. Phase 2 records this workspace's concrete repo topology in the \`{{PLACEHOLDER}}\` section.
+
+This orchestration can run over a **parent folder holding several repositories**: one **test repo** — the repo that carries the test framework, where *all* orchestration artifacts (this \`context/\` system of record, the skills/prompts, the MCP config, the manifest) live — and one or more **developer repos** holding the application source. The boundary is absolute: **the test repo is the only writable area; the developer repos are read-only source.** Skills read application code at \`../<repo>/file:line\` to plan, design, and ground tests, but they **never create, edit, or delete a file in a developer repo** — those repos belong to the product teams, and a stray test artifact in one is a leak, the same class of mistake as a committed secret. On a single-repo workspace this guideline is inert (there are no developer repos), and everything behaves as it always has.
+
+## Rules
+- **One writable root.** Every file the tool or its agents write lands inside the test repo. If a task seems to need a change in a developer repo (a fixture, a test hook, a build tweak), that is a request to the owning team — raise it, don't make it.
+- **Developer repos are read-only source.** Read them to understand the system and to ground claims (\`../<repo>/src/...#Lnn\`), exactly as you read the test repo's own source. Reference them as **inline-code relative paths** (\`../<repo>/\`), never as Markdown links, so the reference can't rot into a broken-link error.
+- **Resolve source across the workspace.** A developer repo sits at \`../<repo>/\` relative to the test repo. The dev-repo list lives in \`context/foundation/repo-map.md\` ("External source repositories") and the manifest's \`workspace\` block — read it to know which repos are in scope.
+- **The editor enforces it too.** The generated \`.code-workspace\` pins the developer-repo folders read-only (\`files.readonlyInclude\`), and \`doctor\` fails the build if any scaffold output leaks into a developer-repo tree. Persuasion (this rule), a native guardrail (the editor), and an out-of-loop check (\`doctor\`) reinforce each other — none is a substitute for keeping the boundary in mind.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — read application source from the dev repo, write the test + docs into the test repo:
+\`\`\`
+read   ../payments-api/src/checkout/Limiter.java#L40-L58   (ground the AC)
+write  tests/checkout/rate-limit.spec.ts                   (test, in the test repo)
+write  context/changes/checkout-rate-limit/cases.md        (doc, in the test repo)
+\`\`\`
+
+❌ **Avoid** — writing into a developer repo (a leak; not ours to change):
+\`\`\`
+write  ../payments-api/src/test/FixtureHack.java   # editing read-only source
+write  ../payments-api/.claude/skills/...          # scaffolding into a dev repo
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: the workspace patterns this team uses (a parent \`.code-workspace\`, a dedicated test repo per
+> product, \`files.readonlyInclude\` pins, cross-repo \`../<repo>/\` source references) so agents follow them.
+
+{{MULTI_REPO_PATTERNS}}
+
+## Project-specific workspace topology
+
+> Record this workspace's concrete topology once known: which repo is the test repo, the developer repos in
+> scope and what each owns, and how source is shared (relative paths, the \`.code-workspace\`).
+
+{{PROJECT_MULTI_REPO_WORKFLOW}}
+`,
+  },
 ];
 
 /** The `context/` system of record laid down at scaffold time. */
@@ -1131,7 +1178,7 @@ status: seeded
 
 {{REPO_MAP_INVENTORY}}
 
-## Test ↔ source map (phase 2)
+{{DEVELOPER_REPOS}}## Test ↔ source map (phase 2)
 
 > For each test directory above, the application module / C4 container it exercises
 > and where that source lives. Reuse the container/component names from
@@ -1163,7 +1210,7 @@ status: seeded
 > \`diagram-conventions\` guideline. For a large/monolith codebase the skill first proposes how to split
 > this, then fills it. Links out to real source paths — it does not duplicate code.
 
-## Architecture (C4)
+{{DEVELOPER_REPOS}}## Architecture (C4)
 - **L1 — System context:** [c4-context.md](./c4-context.md)
 - **L2 — Containers:** [c4-container.md](./c4-container.md)
 - **L3 — Components:** [c4-component.md](./c4-component.md)

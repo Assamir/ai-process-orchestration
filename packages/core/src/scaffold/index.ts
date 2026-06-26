@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
-import { repoMapMarkdown } from "../detect/repo-map.js";
+import { renderDeveloperRepos, repoMapMarkdown } from "../detect/repo-map.js";
 import { frameworkLabel } from "../labels.js";
 import { FOUNDATION, GUIDELINES, rootConfigMarkdown } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
@@ -12,12 +12,33 @@ import type {
   FileBaseline,
   ScaffoldManifest,
   WizardAnswers,
+  WorkspaceInfo,
   WriteFile,
   WriteResult,
 } from "../types.js";
 
 export interface ScaffoldInput {
+  /**
+   * The **scan root** — the directory the tool inspects and reads source from. In
+   * single-repo mode this is also where files are written. In multi-repo mode
+   * (R-083) it is the *parent* folder holding several repos, and `writeRoot` points
+   * at the chosen test repo inside it.
+   */
   root: string;
+  /**
+   * (R-083) The **write root** — the only directory orchestration artifacts (and
+   * the manifest) are written into. When omitted, `writeRoot === root` (today's
+   * single-repo behavior). When present (multi-repo), it is the chosen test repo;
+   * `root` keeps its meaning as the scan root.
+   */
+  writeRoot?: string;
+  /**
+   * (R-083) Multi-repo workspace topology — the chosen test repo + the read-only
+   * developer repos, relative to the parent. Recorded in the manifest and used to
+   * render the `DEVELOPER_REPOS` source-reference section (R-084) and the
+   * `.code-workspace` file (R-086). Absent ⇒ single-repo scaffold.
+   */
+  workspace?: WorkspaceInfo;
   adapter: PlatformAdapter;
   stack: DetectedStack;
   answers: WizardAnswers;
@@ -44,6 +65,12 @@ export const PHASE1_VAR_NAMES = [
   "LINTERS",
   "QA_CONVENTIONS",
   "REPO_MAP_INVENTORY",
+  // (R-084) External developer-repo source-reference section; renders to "" on a
+  // single-repo scaffold, so the surrounding docs stay byte-identical to before.
+  "DEVELOPER_REPOS",
+  // (R-085) The multi-repo write-boundary rule injected into the root config + write
+  // skills; renders to "" on a single-repo scaffold (no dev repos to protect).
+  "MULTI_REPO_RULE",
 ] as const;
 
 /**
@@ -55,11 +82,23 @@ export const PHASE1_VAR_NAMES = [
  * and the platform files to regenerate.
  */
 export function scaffold(input: ScaffoldInput): WriteResult[] {
-  const { root, adapter, stack, answers } = input;
+  const { root, adapter, stack, answers, workspace } = input;
+  // The write root is the chosen test repo in multi-repo mode (R-083); in
+  // single-repo mode it is the scan root, so behavior is unchanged.
+  const writeRoot = input.writeRoot ?? root;
   const generatedAt = new Date().toISOString();
-  // Inventory the repo *before* writing the scaffold, so the phase-1 repo map
-  // reflects the application's own layout, not our own generated files.
-  const vars = buildVars(stack, answers, generatedAt, repoMapMarkdown(root));
+  // Inventory the *write root* (the test repo) before writing the scaffold, so the
+  // phase-1 repo map reflects the test repo's own layout, not the parent's and not
+  // our own generated files. The external developer repos (R-084) are referenced
+  // separately via the DEVELOPER_REPOS section.
+  const vars = buildVars(
+    stack,
+    answers,
+    generatedAt,
+    repoMapMarkdown(writeRoot),
+    workspace?.devRepos ?? [],
+    workspace?.testRepo,
+  );
 
   const files = scaffoldFiles(adapter, stack, answers);
 
@@ -67,12 +106,20 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
   const fileBaselines: Record<string, FileBaseline> = {};
   for (const f of files) {
     const content = render(f.content, vars);
-    results.push(writeFileIfAbsent(join(root, f.rel), content));
+    results.push(writeFileIfAbsent(join(writeRoot, f.rel), content));
     // Record the canonical baseline (hash + content) regardless of
     // created/skipped, so `update` (R-034) has a pristine fingerprint to compare
     // against and (R-039) the rendered base content to merge from later.
     fileBaselines[f.rel] = fileBaseline(content);
   }
+
+  // (R-086) Emit the VS Code `.code-workspace` into the *parent* — the one
+  // sanctioned write outside the write root — listing the test repo first and the
+  // dev repos as read-only folders. Only in multi-repo mode; records its path in
+  // the workspace block so `doctor`/`update` know about it.
+  const recordedWorkspace: WorkspaceInfo | undefined = workspace
+    ? { ...workspace, ...emitCodeWorkspace(root, workspace, results) }
+    : undefined;
 
   const manifest: ScaffoldManifest = {
     schemaVersion: 1,
@@ -82,13 +129,52 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     stack,
     choices: answers,
     skills: SKILLS.map((s) => s.name),
+    ...(recordedWorkspace ? { workspace: recordedWorkspace } : {}),
     files: fileBaselines,
   };
   results.push(
-    writeFileIfAbsent(join(root, MANIFEST_REL), `${JSON.stringify(manifest, null, 2)}\n`),
+    writeFileIfAbsent(join(writeRoot, MANIFEST_REL), `${JSON.stringify(manifest, null, 2)}\n`),
   );
 
   return results;
+}
+
+/**
+ * (R-086) Write `<parent>/<parent-name>.code-workspace` listing the test repo
+ * first and the developer repos as folders, with `settings."files.readonlyInclude"`
+ * globbing the dev folders so VS Code itself blocks edits there — a native editor
+ * guardrail layered onto the persuasion (root rule + guideline) and the out-of-loop
+ * `doctor` leak check. Pushes its WriteResult and returns the manifest fragment
+ * recording the file's path **relative to the test repo** (`../<name>.code-workspace`),
+ * so `doctor`/`update` (run with `--root <test-repo>`) can resolve it.
+ */
+function emitCodeWorkspace(
+  parent: string,
+  workspace: WorkspaceInfo,
+  results: WriteResult[],
+): { workspaceFile: string } {
+  const parentName = basename(parent) || "workspace";
+  const fileName = `${parentName}.code-workspace`;
+  const folders = [
+    { path: workspace.testRepo, name: `${workspace.testRepo} (QA workspace — writable)` },
+    ...workspace.devRepos.map((d) => ({ path: d })),
+  ];
+  const readonlyInclude: Record<string, boolean> = {};
+  for (const d of workspace.devRepos) readonlyInclude[`${d}/**`] = true;
+  const content = `${JSON.stringify(
+    {
+      folders,
+      settings: {
+        // Pin the developer repos read-only in the editor — the tool and its agents
+        // write only into the test repo (see the multi-repo-boundaries guideline).
+        "files.readonlyInclude": readonlyInclude,
+      },
+    },
+    null,
+    2,
+  )}\n`;
+  results.push(writeFileIfAbsent(join(parent, fileName), content));
+  return { workspaceFile: `../${fileName}` };
 }
 
 /** Canonical scaffold path of the phase-2 handoff manifest, repo-root-relative. */
@@ -171,6 +257,18 @@ export function buildVars(
    * don't render the repo map.
    */
   repoMapInventory = "",
+  /**
+   * (R-084) Developer (source) repo names, relative to the parent, in multi-repo
+   * mode. Renders the `DEVELOPER_REPOS` source-reference section. Empty (the
+   * default) ⇒ the section renders to "" and the surrounding docs stay
+   * byte-identical to a single-repo scaffold.
+   */
+  developerRepos: string[] = [],
+  /**
+   * (R-085) The chosen test repo's name, used in the multi-repo write-boundary
+   * rule. Omitted (the default) ⇒ `MULTI_REPO_RULE` renders to "".
+   */
+  testRepo?: string,
 ): Record<string, string> {
   return {
     GENERATED_AT: generatedAt,
@@ -182,7 +280,25 @@ export function buildVars(
     LINTERS: stack.linters.length > 0 ? stack.linters.join(", ") : "none detected",
     QA_CONVENTIONS: answers.qaConventions,
     REPO_MAP_INVENTORY: repoMapInventory,
+    DEVELOPER_REPOS: renderDeveloperRepos(developerRepos),
+    MULTI_REPO_RULE: renderMultiRepoRule(testRepo, developerRepos),
   };
+}
+
+/**
+ * (R-085) The load-bearing multi-repo write-boundary rule, rendered as a blockquote
+ * that ends with a blank line so it slots in front of the next block. Empty when
+ * not in multi-repo mode, so single-repo output is byte-identical to before.
+ */
+function renderMultiRepoRule(testRepo: string | undefined, developerRepos: string[]): string {
+  if (!testRepo || developerRepos.length === 0) return "";
+  return (
+    `> **Workspace boundary (non-negotiable — survives compaction):** the only writable ` +
+    `area is the test repo \`${testRepo}\`. The developer repos (${developerRepos
+      .map((d) => `\`../${d}/\``)
+      .join(", ")}) are **read-only source** — read them at \`../<repo>/file:line\`, never ` +
+    `create, edit, or delete files in them. See the \`multi-repo-boundaries\` guideline.\n\n`
+  );
 }
 
 function writeFileIfAbsent(absPath: string, content: string): WriteResult {

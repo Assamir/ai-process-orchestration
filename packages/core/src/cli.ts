@@ -1,15 +1,16 @@
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { intro, log, note, outro } from "@clack/prompts";
 import type { PlatformAdapter } from "./adapters/types.js";
 import { detectStack } from "./detect/index.js";
+import { enumerateRepos } from "./detect/repo-map.js";
 import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
-import type { WriteResult } from "./types.js";
+import type { WorkspaceInfo, WriteResult } from "./types.js";
 import type { Changelog, ChangelogKind } from "./update/changelog.js";
 import { runUpdate, type UpdateItem, type UpdateReport } from "./update/index.js";
 import { type ChangeItem, resolveConflicts, walkChanges } from "./update/resolve.js";
-import { defaultAnswers, runWizard } from "./wizard/index.js";
+import { defaultAnswers, defaultWorkspace, runWizard, runWorkspaceWizard } from "./wizard/index.js";
 
 export interface CliMeta {
   /** The published bin / package name, used in help + messages. */
@@ -70,7 +71,24 @@ async function doInit(
   intro(meta.binName);
   log.step(`Scanning ${root}`);
 
-  const stack = detectStack(root);
+  // (R-083) Multi-repo workspace: if the scan root is a *parent* holding ≥2
+  // qualifying repos, pick the test repo (the write root) and the read-only
+  // developer repos before detecting the stack. With <2 candidates this is a
+  // single repo and every step below behaves exactly as it always has.
+  const candidates = enumerateRepos(root);
+  let writeRoot = root;
+  let workspace: WorkspaceInfo | undefined;
+  if (candidates.length >= 2) {
+    const picked = yes ? defaultWorkspace(candidates) : await runWorkspaceWizard(candidates);
+    if (picked === null) return 0; // user cancelled
+    workspace = picked;
+    writeRoot = join(root, picked.testRepo);
+    log.step(`Test repo: ${picked.testRepo} · developer repos (read-only): ${picked.devRepos.join(", ") || "none"}`);
+  }
+
+  // Detect the stack on the *test repo* (the write root) — it drives the
+  // automation framework and the result-MCP wiring.
+  const stack = detectStack(writeRoot);
   if (stack.language === null) {
     log.warn("No supported build manifest found (Node/Java/Python). Continuing with generic defaults.");
   }
@@ -78,7 +96,15 @@ async function doInit(
   const answers = yes ? defaultAnswers(stack) : await runWizard(stack);
   if (answers === null) return 0; // user cancelled
 
-  const written: WriteResult[] = scaffold({ root, adapter, stack, answers, toolVersion: meta.version });
+  const written: WriteResult[] = scaffold({
+    root,
+    writeRoot,
+    workspace,
+    adapter,
+    stack,
+    answers,
+    toolVersion: meta.version,
+  });
 
   note(
     written.map((w) => `${w.status === "created" ? "+" : "·"} ${rel(root, w.path)} (${w.status})`).join("\n"),

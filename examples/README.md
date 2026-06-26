@@ -26,7 +26,7 @@ claude-qa-orchestrator init --root ./my-app --yes
 root "map" and the `context/` system of record. Key files created:
 
 - `CLAUDE.md` — the lean root map (stack, the iron QA rule, the grounding rule, the skill index).
-- `.ai/guidelines/qa-conventions.md` — QA conventions (one of eleven guideline docs, incl. `code-formatting`).
+- `.ai/guidelines/qa-conventions.md` — QA conventions (one of fourteen guideline docs, incl. `code-formatting`, `multi-repo-boundaries`).
 - `context/foundation/test-strategy.md` — durable strategy doc (seeded with `{{PLACEHOLDER}}` markers for phase 2).
 - `.claude/skills/qa-init/SKILL.md` — the bootstrap skill (one of the 24-skill suite).
 - `.mcp.json` — a read-only `playwright-results` MCP server over the HTML report + traces.
@@ -82,6 +82,42 @@ claude-qa-orchestrator update --root ./my-app --interactive  # file-by-file
 `update` re-renders the current templates with your saved choices, creates missing
 files, refreshes pristine ones, and merges or reports conflicts on files you've
 edited — it never deletes or silently overwrites your work.
+
+## 6. Multi-repo workspaces (a parent of several repos)
+
+If you open **one parent folder that holds several git repos** — a dedicated **test
+repo** that carries the test framework, plus one or more **developer repos** with the
+application source — point `init` at the parent:
+
+```bash
+claude-qa-orchestrator init --root ./my-workspace --yes
+```
+
+`init` enumerates the repos under the parent, picks the most **test-like** one as the
+test repo (or asks you, without `--yes`), and treats the rest as **read-only
+developer repos**. From there:
+
+- **All** orchestration artifacts (`CLAUDE.md`, `context/`, `.claude/skills`,
+  `.mcp.json`, the manifest) are written **only into the test repo** — the write root.
+- The developer repos are **never modified**. Skills read their source at
+  `../<repo>/file:line` to plan and ground tests; the manifest's `workspace` block and
+  `context/foundation/repo-map.md` ("External source repositories") record them.
+- A `my-workspace.code-workspace` is written into the parent, listing the test repo
+  first and pinning each developer-repo folder read-only (`files.readonlyInclude`) so
+  VS Code itself blocks edits there.
+- A load-bearing **workspace-boundary rule** is added to the root map and every write
+  skill, and `doctor` fails the build if any scaffold output leaks into a developer
+  repo (`MULTIREPO:leak:<repo>`).
+
+`doctor` and `update` are run pointed **at the test repo** (the manifest lives there):
+
+```bash
+claude-qa-orchestrator doctor --root ./my-workspace/test-repo
+claude-qa-orchestrator update --root ./my-workspace/test-repo --write
+```
+
+A **single-repo** `--root` (no sibling repos found) behaves exactly as sections 1–5
+describe — no workspace block, no `.code-workspace`, no boundary rule.
 
 ## Where to go next
 

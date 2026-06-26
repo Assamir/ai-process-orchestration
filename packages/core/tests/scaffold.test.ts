@@ -564,7 +564,10 @@ describe("scaffold (Claude)", () => {
       if (s.readOnly) {
         expect(s.body, `${s.name} (read-only) has no read-first step`).not.toContain(marker);
       } else {
-        expect(procedure.startsWith(`## Procedure\n> ${marker}`), `${s.name} opens with read-first`).toBe(true);
+        // The (R-085) multi-repo write-boundary placeholder precedes the read-first
+        // step; it renders to "" on a single-repo scaffold, so the rendered SKILL.md
+        // still opens with the read-first rule.
+        expect(procedure.startsWith(`## Procedure\n{{MULTI_REPO_RULE}}> ${marker}`), `${s.name} opens with read-first`).toBe(true);
       }
     }
 

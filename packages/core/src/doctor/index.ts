@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, posix, relative } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
+import type { WorkspaceInfo } from "../types.js";
 import {
   ARTIFACTS,
   DURABLE_DOC_FRONTMATTER,
@@ -54,12 +55,15 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
 
   // 2. Manifest — valid JSON, known schema, matching platform.
   const manifestAbs = join(root, MANIFEST_REL);
+  let workspace: WorkspaceInfo | undefined;
   if (existsSync(manifestAbs)) {
     try {
       const m = JSON.parse(readFileSync(manifestAbs, "utf8")) as {
         schemaVersion?: number;
         platform?: string;
+        workspace?: WorkspaceInfo;
       };
+      workspace = m.workspace;
       if (m.schemaVersion !== 1) {
         findings.push({
           id: "MANIFEST:schema",
@@ -303,6 +307,29 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
   // empty, so nothing is checked.
   validateProvenance(root, findings);
 
+  // 12. Multi-repo workspace boundaries (R-085) — two halves of the "rule + check"
+  // pattern: (a) the `multi-repo-boundaries` guideline must keep its core contract
+  // (the test repo is the only writable area; developer repos are read-only), a
+  // content check parallel to env-management/grounding; and (b) when the manifest
+  // carries a `workspace` block, no scaffold output may leak into a developer-repo
+  // tree (resolved at `../<repo>` from the test repo). Inert on a single-repo
+  // scaffold (no workspace block ⇒ no leak check), so the invariant holds.
+  const multiRepoRel = adapter.guidelineRel("multi-repo-boundaries");
+  const multiRepoAbs = join(root, multiRepoRel);
+  if (existsSync(multiRepoAbs)) {
+    const text = readFileSync(multiRepoAbs, "utf8").toLowerCase();
+    if (!text.includes("read-only") || !text.includes("test repo") || !text.includes("developer repo")) {
+      findings.push({
+        id: "MULTIREPO:contract",
+        severity: "error",
+        message: `The multi-repo-boundaries guideline (${multiRepoRel}) no longer states its core contract (the test repo is the only writable area; developer repos are read-only source).`,
+        remediation:
+          "Restore the contract: orchestration artifacts are written only into the test repo; developer repos are read-only source, read at `../<repo>/file:line` and never modified. It must not be weakened.",
+      });
+    }
+  }
+  validateWorkspaceLeaks(root, adapter, workspace, findings);
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };
@@ -360,6 +387,47 @@ function validateProvenance(root: string, findings: DoctorFinding[]): void {
           });
         }
       }
+    }
+  }
+}
+
+/**
+ * (R-085) When the manifest carries a `workspace` block, the developer repos must
+ * be **read-only**: no scaffold output may leak into their trees. Each dev repo is
+ * resolved at `../<repo>` from the test repo (where `doctor` runs, `--root
+ * <test-repo>`, R-088), and checked for the telltale scaffold artifacts — the
+ * platform root config, the manifest, the `context/` system of record, and the
+ * skills/prompts directories. A hit is an error (`MULTIREPO:leak:<repo>`). The
+ * R-086 `.code-workspace` lives in the *parent*, not in any dev repo, so it is
+ * naturally outside this scan — the sanctioned write needs no special-casing.
+ */
+function validateWorkspaceLeaks(
+  root: string,
+  adapter: PlatformAdapter,
+  workspace: WorkspaceInfo | undefined,
+  findings: DoctorFinding[],
+): void {
+  if (!workspace || workspace.devRepos.length === 0) return;
+  // Telltale paths that mean scaffold output landed in a repo.
+  const leakMarkers = [
+    adapter.rootConfigRel,
+    MANIFEST_REL,
+    "context/.scaffold",
+    ".claude/skills",
+    ".github/prompts",
+    ".ai/guidelines",
+  ];
+  for (const dev of workspace.devRepos) {
+    const devRoot = join(root, "..", dev);
+    if (!existsSync(devRoot)) continue; // not present locally — nothing to check
+    const leaked = leakMarkers.filter((m) => existsSync(join(devRoot, m)));
+    if (leaked.length > 0) {
+      findings.push({
+        id: `MULTIREPO:leak:${dev}`,
+        severity: "error",
+        message: `Scaffold output leaked into the read-only developer repo "${dev}": ${leaked.join(", ")}.`,
+        remediation: `Remove the orchestration artifacts from ../${dev} — developer repos are read-only source. All artifacts belong in the test repo (see the multi-repo-boundaries guideline).`,
+      });
     }
   }
 }
