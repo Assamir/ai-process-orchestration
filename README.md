@@ -10,13 +10,18 @@ suite, so an agent stays grounded across long sessions and compaction.
 
 ## The two packages
 
-| Package | Harness | Install |
+| Package | Harness | Command |
 |---|---|---|
-| [`claude-qa-orchestrator`](packages/claude-qa-orchestrator) | Claude Code (`.claude/skills/…`) | `npx claude-qa-orchestrator init` |
-| [`copilot-qa-orchestrator`](packages/copilot-qa-orchestrator) | GitHub Copilot in VS Code (`.github/…`) | `npx copilot-qa-orchestrator init` |
+| [`claude-qa-orchestrator`](packages/claude-qa-orchestrator) | Claude Code (`.claude/skills/…`) | `claude-qa-orchestrator init` |
+| [`copilot-qa-orchestrator`](packages/copilot-qa-orchestrator) | GitHub Copilot in VS Code (`.github/…`) | `copilot-qa-orchestrator init` |
 
 Both are built on the shared, private `@qa-orch/core` and stay at **parity** (one
 shared skill suite, enforced by a parity test). The generated files are in English.
+
+> **How to install & run:** the packages are **not published to npm yet**, so run them
+> from source today. The **[Running guide](docs/RUNNING.md)** has the complete steps
+> with exact commands for **PowerShell, cmd, and macOS/Linux** (and the future `npx`
+> path).
 
 ## How it works — two phases
 
@@ -28,12 +33,13 @@ shared skill suite, enforced by a parity test). The generated files are in Engli
    `{{PLACEHOLDER}}` markers into finished project knowledge.
 
 ```bash
-npx claude-qa-orchestrator init --root ./my-app --yes   # phase 1
-npx claude-qa-orchestrator doctor --root ./my-app        # validate (deterministic)
-npx claude-qa-orchestrator update --root ./my-app        # pull newer templates (dry-run)
+claude-qa-orchestrator init --root ./my-app --yes   # phase 1
+claude-qa-orchestrator doctor --root ./my-app        # validate (deterministic)
+claude-qa-orchestrator update --root ./my-app        # pull newer templates (dry-run)
 ```
 
-See the [end-to-end walkthrough](examples/README.md) for a worked run.
+See the **[Running guide](docs/RUNNING.md)** for exact install/run commands (PowerShell
+/ cmd / macOS), and the [end-to-end walkthrough](examples/README.md) for a worked run.
 
 ## Two load-bearing rules (survive compaction)
 
@@ -45,6 +51,7 @@ See the [end-to-end walkthrough](examples/README.md) for a worked run.
 
 ## Documentation
 
+- **[`docs/RUNNING.md`](docs/RUNNING.md)** — how to install & run in your repo (PowerShell / cmd / macOS).
 - **[`docs/README.md`](docs/README.md)** — the product guide.
 - **[`docs/skill-catalog.md`](docs/skill-catalog.md)** — every skill's usage flow + the orchestration graph (auto-generated from the suite).
 - **[`examples/README.md`](examples/README.md)** — an end-to-end walkthrough.

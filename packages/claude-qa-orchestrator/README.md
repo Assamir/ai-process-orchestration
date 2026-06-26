@@ -28,10 +28,14 @@ Two phases:
 
 ## Usage
 
+> **Not published to npm yet** — `npx claude-qa-orchestrator …` will 404. Run it from
+> source today; the **[Running guide](../../docs/RUNNING.md)** has the complete steps
+> with exact commands for **PowerShell, cmd, and macOS/Linux**.
+
 ```bash
-npx claude-qa-orchestrator init            # interactive
-npx claude-qa-orchestrator init --yes      # accept detected defaults (CI)
-npx claude-qa-orchestrator init --root ./path/to/repo
+claude-qa-orchestrator init            # interactive
+claude-qa-orchestrator init --yes      # accept detected defaults (CI)
+claude-qa-orchestrator init --root ./path/to/repo
 ```
 
 Scaffolding is **idempotent**: existing files are never overwritten. Delete `context/` and the
@@ -40,10 +44,10 @@ generated config to regenerate.
 ## Validate (`doctor`)
 
 ```bash
-npx claude-qa-orchestrator doctor            # validate the scaffold in the current repo
-npx claude-qa-orchestrator doctor --root ./path/to/repo
-npx claude-qa-orchestrator doctor --fix      # preview deterministic broken-link repairs (dry-run)
-npx claude-qa-orchestrator doctor --fix --write   # apply them
+claude-qa-orchestrator doctor            # validate the scaffold in the current repo
+claude-qa-orchestrator doctor --root ./path/to/repo
+claude-qa-orchestrator doctor --fix      # preview deterministic broken-link repairs (dry-run)
+claude-qa-orchestrator doctor --fix --write   # apply them
 ```
 
 A deterministic check (no LLM) that runs **outside the agent loop**: verifies structure, the handoff
@@ -58,6 +62,7 @@ target are left as findings to fix by hand.
 
 Requires Node.js ≥ 20.
 
-See the [product guide](../../docs/README.md), the [skill catalog](../../docs/skill-catalog.md), and the
+See the [Running guide](../../docs/RUNNING.md) (install & run, all shells), the
+[product guide](../../docs/README.md), the [skill catalog](../../docs/skill-catalog.md), and the
 [end-to-end walkthrough](../../examples/README.md). For the full design see the repo root `PRD.md` and
 `TECH.md`, and `ROADMAP.md` for delivery status.

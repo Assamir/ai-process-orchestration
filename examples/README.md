@@ -11,12 +11,15 @@ identical — only the harness files differ (`.github/…` instead of `.claude/�
 
 ## 0. Prerequisites
 
-Node.js ≥ 20. Run the scaffolder with `npx` — nothing is installed into the repo.
+Node.js ≥ 20. The commands below assume `claude-qa-orchestrator` is on your `PATH`;
+the packages aren't on npm yet, so see the **[Running guide](../docs/RUNNING.md)** for
+how to install & run from source (exact PowerShell / cmd / macOS commands). Once
+published, prefix each command with `npx`.
 
 ## 1. Phase 1 — scaffold (deterministic, no LLM)
 
 ```bash
-npx claude-qa-orchestrator init --root ./my-app --yes
+claude-qa-orchestrator init --root ./my-app --yes
 ```
 
 `init` detects the stack (here: Playwright + TypeScript + npm), then writes a lean
@@ -57,7 +60,7 @@ every claim a skill makes cites a real artifact (the **grounding rule**).
 ## 4. Validate the scaffold (`doctor`)
 
 ```bash
-npx claude-qa-orchestrator doctor --root ./my-app
+claude-qa-orchestrator doctor --root ./my-app
 ```
 
 `doctor` is deterministic and runs **outside** the agent loop: it checks
@@ -71,9 +74,9 @@ When a newer orchestrator ships new skills/guidelines, pull them into an
 already-initialized repo without clobbering your edits:
 
 ```bash
-npx claude-qa-orchestrator update --root ./my-app             # dry-run preview
-npx claude-qa-orchestrator update --root ./my-app --write     # apply (3-way merge)
-npx claude-qa-orchestrator update --root ./my-app --interactive  # file-by-file
+claude-qa-orchestrator update --root ./my-app             # dry-run preview
+claude-qa-orchestrator update --root ./my-app --write     # apply (3-way merge)
+claude-qa-orchestrator update --root ./my-app --interactive  # file-by-file
 ```
 
 `update` re-renders the current templates with your saved choices, creates missing

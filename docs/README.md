@@ -7,7 +7,8 @@ day. For the full per-skill reference, see the auto-generated
 
 ## What you get
 
-`npx <claude|copilot>-qa-orchestrator init` scaffolds, into your repo:
+Running `<claude|copilot>-qa-orchestrator init` scaffolds, into your repo (see the
+**[Running guide](RUNNING.md)** for how to install & run — PowerShell / cmd / macOS):
 
 - A **lean root map** (`CLAUDE.md` / `.github/copilot-instructions.md`) — a table of
   contents, not a manual. Knowledge lives in `context/`; the agent pulls it
@@ -68,6 +69,7 @@ orchestration graph in the [skill catalog](skill-catalog.md).
 
 ## Further reading
 
+- [RUNNING.md](RUNNING.md) — how to install & run in your repo (PowerShell / cmd / macOS).
 - [skill-catalog.md](skill-catalog.md) — per-skill flows + orchestration graph (generated; regenerate with `npm run docs`).
 - [../examples/README.md](../examples/README.md) — end-to-end walkthrough.
 - [../PRD.md](../PRD.md) — product requirements & capabilities.
