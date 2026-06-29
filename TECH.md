@@ -133,6 +133,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | Skill | Bucket | Mode | Suggested model | Why | MCP / tooling |
 |---|---|---|---|---|---|
 | `qa-init` | backbone | write | `sonnet` | guided interview + fill foundation | reads `manifest.json` |
+| `qa-guidelines` | backbone | write | `sonnet` | fill guideline placeholders, grounded in code | reads `manifest.json` |
 | `qa-new` | backbone | write | `haiku` | mechanical: stable id + `work.md` | — |
 | `qa-plan` | backbone | write | `opus` | risk/strategy reasoning | — |
 | `qa-implement` | backbone | write | `sonnet` | orchestration / delegation | result servers (indirect) |
@@ -510,7 +511,12 @@ Standard each guideline follows:
 
 - **Two-phase fill.** A leading note states what phase 1 seeded and what phase 2 must refine. Phase-1
   fields are rendered deterministically; remaining `{{PLACEHOLDER}}` sections are left intact for the
-  in-tool LLM (`render.ts` preserves unknown placeholders).
+  in-tool LLM (`render.ts` preserves unknown placeholders). The phase-2 fill is owned by the dedicated
+  **`qa-guidelines`** skill (R-089) — `qa-init` fills `context/foundation/*`, `qa-guidelines` fills the
+  guideline docs — and `doctor` flags any guideline that still carries placeholders with a
+  `GUIDELINE:unfilled:<name>` **warn** (process-quality gap, not a correctness defect) pointing at it;
+  these guideline placeholders are excluded from the generic `PHASE2:remaining` aggregate to avoid
+  double-reporting.
 - **Lean & non-obvious.** Record only project-specific rules an agent would otherwise get wrong — not
   general testing advice. Link out to `context/foundation/*`, don't duplicate it.
 - **Reinforces, never weakens, the iron QA rule.** Test-quality rules (one behavior per test;
@@ -750,8 +756,10 @@ lean root config + guidelines + the full skill suite + MCP config + the `context
 else is left for phase 2. No model API, no `ANTHROPIC_API_KEY`.
 
 **Phase 2 — in the tool (LLM).** `qa-init` reads `manifest.json`, interviews the QA owner, and fills the
-remaining `{{PLACEHOLDER}}` markers in `context/foundation/*` and the guideline docs. Subsequent skills
-fill their own placeholders as they run.
+remaining `{{PLACEHOLDER}}` markers in `context/foundation/*`. Then `qa-guidelines` (R-089) fills the
+guideline docs' phase-2 placeholders with project-specific rules + ✅/❌ examples grounded in the codebase
+— `doctor` surfaces any still-unfilled guideline via `GUIDELINE:unfilled:<name>` (warn) pointing back at it.
+Subsequent skills fill their own placeholders as they run.
 
 **Daily work-item loop** (state of record = `context/`, read before acting / update after):
 `qa-new` → `qa-ticket-review` → `qa-test-plan` / `qa-test-case-design` → `qa-automation-bootstrapper` (first time) /

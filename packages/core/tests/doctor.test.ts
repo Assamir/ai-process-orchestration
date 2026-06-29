@@ -225,6 +225,27 @@ describe("runDoctor", () => {
     ).toBe(true);
   });
 
+  it("warns (not errors) when a guideline still has unfilled phase-2 placeholders, pointing at qa-guidelines (R-089)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // A fresh scaffold leaves phase-2 placeholders in the guidelines (e.g.
+    // {{PROJECT_SPECIFIC_CONVENTIONS}}, {{CONVENTIONS_PATTERNS}} in qa-conventions).
+    const report = runDoctor(project.dir, claudeAdapter);
+    expect(report.ok).toBe(true);
+    expect(report.errorCount).toBe(0);
+    const finding = report.findings.find((f) => f.id === "GUIDELINE:unfilled:qa-conventions");
+    expect(finding, "GUIDELINE:unfilled:qa-conventions present").toBeDefined();
+    expect(finding!.severity).toBe("warn");
+    expect(finding!.remediation).toContain("qa-guidelines");
+
+    // Once the placeholders are filled, the finding clears.
+    writeFileSync(
+      join(project.dir, ".ai/guidelines/qa-conventions.md"),
+      "# QA conventions\n\nIndependent, deterministic tests. ✅ good ❌ bad.\n",
+    );
+    const after = runDoctor(project.dir, claudeAdapter);
+    expect(after.findings.some((f) => f.id === "GUIDELINE:unfilled:qa-conventions")).toBe(false);
+  });
+
   it("detects a platform mismatch via the manifest", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const report = runDoctor(project.dir, copilotAdapter);

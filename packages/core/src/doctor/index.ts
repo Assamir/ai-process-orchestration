@@ -92,6 +92,11 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
 
   // 3. Content scans over generated markdown.
   let phase2Remaining = 0;
+  // Guideline files are scanned for residual phase-2 placeholders separately
+  // (step 5, GUIDELINE:unfilled — an actionable per-file warn pointing at
+  // qa-guidelines), so exclude them from the generic aggregate below to avoid
+  // double-reporting the same markers.
+  const guidelineRels = new Set(GUIDELINES.map((g) => adapter.guidelineRel(g.name)));
   const mdFiles = expected.filter((r) => r.endsWith(".md") && existsSync(join(root, r)));
   for (const rel of mdFiles) {
     const text = readFileSync(join(root, rel), "utf8");
@@ -109,7 +114,9 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
     }
 
     // 3b. Remaining phase-2 placeholders are expected until phase 2 runs — informational.
-    phase2Remaining += (text.match(/\{\{\s*[A-Z0-9_]+\s*\}\}/g) ?? []).length;
+    if (!guidelineRels.has(rel)) {
+      phase2Remaining += (text.match(/\{\{\s*[A-Z0-9_]+\s*\}\}/g) ?? []).length;
+    }
 
     // 3c. Broken relative links.
     for (const target of relativeLinks(text)) {
@@ -184,6 +191,22 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
         message: `Guideline ${rel} is missing a ${missing.join(" and ")} example section.`,
         remediation:
           "Add both a ✅ good and ❌ bad example — every standards/guideline doc must show the pattern, not just describe it.",
+      });
+    }
+
+    // 5b. Unfilled phase-2 placeholders in a guideline (R-089) — phase 1 seeds the
+    // standard, phase 2 must make it project-true. A warn, not an error: a generic
+    // guideline is a process-quality gap, not a correctness defect (parallel to
+    // READFIRST:missing). The dedicated, actionable complement to the aggregate
+    // PHASE2:remaining (which excludes guideline files; see step 3b).
+    const unfilled = (text.match(/\{\{\s*[A-Z0-9_]+\s*\}\}/g) ?? []).length;
+    if (unfilled > 0) {
+      findings.push({
+        id: `GUIDELINE:unfilled:${g.name}`,
+        severity: "warn",
+        message: `Guideline ${rel} has ${unfilled} unfilled phase-2 placeholder(s).`,
+        remediation:
+          "Run the qa-guidelines skill/prompt to fill it with project-specific rules and ✅/❌ examples grounded in the codebase.",
       });
     }
   }

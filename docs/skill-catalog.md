@@ -2,7 +2,7 @@
 
 > **Auto-generated** from `packages/core/src/model/skills.ts` by `packages/core/src/docs/skill-flows.ts` (R-052). **Do not edit by hand** — the snapshot test `packages/core/tests/skill-flows.test.ts` fails on drift; regenerate with `npm run docs`. Every diagram is wrapped in `@formatter:off` / `@formatter:on` guards (R-054) so an autoformatter can't reflow it.
 
-The suite ships **24 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
+The suite ships **25 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
 
 ## How the suite fits together
 
@@ -13,6 +13,7 @@ The complete hand-off map — each bucket is a lifecycle swimlane, each edge a `
 flowchart LR
   subgraph backbone["Planning & process"]
     qa_init["qa-init"]
+    qa_guidelines["qa-guidelines"]
     qa_new["qa-new"]
     qa_plan["qa-plan"]
     qa_implement["qa-implement"]
@@ -43,8 +44,11 @@ flowchart LR
     qa_knowledge["qa-knowledge"]
     qa_doc_critic["qa-doc-critic"]
   end
+  qa_init --> qa_guidelines
   qa_init --> qa_reverse_engineer
   qa_init --> qa_new
+  qa_guidelines --> qa_reverse_engineer
+  qa_guidelines --> qa_new
   qa_new --> qa_ticket_review
   qa_new --> qa_plan
   qa_plan --> qa_implement
@@ -168,7 +172,7 @@ flowchart TD
 ```
 <!-- @formatter:on -->
 
-## Skills (24)
+## Skills (25)
 
 ### Backbone — process & context
 
@@ -179,7 +183,7 @@ Bootstrap the context/ system of record and the lean root config for this repo.
 - **Model:** sonnet (balanced) · **Mode:** write
 - **Reads:** —
 - **Writes:** `context/foundation/test-strategy.md`, `context/foundation/environments.md`, `context/foundation/tools.md`
-- **Next:** `qa-reverse-engineer` → `qa-new`
+- **Next:** `qa-guidelines` → `qa-reverse-engineer` → `qa-new`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -201,8 +205,47 @@ flowchart TD
   s3 --> w1
   w2[("writes: context/foundation/tools.md")]
   s3 --> w2
+  s3 -->|next| qa_guidelines["qa-guidelines"]
   s3 -->|next| qa_reverse_engineer["qa-reverse-engineer"]
   s3 -->|next| qa_new["qa-new"]
+```
+<!-- @formatter:on -->
+
+#### `qa-guidelines`
+
+Fill the scaffolded guideline files' phase-2 placeholders with project-specific rules and ✅/❌ examples grounded in the codebase.
+
+- **Model:** sonnet (balanced) · **Mode:** write
+- **Reads:** `context/.scaffold/manifest.json`, `context/foundation/test-strategy.md`, `context/foundation/tools.md`
+- **Writes:** `the project guideline files (.github/instructions/ or .ai/guidelines/)`
+- **Next:** `qa-reverse-engineer` → `qa-new`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ Right after qa-init, before real QA work begins — and again whe…"]
+  qa_guidelines["qa-guidelines<br/>sonnet · write"]
+  trig --> qa_guidelines
+  r0[("reads: context/.scaffold/manifest.json")]
+  r0 --> qa_guidelines
+  r1[("reads: context/foundation/test-strategy.md")]
+  r1 --> qa_guidelines
+  r2[("reads: context/foundation/tools.md")]
+  r2 --> qa_guidelines
+  s0["1. Read context/"]
+  qa_guidelines --> s0
+  s1["2. List every guideline file ("]
+  s0 --> s1
+  s2["3. Fill each marker with project-specific content"]
+  s1 --> s2
+  s3["4. Never invent."]
+  s2 --> s3
+  s4["5. Preserve each file's frontmatter, headings, and the…"]
+  s3 --> s4
+  w0[("writes: the project guideline files (.github/in…")]
+  s4 --> w0
+  s4 -->|next| qa_reverse_engineer["qa-reverse-engineer"]
+  s4 -->|next| qa_new["qa-new"]
 ```
 <!-- @formatter:on -->
 

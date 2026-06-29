@@ -961,6 +961,26 @@ describe("scaffold (Claude)", () => {
     expect(skill).not.toContain("Write, Edit, Bash");
   });
 
+  it("ships qa-guidelines as a write backbone skill that fills guideline placeholders, grounded (R-089)", () => {
+    const g = SKILLS.find((s) => s.name === "qa-guidelines");
+    expect(g, "qa-guidelines registered").toBeDefined();
+    expect(g!.readOnly).toBe(false);
+    expect(g!.bucket).toBe("backbone");
+    // Enforces the grounding + ✅/❌ examples contract and the never-invent escape hatch.
+    expect(g!.body).toContain("grounding");
+    expect(g!.body).toContain("✅");
+    expect(g!.body).toContain("❌");
+    expect(g!.body).toContain("file:line");
+    expect(g!.body).toContain("TODO (needs human input)");
+    // qa-init hands off to it as the next setup step (the flow wiring).
+    const init = SKILLS.find((s) => s.name === "qa-init");
+    expect(init!.body).toContain("qa-guidelines");
+
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const skill = readFileSync(join(project.dir, ".claude/skills/qa-guidelines/SKILL.md"), "utf8");
+    expect(skill).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+  });
+
   it("writes a valid manifest listing every skill", () => {
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
     const manifest = JSON.parse(readFileSync(join(project.dir, "context/.scaffold/manifest.json"), "utf8"));

@@ -75,7 +75,8 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 *procedure* lives in the shared core and is rendered to each platform.
 
 **A. Backbone — context + test-process management**
-- `qa-init` — bootstrap `context/` + lean root config for the chosen platform.
+- `qa-init` — bootstrap `context/` + lean root config for the chosen platform (fills the `context/foundation/*` placeholders).
+- `qa-guidelines` — fill the scaffolded guideline files' phase-2 placeholders with project-specific rules and ✅/❌ examples grounded in the codebase; run right after `qa-init` and whenever a guideline is added (shipped R-089).
 - `qa-new` / `qa-plan` / `qa-implement` / `qa-review` / `qa-archive` — change-driven workflow for a unit of test work (a "work-item"), adapted from the 10xDevs new→plan→implement→review→archive loop. `qa-plan` writes a rich **3-perspective living plan** (Business / Architecture / Implementation) with coverage overview, work division, and a dependency diagram (shipped R-062).
 
 **B. Test design**
@@ -102,7 +103,7 @@ All four capability buckets ship in Milestone 1. Each capability is a single-pur
 - `qa-coverage-gap` — read-only AC ↔ case ↔ test traceability map; reports uncovered/partial criteria and orphan cases/tests (shipped R-022; see §9 success metrics).
 - `qa-metrics` — read-only QA observability digest: aggregates pass/fail/flakiness (incl. cross-run Allure history) and acceptance-criterion coverage across `context/` into a dashboard in the report language (shipped R-012; see §8).
 
-This is **24 skills** in total. Each carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load, and a `## Next` section recommending downstream skills so the agent-orchestration graph lives in the suite itself — the full skill × model × tooling matrix is in **TECH.md §5**.
+This is **25 skills** in total. Each carries a **suggested model tier** (`opus`/`sonnet`/`haiku`) matched to its cognitive load, and a `## Next` section recommending downstream skills so the agent-orchestration graph lives in the suite itself — the full skill × model × tooling matrix is in **TECH.md §5**.
 
 ## 6. Supported test stacks (MVP)
 
@@ -121,7 +122,7 @@ Roadmap stacks (post-MVP): additional automation stacks as demand emerges.
 1. QA runs `npx claude-qa-orchestrator init` (or the Copilot package) in the target repo.
 2. The installer detects the test stack and runs a short wizard (`--yes` accepts detected defaults for CI).
 3. It writes `context/`, guidelines, and the platform skill/prompt files with `{{PLACEHOLDER}}` markers — **no LLM, deterministic**.
-4. Inside the tool (Claude Code or Copilot), the QA runs the phase-2 skill/prompt; it interviews them and fills the placeholders into finished skills.
+4. Inside the tool (Claude Code or Copilot), the QA runs `qa-init` (fills the `context/foundation/*` placeholders), then `qa-guidelines` (fills the guideline files' placeholders with project-specific rules + ✅/❌ examples grounded in the codebase); subsequent skills fill their own placeholders as they run.
 
 **Daily work-item flow (after setup)**
 `qa-ticket-review` → `qa-test-plan` → `qa-test-case-design` → `qa-automation-bootstrapper` (first time) → `qa-test-automate` → run → `qa-rca` (on failure) → `qa-review` → `qa-archive`. Each step reads/writes the shared `context/`.

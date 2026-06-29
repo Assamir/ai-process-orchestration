@@ -61,8 +61,38 @@ Run once, first thing, to turn a fresh scaffold into a usable QA orchestration.
 Foundation docs have no unresolved \`{{PLACEHOLDER}}\` markers and the root config links to them.
 
 ## Next
+- \`qa-guidelines\` — fill the guideline files' \`{{PLACEHOLDER}}\` slots with project-specific rules and ✅/❌ examples before any QA work.
 - \`qa-reverse-engineer\` — map an unfamiliar codebase into \`context/reference/\` before testing.
-- \`qa-new\` — open the first work-item once the foundation is filled.`,
+- \`qa-new\` — open the first work-item once the foundation and guidelines are filled.`,
+  },
+  {
+    name: "qa-guidelines",
+    description: "Fill the scaffolded guideline files' phase-2 placeholders with project-specific rules and ✅/❌ examples grounded in the codebase.",
+    readOnly: false,
+    bucket: "backbone",
+    suggestedModel: "sonnet",
+    reads: ["context/.scaffold/manifest.json", "context/foundation/test-strategy.md", "context/foundation/tools.md"],
+    writes: ["the project guideline files (.github/instructions/ or .ai/guidelines/)"],
+    body: `## When to use
+Right after \`qa-init\`, before real QA work begins — and again whenever a guideline is added (a new standard) or the stack changes. Phase 1 seeds every guideline with \`{{PLACEHOLDER}}\` slots; this skill fills them with rules and examples real to *this* codebase, so the standards the write skills read before acting are project-true, not generic.
+
+## Procedure
+1. Read \`context/.scaffold/manifest.json\` for the detected stack and phase-1 choices, and skim the filled foundation docs (\`test-strategy.md\`, \`tools.md\`) — they are the source of truth; do not re-scan blindly.
+2. List every guideline file (\`.github/instructions/*.instructions.md\` on Copilot, \`.ai/guidelines/*.md\` on Claude) that still contains a \`{{...}}\` marker. Those markers are your worklist; \`doctor\`'s \`GUIDELINE:unfilled\` findings name the same files.
+3. Fill each marker with **project-specific** content:
+   - Keep it lean — record only non-obvious rules an agent would otherwise get wrong; skip anything inferable from the repo.
+   - In each \`## Examples (✅ good / ❌ bad)\` section, replace any placeholder with **short examples taken from real code in this repo**, each cited at \`file:line\` — never generic snippets (the \`grounding\` rule).
+   - In the \`## Applicable patterns\` / \`*_PATTERNS\` and \`*_WORKFLOW\` slots, name the concrete patterns and workflow this codebase actually uses (e.g. Page Object, Arrange-Act-Assert, Builder for test data).
+   - Order: \`qa-conventions\` first, then \`test-naming\` and \`spec-driven-development\`, then the rest.
+4. **Never invent.** Per the \`grounding\` rule, if you cannot ground a rule or example in the code, do not fill it with a guess: leave a \`> TODO (needs human input): …\` line in place of the marker and list every such gap back to the QA owner at the end. Per the \`assumptions\` guideline, any unavoidable inference is legalized in a \`## Assumptions\` table, never stated as fact.
+5. Preserve each file's frontmatter, headings, and the load-bearing contract sentences \`doctor\` checks (e.g. the docs-as-code \`doctor\`/CI line, the grounding cite/uncertainty line, the environment-management secrets/env-var line) — only fill the placeholder bodies, never weaken a stated contract.
+
+## Done when
+No guideline file has an unresolved \`{{PLACEHOLDER}}\` marker (only marked \`> TODO (needs human input)\` lines for genuine gaps), every \`## Examples\` section shows a ✅/❌ pair real to this repo, and \`doctor\` reports no \`GUIDELINE:unfilled\` findings. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-reverse-engineer\` — map an unfamiliar codebase into \`context/reference/\` before testing.
+- \`qa-new\` — open the first work-item once the foundation and guidelines are filled.`,
   },
   {
     name: "qa-new",
