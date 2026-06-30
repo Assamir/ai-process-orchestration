@@ -116,6 +116,10 @@ scheduled to a version; the next work is pulled from the **Backlog** below._
 
 **Queued next** (scoped, dependency-ready, not yet versioned):
 
+- **Guideline tiering & stack-aware deploy** — new epic **R-090 → R-093**: a lean (deployed) / full
+  (`docs/guidelines/`, generated) split with no duplication, plus declarative `Guideline.when` so `init`
+  deploys only the stack-relevant subset. **R-090** (the `extended` tier + generator) is foundation,
+  no deps, and parity-safe. See the Backlog block + design record.
 - **Runtime-artifact integrity** — finish the epic R-059 started (shipped v0.39.0): **R-060** (persist
   analysis artifacts) and **R-061** (`doctor` work-item validator + `status:` gating). Both depend only on
   the shipped R-059 registry. **Now also fed by the shipped documentation-pillars epic:** R-061's hard
@@ -138,6 +142,62 @@ scheduled to a version; the next work is pulled from the **Backlog** below._
 
 > Newly scoped `R-###` items, not yet assigned to a version. Each names its likely landing files and the
 > artifact it traces to; scope may still change before scheduling.
+
+**Epic: guideline tiering & stack-aware deploy (R-090 → R-093).** Splits each guideline into a
+context-loaded **lean** (the only tier deployed) and a generated **full** guide in `docs/guidelines/`
+(`leanBody ⊕ extended`, so duplication is impossible by construction), and makes `init` deploy only the
+**stack-relevant** subset via a declarative `Guideline.when`. Mines the gitignored sibling
+`.external/guidelines` (~22 files, ~30.8K tokens) into `core` TS strings — **`.external` ships nowhere**
+(no runtime ref; the R-044/R-045 adaptation precedent). Dependency order: **R-090 → R-091 → R-092** and
+**R-090, R-091 → R-093**. R-090 is parity-safe (lean byte-identical); R-091 makes a **conscious
+byte-identical break** (3 naturally-conditional guidelines become stack-gated) with a test/snapshot
+migration + bump, while `update` never deletes (a no-longer-matching guideline is a reported orphan).
+Design record: [`docs/design/guideline-tiering-and-stack-aware-deploy.md`](docs/design/guideline-tiering-and-stack-aware-deploy.md).
+
+- **R-090** — **Guideline `extended` tier + `docs/guidelines/` generator (foundation, no deps).** Adds
+  optional `extended` to the guideline model; today's 14 bodies become `leanBody` (still pass `doctor`:
+  H1 + contract sentence + `## Examples ✅/❌` + phase-2 placeholders). New
+  `core/src/docs/guideline-flows.ts` (twin of `skill-flows.ts`) emits per-guideline
+  `docs/guidelines/<name>.md` (= `leanBody ⊕ extended`) + a `README.md` index, wired into `npm run docs`
+  and snapshot-verified. The lean gains an **inline-code** pointer to its full guide (not a link → can't
+  trip the broken-link check, the R-037 pattern), rendered **only when `extended` is present**. **Zero
+  deploy change** (lean byte-identical to today) → parity structurally safe. *Likely lands in:*
+  `model/context.ts`, `docs/guideline-flows.ts` (new), `src/index.ts`, `scripts/gen-docs.mjs`, root
+  `package.json`, `tests/guideline-flows.test.ts` (new), `docs/guidelines/*`. *Traces to:* TECH §12.4.
+- **R-091** — **Stack-aware guideline deploy via `Guideline.when` (depends R-090).** Declarative
+  `when?: { frameworks?, language?, performance?, security?, mcp?, multiRepo?, web? }` (absent ⇒
+  universal) evaluated in `scaffold` against `stack`+`choices`+`workspace` (the `mcp.ts:resultServers`
+  pattern); the deployed set is recorded in `manifest.choices.guidelines`; `doctor` adds a
+  set-consistency check (on-disk set == manifest) and a manifest-driven structure check for guideline
+  files; `update` re-renders from the recorded set (never deletes orphans), mirroring R-088's
+  `workspace`-block re-derivation. Applies `when` to `performance-testing`→perf, `mcp-content-fetch`→
+  fetch MCP, `multi-repo-boundaries`→workspace; the other 11 stay universal. Conscious byte-identical
+  break + parity/`doctor`/snapshot migration + bump. *Likely lands in:* `types.ts`, `model/context.ts`,
+  `scaffold/index.ts`, `doctor/index.ts`, `update/index.ts`, `cli.ts`,
+  `tests/{scaffold,doctor,update}.test.ts`. *Traces to:* TECH §11.
+- **R-092** — **Interactive guideline-set override in the wizard (depends R-091).** `when` pre-selects;
+  the `@clack/prompts` wizard lets the user add/remove guidelines; the final set persists to
+  `manifest.choices.guidelines`; `--yes`/CI keeps the pure `when` result (deterministic); `update`
+  honors the override. *Likely lands in:* `wizard/index.ts`, `types.ts` (`WizardAnswers`),
+  `scaffold/index.ts`, `update/index.ts`, `cli.ts`, `tests/wizard.test.ts`. *Traces to:* PRD §7.
+- **R-093** — **Guideline enrichment (8 `extended`) + lean `security-testing` (depends R-090, R-091).**
+  Authors the `extended` tier for the 8 guidelines with real `.external` source (`diagram-conventions`,
+  `assumptions`, `grounding`, `test-data-management`, `test-naming`, `qa-conventions`, `documentation`/
+  `documentation-as-code`, `multi-repo-boundaries`) — copied/adapted into `context.ts`, grounded, no
+  invention. Adds a new **conditional lean** `security-testing` guideline (`when: { security }`,
+  DAST/ZAP essence + ✅/❌ examples + phase-2 placeholders, `doctor` examples check); the rich review/SAST
+  `extended` (from `.external/security-rules.md`) is **deferred to R-055** (the `qa-security` DAST skill,
+  its guideline pair). *Likely lands in:* `model/context.ts`, `doctor/index.ts`,
+  `tests/{scaffold,doctor}.test.ts`, `docs/guidelines/*` (regenerated); PRD §5/§8 + TECH §12.1 at ship.
+  *Traces to:* PRD §8.
+
+> **Deferred (recorded with the guideline-tiering epic).** `ai-rules` meta from `.external` (response-size
+> management, pattern-first / understand-before-generate) — unscheduled, no consumer yet. The
+> `accessibility-testing` guideline content from `.external` folds into **R-057** (awaits skill R-048).
+> The rich review/SAST `extended` for `security-testing` folds into **R-055**. The `.external` workflow
+> guides (`service-analysis*`, `solution-overview`, `jira-refinement`) are **skill procedures, not
+> guidelines** → **R-076/R-077/R-078** (and `qa-ticket-review`, already R-066). Source-extraction map in
+> the design record's appendix.
 
 **Epic: runtime-artifact integrity (R-059 → R-061).** Closes the consistency gap between the **skeleton**
 (foundation/guidelines, shape seeded + `doctor`-enforced) and the **runtime artifacts**
