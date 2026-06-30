@@ -1,6 +1,6 @@
 {
   "name": "@qa-orch/core",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "private": true,
   "description": "Shared core for the QA-process orchestration scaffolders: stack detection, wizard, render engine, the logical QA skill model, and the platform-adapter contract. Not published — bundled into each leaf package.",
   "type": "module",

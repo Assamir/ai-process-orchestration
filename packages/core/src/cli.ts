@@ -93,7 +93,7 @@ async function doInit(
     log.warn("No supported build manifest found (Node/Java/Python). Continuing with generic defaults.");
   }
 
-  const answers = yes ? defaultAnswers(stack) : await runWizard(stack);
+  const answers = yes ? defaultAnswers(stack) : await runWizard(stack, workspace);
   if (answers === null) return 0; // user cancelled
 
   const written: WriteResult[] = scaffold({

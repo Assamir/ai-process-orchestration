@@ -485,10 +485,12 @@ which tools it calls, how it validates, when it stops). The patterns below come 
 
 ### 12.1 Guideline docs — the standard
 
-Phase 1 scaffolds a small, fixed set of **guideline docs** from `GUIDELINES` in
-`core/src/model/context.ts`. They are platform-agnostic content; only the path differs (Claude
-`.ai/guidelines/<name>.md`, Copilot `.github/instructions/<name>.instructions.md` — `adapter.guidelineRel`).
-Current set:
+Phase 1 scaffolds a **stack-relevant subset** of **guideline docs** from `GUIDELINES` in
+`core/src/model/context.ts` (R-091 — see "Lean/full tiers & stack-aware deploy" below; the universal
+guidelines always ship, the conditional ones only when their `when` matches). They are platform-agnostic
+content; only the path differs (Claude `.ai/guidelines/<name>.md`, Copilot
+`.github/instructions/<name>.instructions.md` — `adapter.guidelineRel`). Current set (★ = stack-aware,
+conditional via `Guideline.when`; the rest are universal):
 
 | Guideline | Purpose | Phase-1 seeded | Phase-2 `{{PLACEHOLDER}}` |
 |---|---|---|---|
@@ -502,10 +504,11 @@ Current set:
 | `spec-driven-development` | a documented spec / acceptance criteria precede case design, automation, and code; cases derive from the spec (R-030) | the spec-first flow + a ✅/❌ example | `SPEC_DRIVEN_PATTERNS`, `PROJECT_SPEC_WORKFLOW` |
 | `environment-management` | per-environment config (local/CI/staging base URLs, accounts, seeds) via env vars; never commit secrets (R-035) | the env-matrix + secrets-indirection contract + a ✅/❌ example | `ENV_MGMT_PATTERNS`, `PROJECT_ENV_WORKFLOW` |
 | `test-data-management` | data lifecycle — isolation between tests/runs, setup/teardown & cleanup, deterministic seeds, freshness, no real PII (R-036) | the lifecycle policy + a ✅/❌ example | `TEST_DATA_PATTERNS`, `PROJECT_TEST_DATA_WORKFLOW` |
-| `performance-testing` | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047) | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
+| `performance-testing` ★ | load testing — NFRs (p95/p99/throughput/error-rate) before scripts, percentiles not averages, a recorded baseline, load/stress/soak/spike profiles, headless-not-GUI in CI (R-047). `when: { performance: ["jmeter"] }` | the policy + a ✅/❌ example | `PERF_PATTERNS`, `PROJECT_PERF_WORKFLOW` |
 | `code-formatting` | deterministic, tool-owned formatting — the formatter is the source of truth, deterministic import-order, and the generalized `@formatter:off` / `@formatter:on` autoformatter guards around content the formatter would mangle (chiefly Mermaid diagrams) (R-054) | the policy + the detected linters + a ✅/❌ example | `FORMATTER_PATTERNS`, `PROJECT_FORMATTING_WORKFLOW` |
-| `mcp-content-fetch` | fetch tickets/specs/attachments through MCP, never summarize from the title — the **download → verify → convert → read** ordering + source priority (Jira+Xray > Jira > Confluence > attachments) (R-065) | the flow + the ordering guarantees + a ✅/❌ example | `MCP_FETCH_PATTERNS`, `PROJECT_MCP_FETCH_WORKFLOW` |
-| `multi-repo-boundaries` | in a multi-repo workspace the test repo is the only writable area; developer repos are read-only source, read at `../<repo>/file:line`, never modified (R-085) | the boundary contract + a ✅/❌ example | `MULTI_REPO_PATTERNS`, `PROJECT_MULTI_REPO_WORKFLOW` |
+| `mcp-content-fetch` ★ | fetch tickets/specs/attachments through MCP, never summarize from the title — the **download → verify → convert → read** ordering + source priority (Jira+Xray > Jira > Confluence > attachments) (R-065). `when: { mcp: ["atlassian", "xray", "markitdown"] }` | the flow + the ordering guarantees + a ✅/❌ example | `MCP_FETCH_PATTERNS`, `PROJECT_MCP_FETCH_WORKFLOW` |
+| `multi-repo-boundaries` ★ | in a multi-repo workspace the test repo is the only writable area; developer repos are read-only source, read at `../<repo>/file:line`, never modified (R-085). `when: { multiRepo: true }` | the boundary contract + a ✅/❌ example | `MULTI_REPO_PATTERNS`, `PROJECT_MULTI_REPO_WORKFLOW` |
+| `security-testing` ★ | security testing — a threat model as the input, OWASP Top-10 / ASVS as the conformance baseline, shift-left (SAST/dep-scan early, DAST against a deployed env), a recorded vulnerability baseline, severity (CVSS) triage not raw counts, headless & secrets-out-of-config (R-093). `when: { security: ["zap"] }` — forward-looking (no detector until the `qa-security` skill R-055); deploys today only via the wizard override. The rich review/SAST `extended` tier is deferred to R-055 | the policy + a ✅/❌ example | `SECURITY_PATTERNS`, `PROJECT_SECURITY_WORKFLOW` |
 
 Standard each guideline follows:
 
@@ -534,10 +537,33 @@ Standard each guideline follows:
   naming the design / programming / testing patterns this codebase applies (Page Object,
   Arrange-Act-Assert, Builder for test data, C4 levels, …) so agents reach for the right shape. Not
   enforced by `doctor` (encouraged, not mandatory).
-- **Adding a guideline** = append to `GUIDELINES` (name, title, body); both adapters render it via
-  `guidelineRel`; `doctor` then expects it to exist **and to carry both example markers**
-  (`doctor/index.ts` builds its file set from `GUIDELINES`). Keep the body platform-agnostic so parity
-  holds.
+- **Adding a guideline** = append to `GUIDELINES` (name, title, body, optional `extended`/`when`); both
+  adapters render it via `guidelineRel`; `doctor` then expects each **deployed** one to exist **and to
+  carry both example markers** (`doctor/index.ts` builds its file set from `expectedFilePaths(adapter,
+  manifest.choices.guidelines)`). Keep the body platform-agnostic so parity holds.
+- **Lean/full tiers (R-090).** Each `Guideline` has a `body` (the **lean** tier — the only content
+  deployed, loaded into agent context just-in-time) and an optional `extended` (deeper patterns + worked
+  examples). The **full** guide is `body ⊕ extended`, generated into `docs/guidelines/<name>.md` (+ a
+  `README.md` index) by `core/src/docs/guideline-flows.ts` (the twin of `skill-flows.ts`, §12.4) and
+  **snapshot-verified** in `tests/guideline-flows.test.ts` (`npm run docs` regenerates). Because the full
+  guide literally contains the lean verbatim, the two **cannot drift**. When (and only when) a guideline
+  has an `extended` tier, its deployed lean carries an **inline-code** pointer to the full guide
+  (`deployedGuidelineBody`; inline code, not a link → can't trip the broken-link check, the R-037 pattern).
+  R-093 authored `extended` for 8 guidelines (`qa-conventions`, `grounding`, `assumptions`, `test-naming`,
+  `diagram-conventions`, `test-data-management`, `documentation`, `multi-repo-boundaries`), adapted from
+  the gitignored `.external` reference — **which ships nowhere** (the R-044/R-045 precedent).
+- **Stack-aware deploy via `Guideline.when` (R-091).** A guideline declares, declaratively, when it
+  applies: `when?: { frameworks?, language?, performance?, security?, mcp?, multiRepo?, web? }` (absent ⇒
+  **universal**, always deployed). `scaffold` evaluates it against the detected `stack`, the wizard
+  `choices`, and the `workspace` block (`guidelineApplies`/`resolveGuidelineNames`, the
+  `mcp.ts:resultServers` pattern); the resolved set is recorded in `manifest.choices.guidelines`. The
+  wizard lets the user override the pre-selected set (R-092); `--yes`/CI uses the pure `when` result.
+  `doctor`'s structure check is manifest-driven and it warns on an on-disk guideline absent from the
+  recorded set (`GUIDELINE:unexpected:<name>`); `update`/changelog re-render from the recorded set (never
+  a fresh `when`, the R-088 pattern) so a no-longer-matching guideline is a reported **orphan**, never a
+  deletion. Making the 3 naturally-conditional guidelines (`performance-testing`, `mcp-content-fetch`,
+  `multi-repo-boundaries`) stack-gated was a **conscious one-time byte-identical break** vs. the
+  every-guideline-everywhere behavior, migrated with the test/snapshot updates + a version bump.
 - **Grounding / anti-hallucination (R-029).** A first-class `grounding` guideline pairs with a
   load-bearing **grounding rule** in the lean root config (next to the iron QA rule, so it survives
   compaction): every claim cites a real artifact (`file:line` / ticket id / result-MCP output), nothing
@@ -793,3 +819,12 @@ test with `WRITE_DOCS=1`). The hand-written surfaces — the root `README.md`, t
 and the `examples/README.md` walkthrough — link to the generated catalog; the walkthrough's factual claims
 (the files `init` creates, the CLI verbs, a `doctor`-clean result) are themselves backed by
 `tests/examples.test.ts`. This is the `documentation-as-code` guideline applied to the product's own docs.
+
+The **guideline suite gets the same treatment (R-090).** `core/src/docs/guideline-flows.ts` — the twin of
+`skill-flows.ts` — reads `GUIDELINES` in `model/context.ts` and emits the **full** guide for every
+guideline into `docs/guidelines/<name>.md` (= lean `body` ⊕ optional `extended`) plus a
+`docs/guidelines/README.md` index that flags each guideline's tier (lean only / lean + extended). It is
+likewise read-only over `context.ts` (the deployed lean is written by `scaffold`; the full guide is
+maintainer reference, never deployed), deterministic, and **snapshot-verified** in
+`tests/guideline-flows.test.ts`. The same `npm run docs` regenerates both catalogs (the wrapper runs every
+`*-flows` drift-guard test with `WRITE_DOCS=1`). See §12.1 "Lean/full tiers" for the composition contract.

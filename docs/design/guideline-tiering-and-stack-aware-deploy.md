@@ -1,8 +1,8 @@
 # Design — Guideline tiering (lean/full) + stack-aware deploy
 
-> **Status:** 🚧 planned · **Epic:** R-090 → R-093 (guideline tiering & stack-aware deploy) ·
-> **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) (Backlog) · **Product sections (at ship):** PRD §5/§8,
-> TECH §5/§12.1.
+> **Status:** ✅ shipped (v0.61.0–v0.64.0) · **Epic:** R-090 → R-093 (guideline tiering & stack-aware
+> deploy) · **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) (Shipped) · **Product sections:** PRD §5/§8,
+> TECH §5/§12.1/§12.4.
 >
 > This is the **design record** captured in an interactive planning session, the same way the
 > [multi-repo-orchestration](multi-repo-orchestration.md) and

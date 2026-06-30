@@ -39,12 +39,27 @@ export {
   JIRA_TYPE_SECTIONS,
   type JiraTicketType,
 } from "./model/jira.js";
-export { rootConfigMarkdown, GUIDELINES, FOUNDATION } from "./model/context.js";
+export {
+  rootConfigMarkdown,
+  GUIDELINES,
+  FOUNDATION,
+  deployedGuidelineBody,
+  fullGuidePointer,
+  GUIDELINE_DOCS_DIR,
+  type Guideline,
+  type GuidelineWhen,
+} from "./model/context.js";
 export { resultServers, browserServers, ticketingServers, fetchServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
 export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";
-export { scaffold, type ScaffoldInput, PHASE1_VAR_NAMES } from "./scaffold/index.js";
+export {
+  scaffold,
+  type ScaffoldInput,
+  PHASE1_VAR_NAMES,
+  guidelineApplies,
+  resolveGuidelineNames,
+} from "./scaffold/index.js";
 export {
   runUpdate,
   compareToolVersions,
@@ -95,3 +110,9 @@ export {
   triggerLine,
   procedureSteps,
 } from "./docs/skill-flows.js";
+export {
+  renderGuidelineDoc,
+  renderGuidelinesIndex,
+  renderAllGuidelineDocs,
+  guidelineDocRel,
+} from "./docs/guideline-flows.js";

@@ -281,7 +281,11 @@ export function runUpdate(
   // and don't show up as spurious changes. Independent of on-disk state below.
   const changelog = computeChangelog(adapter, manifest, vars, opts.toolVersion);
   const baseline = manifest.files ?? {};
-  const expected = scaffoldFiles(adapter, manifest.stack, manifest.choices);
+  // (R-091) Re-render from the manifest's recorded guideline set (carried in
+  // `manifest.choices.guidelines`) + workspace, so the deployed guideline subset is
+  // byte-identical to the live scaffold and a no-longer-matching guideline surfaces
+  // as a reported orphan, never a deletion.
+  const expected = scaffoldFiles(adapter, manifest.stack, manifest.choices, manifest.workspace);
   const expectedRels = new Set(expected.map((f) => f.rel));
 
   const items: UpdateItem[] = [];

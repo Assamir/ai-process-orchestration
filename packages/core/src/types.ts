@@ -59,6 +59,15 @@ export interface DetectedStack {
    * keys off it. Empty when none found (R-046).
    */
   performance: string[];
+  /**
+   * (R-091, forward-looking) Security / DAST tooling detected in the stack (e.g.
+   * `zap`). Orthogonal to `frameworks`, like `performance`. No detector populates
+   * it yet — that lands with the `qa-security` skill (R-055) — but the
+   * `security-testing` guideline's `when: { security }` reads it, and the wizard
+   * override (R-092) can opt it in regardless. Optional so existing `DetectedStack`
+   * literals and pre-R-091 manifests stay valid; treated as `[]` when absent.
+   */
+  security?: string[];
   /** Build manifests that were actually found, relative to the scanned root. */
   manifests: string[];
 }
@@ -96,6 +105,15 @@ export interface WizardAnswers {
    * pre-R-065 callers/manifests stay valid.
    */
   markitdownMcp?: boolean;
+  /**
+   * (R-091) The guideline names deployed into this repo — the source of truth
+   * `update`/`doctor` read back. `init` records the set it evaluated from each
+   * guideline's `when` (R-091), as optionally overridden in the wizard (R-092).
+   * Absent on pre-R-091 manifests, in which case the consumer re-evaluates `when`
+   * from the stack/choices/workspace (the same fallback `update` uses for
+   * `DEVELOPER_REPOS`), so an older scaffold still resolves a correct set.
+   */
+  guidelines?: string[];
 }
 
 /** A single platform we can scaffold for. */

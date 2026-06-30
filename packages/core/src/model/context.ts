@@ -87,8 +87,84 @@ ${skillList}
 `;
 }
 
+/**
+ * (R-091) Declarative deploy condition for a guideline. Absent ⇒ the guideline is
+ * **universal** (always deployed). When present, the guideline deploys only if its
+ * install context matches — evaluated in `scaffold` against the detected stack, the
+ * wizard choices, and the workspace block (the same inputs `mcp.ts:resultServers`
+ * switches on). Each listed dimension is an OR within itself; the object is an OR
+ * across dimensions (any satisfied dimension deploys the guideline).
+ */
+export interface GuidelineWhen {
+  /** Deploy if any detected automation framework is in this list. */
+  frameworks?: string[];
+  /** Deploy if the detected primary language is in this list (`node`/`java`/`python`). */
+  language?: string[];
+  /** Deploy if any detected performance tool is in this list (e.g. `jmeter`). */
+  performance?: string[];
+  /** Deploy if any detected security tool is in this list (e.g. `zap`) — R-055 dimension. */
+  security?: string[];
+  /** Deploy if any named MCP server is enabled in the wizard choices (e.g. `atlassian`/`xray`/`markitdown`). */
+  mcp?: string[];
+  /** Deploy if the install is a multi-repo workspace (a `workspace` block exists). */
+  multiRepo?: boolean;
+  /** Deploy if the app under test is a web app (future dimension; no signal yet). */
+  web?: boolean;
+}
+
+/** A guideline document (same content both platforms; only the path differs). */
+export interface Guideline {
+  name: string;
+  title: string;
+  /**
+   * The **lean** tier — the only content deployed into a target repo, loaded into
+   * agent context just-in-time when a skill reads it. Keeps everything `doctor`
+   * validates (H1, any contract sentence, the mandatory ✅/❌ examples, the phase-2
+   * `{{PLACEHOLDER}}` slots).
+   */
+  body: string;
+  /**
+   * (R-090) Optional deeper material that, appended to the lean, forms the **full**
+   * guide generated into `docs/guidelines/<name>.md` (full = `body ⊕ extended`, so
+   * the full text contains the lean verbatim — duplication is impossible by
+   * construction). **Never deployed** into a target repo; maintainer reference only.
+   * When present, the deployed lean gains an inline-code pointer to the full guide.
+   */
+  extended?: string;
+  /**
+   * (R-091) Declarative deploy condition. Absent ⇒ universal (always deployed).
+   * See {@link GuidelineWhen}.
+   */
+  when?: GuidelineWhen;
+}
+
+/** Where the generated **full** guides live in this package (maintainer reference, never deployed). */
+export const GUIDELINE_DOCS_DIR = "docs/guidelines";
+
+/**
+ * (R-090) The inline-code pointer the deployed lean carries to its full guide. It
+ * is **inline code, not a Markdown link** (the R-037 repo-map-inventory pattern),
+ * so it can't trip `doctor`'s broken-relative-link check, and it is rendered **only
+ * when the guideline actually has an `extended` tier** (no misleading "full guide"
+ * pointer when lean == full).
+ */
+export function fullGuidePointer(name: string): string {
+  return `\n> 📖 **Full guide** (maintainer reference — not loaded into agent context): \`${GUIDELINE_DOCS_DIR}/${name}.md\` carries this lean standard plus its deeper patterns and worked examples.\n`;
+}
+
+/**
+ * (R-090) The guideline body as **deployed** into a target repo: the lean `body`,
+ * plus the {@link fullGuidePointer} when (and only when) an `extended` tier exists.
+ * Shared by `scaffold` (writes it) and `update` (diffs it), so the deployed shape
+ * has one definition. Guidelines with no `extended` deploy byte-identically to the
+ * raw body — which is every guideline until R-093 authors the first `extended`.
+ */
+export function deployedGuidelineBody(g: Guideline): string {
+  return g.extended ? `${g.body}${fullGuidePointer(g.name)}` : g.body;
+}
+
 /** Guideline documents (same content both platforms; only the path differs). */
-export const GUIDELINES: Array<{ name: string; title: string; body: string }> = [
+export const GUIDELINES: Guideline[] = [
   {
     name: "qa-conventions",
     title: "QA conventions",
@@ -143,6 +219,38 @@ test("rate limit", async () => {
 > (e.g. Page Object, Arrange-Act-Assert, Builder for test data) so agents follow them.
 
 {{CONVENTIONS_PATTERNS}}
+`,
+    extended: `## Extended — test code conventions
+
+> Maintainer reference (generalized from the coding-standards source — generic parts only; the original is
+> RestAssured/JUnit-specific). The lean tier above is the deployed contract.
+
+### Test structure
+- **One behavior per test.** A test name maps to a single acceptance criterion; if you need "and" in the
+  name, split it. Arrange / act / assert reads top-to-bottom even when you don't enforce AAA blocks.
+- **Independent & parallel-safe.** No shared mutable state between tests, no reliance on execution order,
+  no fixed \`sleep\` — wait on a condition. (Composes with \`test-data-management\`.)
+
+### Assertions
+- **Assert intent, not the implementation.** Check the observable outcome (status, payload field, side
+  effect), not a re-derivation of what the code does internally.
+- **Fluent / structured assertions** over a bare boolean: \`expect(res).toHaveStatus(429)\` reports *what*
+  failed and *what was expected*; \`assert res.ok\` reports only "false".
+- **Hard vs soft.** Use a hard assertion when a later step is meaningless if it fails (e.g. status before
+  body); use soft/grouped assertions to collect several independent field checks into one clear report.
+- **Validate error responses too** — error status, error schema/shape, and message — not just the 2xx path.
+
+### Setup / teardown & resources
+- Acquire in setup, release in teardown (or fixture scope); every created resource is cleaned up even when
+  the test fails (try/finally or the framework's fixture teardown). Never leak a connection, file, or row.
+
+### Import / formatting hygiene
+- Imports are grouped and ordered by the formatter, not hand-sorted (see \`code-formatting\`); a logic diff
+  should never carry import churn.
+
+### ✅ / ❌
+- ✅ deterministic, one behavior, fluent assertion on the outcome, cleans up in \`finally\`, traces an AC.
+- ❌ two behaviors in one test, a fixed \`sleep\`, \`assert res.status == 200\` with no diagnostic, leaked state.
 `,
   },
   {
@@ -221,6 +329,44 @@ Login is handled in src/auth/AuthService.login() and all auth tests pass.
 > Record where this project's ground truth lives (the schema/SDK of record, the ticket system, the canonical result dirs) so agents read it instead of guessing.
 
 {{PROJECT_GROUNDING_SOURCES}}
+`,
+    extended: `## Extended — anti-hallucination checklists
+
+> Maintainer reference (adapted from the anti-hallucination / verification-steps source). The lean tier
+> above is the deployed contract. Not loaded into agent context.
+
+### Pre-completion verification (run before finishing any analysis or doc)
+- **Classes & methods** — every class/method named exists (a search returns a match); no invented
+  utility classes or helpers; imports/packages resolve.
+- **Versions** — every version comes from a manifest you read (\`package.json\` / \`pom.xml\` / \`go.mod\` /
+  \`requirements.txt\`), never an assumed or "typical" number.
+- **Endpoints** — every endpoint verified in the controller/handler/route source; HTTP method and path
+  match the actual annotation/decorator; request/response types confirmed.
+- **Configuration** — env vars and property names exist in the real config; default values read, not assumed.
+- **Integration points** — external-service client classes exist; integration URLs verified in config;
+  the auth mechanism confirmed in code.
+- **Source references** — every claim carries a \`file:line\`; the line numbers are accurate and the
+  snippet matches the file.
+
+### Red-flag phrases (each demands verification before it ships)
+| Phrase | Action |
+|---|---|
+| "Typically uses…" | Verify in source |
+| "Standard pattern is…" | Find a real example in the codebase |
+| "Should have…" | Confirm it exists |
+| "Probably configured…" | Read the actual config |
+| "Similar to other services…" | Verify that specific service |
+| "Common approach…" | Find the documented pattern |
+
+These are the same "common practice" tells the \`assumptions\` guideline bans as a *basis*: if a sentence
+leans on one, it is either an assumption (move it to the \`## Assumptions\` table with a real basis) or a
+hallucination (drop it).
+
+### Source-of-truth ordering
+When two sources disagree, trust the one higher in the lean tier's evidence-type table: **source code >
+config > test > result-MCP > ticket > existing doc > git > web > user recollection**. A doc in
+\`context/\` can be stale; the code cannot. Never silently pick a winner — record the conflict
+(\`[Conflicting sources: A says X, B says Y]\`) and resolve it explicitly.
 `,
   },
   {
@@ -315,6 +461,43 @@ The service uses a 30-second timeout (Spring's default) and authenticates via th
 
 {{PROJECT_ASSUMPTIONS_WORKFLOW}}
 `,
+    extended: `## Extended — zero-tolerance protocol
+
+> Maintainer reference (adapted from the assumptions-rules source). The lean tier above is the deployed
+> contract. Not loaded into agent context.
+
+### The golden rule
+**Zero tolerance for undocumented assumptions.** Any claim not directly readable from a workspace artifact
+is an assumption, and every assumption is either documented in the \`## Assumptions\` table or removed.
+There is no third option — an undocumented inference stated as fact is a defect, not a stylistic choice.
+
+### What counts as an assumption
+- A data format, range, or unit you inferred rather than read.
+- A behavior "implied" by a name (\`partnerKey\` → "COUNTRY-BRAND format") but not confirmed in code.
+- An integration, ownership, or dependency you concluded from indirect evidence.
+- A default value, timeout, or limit you "know" from the framework rather than from this project's config.
+
+### Worked example (the table in use)
+\`\`\`markdown
+## Assumptions
+| ID | Claim | Basis | Impact | Verification | Confidence |
+|----|-------|-------|--------|--------------|------------|
+| A1 | partnerKey follows a "COUNTRY-BRAND" format | ServiceImpl.java:44 calls extractValuesFromKey(partnerKey).get("country") | Test data shape; an invalid key fails integration tests | Read extractValuesFromKey; ask the dev team for the validation regex | medium |
+\`\`\`
+The body then references it: "The lookup keys on country (A1)."
+
+### Common scenarios that REQUIRE a row
+- Reverse-engineering a service whose spec is incomplete.
+- Designing cases for an acceptance criterion that is ambiguous.
+- Root-causing a failure where the intended behavior isn't written down.
+- Generating test data whose valid/invalid boundaries aren't specified.
+
+### Consequences of skipping it
+An undocumented assumption that turns out wrong silently poisons everything downstream — cases trace to a
+requirement that doesn't exist, automation asserts behavior the system never promised, a refinement
+recommends work that isn't needed. The table is cheap; the silent wrong guess is expensive. **High
+confidence is rare** — if half your rows are \`high\`, recalibrate.
+`,
   },
   {
     name: "test-naming",
@@ -356,6 +539,33 @@ The service uses a 30-second timeout (Spring's default) and authenticates via th
 > one-feature-area-per-file) so agents copy the right shape.
 
 {{NAMING_PATTERNS}}
+`,
+    extended: `## Extended — naming patterns by element
+
+> Maintainer reference (generalized from the naming-convention source — the originals are JVM-specific;
+> apply the *shape*, not the exact casing, to your stack). The lean tier above is the deployed contract.
+
+| Element | Pattern | Example |
+|---|---|---|
+| **Test class / suite** | \`<FeatureOrEndpoint>Test\` / \`<feature>.spec\` — names the unit under test, not "Tests1" | \`CheckoutRateLimitTest\`, \`checkout-rate-limit.spec.ts\` |
+| **Test method / case** | states *behavior + condition + outcome*; verb-led, no \`test\` prefix noise | \`returns429WhenRateLimitExceeded\`, \`rejects checkout when cart is empty\` |
+| **Test-data variable** | describes the *role*, not the type | \`expiredCard\`, \`adminUser\` — not \`obj\`, \`data2\` |
+| **Constant** | \`UPPER_SNAKE\` for fixed values, grouped by domain | \`MAX_RETRIES\`, \`DEFAULT_CURRENCY\` |
+| **Schema / model** | mirrors the contract entity | \`CheckoutRequest\`, \`OrderResponse\` |
+| **Package / folder** | mirrors the feature area, one area per folder | \`tests/checkout/\`, \`tests/auth/\` |
+
+### Rules behind the table
+- **The name is the spec.** A reader who sees only the test name should know what behavior is verified and
+  under what condition — that is what makes a failing test report self-explanatory.
+- **Don't mirror the implementation.** \`callsValidateThenSetStatus\` couples the name to today's code;
+  \`rejectsExpiredCard\` couples it to the behavior, which is what the AC promised. Composes with
+  \`spec-driven-development\` (the name traces to the criterion, not the call graph).
+- **One feature area per file**, so a change touches one place and the suite stays navigable.
+- **Stable case ids** (\`AC-3.1\` → \`TC-12\`) survive renames and carry the traceability the iron QA rule needs.
+
+### ✅ / ❌
+- ✅ \`returns 404 when the order id is unknown\` → traces \`AC-2.4\`
+- ❌ \`test1\`, \`testCheckout\`, \`it("works")\`, \`verifyOrderServiceLogicPath\`
 `,
   },
   {
@@ -439,6 +649,41 @@ flow that could be Mermaid; split a sprawling diagram by domain instead.
 > Add the canonical diagrams for this product (key user journeys, the system-context view) once known.
 
 {{PROJECT_DIAGRAMS}}
+`,
+    extended: `## Extended — deeper diagram rules
+
+> Maintainer reference (adapted from the diagram-standards source). The lean tier above is the deployed
+> contract; this records the failure modes that motivate it. Not loaded into agent context.
+
+### Forbidden: \`classDef\` styling
+Do **not** use \`classDef name fill:#…,stroke:#…\` + \`class A,B name\` in committed Mermaid — it is the
+single most common cause of broken diagrams:
+- **Parser conflicts** — \`classDef\` with style properties fails outright in several renderers.
+- **Keyword conflicts** — style names like \`error\` / \`warning\` / \`info\` collide with Mermaid keywords.
+- **Line breaking** — an editor wraps a long \`classDef\` line and corrupts the hex colour, breaking the render.
+- **Version drift** — different Mermaid versions render the same \`classDef\` differently, or not at all.
+
+Convey meaning through **structure** instead — subgraphs to group, a \`rect rgb(…)\` block to shade a
+region (e.g. an error path), node shapes (\`[ ]\` / \`( )\` / \`{ }\`) for kind, and \`%% comments\` for intent.
+If colour is genuinely required, prefer \`%%{init: {'theme':'base'}}%%\` over per-node \`classDef\`.
+
+### Node verification (composes with \`grounding\`)
+Every node or label that names a real class, service, endpoint, or file must be **verified to exist**
+before it ships — a diagram is a claim like any other. An invented box in an architecture diagram is a
+hallucination; confirm it in the source and cite the path in the surrounding prose.
+
+### Why the formatter guards are mandatory
+Editors auto-format Markdown on save/commit: they add spaces after colons/commas and reflow indentation,
+each of which breaks a Mermaid fence. The \`<!-- @formatter:off -->\` … \`<!-- @formatter:on -->\` pair is
+ignored by Markdown renderers but respected by formatters (see \`code-formatting\`). An unprotected diagram
+is a review reject.
+
+### Validation checklist (before commit)
+- [ ] Diagram is fenced as a \`mermaid\` block and wrapped in \`@formatter:off\` / \`@formatter:on\`.
+- [ ] No \`classDef … fill:\` / \`class … ;\` styling.
+- [ ] Direction declared (\`TD\` / \`LR\`); every node and edge labelled.
+- [ ] ≤ ~15 nodes (else split by domain); every real identifier verified in source.
+- [ ] One diagram per fence; the C4 level matches the doc (see the C4 table in the lean tier).
 `,
   },
   {
@@ -561,6 +806,42 @@ status: current
 > max-length rule you enforce, and who signs off a \`status: current\`.
 
 {{PROJECT_DOCUMENTATION_WORKFLOW}}
+`,
+    extended: `## Extended — documentation hierarchy & content standards
+
+> Maintainer reference (adapted from the project-documentation source). The lean tier above is the deployed
+> contract (the machine-checkable shape); this records the human conventions around it.
+
+### Documentation hierarchy (read top-down)
+1. **Entry point** — a root \`README\` that orients a newcomer and links onward; it never duplicates the
+   detail below it.
+2. **Durable structural docs** — \`context/foundation/\` (strategy, framework, environments, repo map),
+   \`context/reference/\` (P1 system docs, C4), \`context/knowledge/\` (P2 domain). The long-lived map.
+3. **Runtime artifacts** — \`context/changes/<work-id>/\` (plan/cases/automation), the trace of one unit of work.
+A reader pulls the **right altitude** for their question; an agent reads the lede to decide, then the doc.
+
+### Single source of truth
+Each fact lives in **exactly one** doc and is **linked**, never copied. A duplicated fact is a future
+contradiction — when one copy is updated and the other isn't, the reader can't tell which is current. If
+two docs need the same fact, one owns it and the other links. Generated docs (this catalog, the C4 set,
+\`skill-catalog.md\`) are regenerated from source, never hand-edited, so they cannot drift.
+
+### Content standards (beyond the frontmatter contract)
+- **Lede first.** The \`>\` "when to use this document" blockquote is mandatory — it lets an agent decide
+  whether to read on without loading the whole file.
+- **Length is earned.** Link out to source (\`grounding\`) and to sibling docs instead of restating them.
+  A foundation/reference doc past ~1–2 screens of prose is a smell — split it (by C4 level, repo map, or
+  domain). "What's not in context doesn't exist" is not a licence to write everything down: record what an
+  agent can't infer, link the rest.
+- **One H1, strict hierarchy.** Exactly one \`#\` (the title), then \`##\` → \`###\` with no skipped levels
+  and never a second H1.
+- **Diagrams are Mermaid, fenced and guarded** (\`diagram-conventions\` + \`code-formatting\`); never a
+  pasted screenshot for something that could be a diagram.
+
+### Documentation as code
+Docs are versioned in-repo, reviewed in the same PR as the change they describe, and validated by
+\`doctor\` in CI (see \`documentation-as-code\`). A doc PR that fails \`doctor\` fails the build, exactly like
+a failing test.
 `,
   },
   {
@@ -717,10 +998,50 @@ test("account locks", async () => {
 
 {{PROJECT_TEST_DATA_WORKFLOW}}
 `,
+    extended: `## Extended — factories, constants & migration
+
+> Maintainer reference (generalized from the test-data-management source). The lean tier above is the
+> deployed contract; this records the structural patterns that keep data DRY and maintainable.
+
+### Centralize, then reuse
+Test data lives in **one place per domain** (a factory / fixtures module / data class), not scattered as
+inline literals across specs. A field that changes (a required header, a new mandatory property) is then a
+one-line edit, not a find-and-replace across the suite. This is the structural complement to R-010's
+factories: R-010 *produces* schema-valid objects; this governs *where they live and how they're named*.
+
+### Factory / builder methods
+- Name by **intent**: \`aValidCheckout()\`, \`anExpiredCard()\`, \`aUserWithoutPermission()\` — the call site
+  reads as the scenario.
+- Return a **builder** (or an object with overrides) so a test tweaks only the field it cares about and
+  inherits valid defaults for the rest: \`aValidCheckout({ currency: "GBP" })\`.
+- Boundary/invalid variants are **overrides on the valid base**, never a separate hand-maintained literal,
+  so they stay in sync with the contract.
+
+### Constants
+Group fixed values by domain and name them in \`UPPER_SNAKE\`; never bury a magic literal in a test. A
+shared constant is read once and reused, so a contract change updates every test through one edit.
+
+### Environment-specific data
+Each environment (local / CI / staging) owns its **own** seed and accounts (composes with
+\`environment-management\`); a test names its target environment and reads the data for it, never
+hard-coding a staging id. Per-test overrides layer on top of the environment defaults.
+
+### Migration (hardcoded → managed)
+When you find inline literals: (1) extract them to the domain factory/constants, (2) replace each literal
+with a named reference, (3) parametrize the values that vary, (4) confirm the test still passes against a
+clean database. Do it as a dedicated refactor, not buried in a behavior change.
+
+### ✅ / ❌
+- ✅ \`const user = await aUser({ email: uniqueEmail() }); try { … } finally { await deleteUser(user); }\`
+- ❌ a literal \`"jane.doe@gmail.com"\` (real PII) reused across specs with no setup/teardown.
+`,
   },
   {
     name: "performance-testing",
     title: "Performance testing",
+    // (R-091) Conditional: only ships when a performance/load tool (JMeter) is in
+    // the stack — the guideline is meaningless without one. Off a default scaffold.
+    when: { performance: ["jmeter"] },
     body: `# Performance testing
 
 > Phase 1 seeded this standard. Phase 2 records this project's concrete performance workflow in the \`{{PLACEHOLDER}}\` section.
@@ -825,6 +1146,10 @@ import { z } from "zod"; import { local } from "./local"; import { http } from "
   {
     name: "mcp-content-fetch",
     title: "MCP content fetch",
+    // (R-091) Conditional: only ships when a ticket/spec/attachment fetch MCP is
+    // enabled (the local Atlassian server, Xray, or markitdown) — there is nothing
+    // to fetch through MCP otherwise. Off a default scaffold (all MCP opt-ins off).
+    when: { mcp: ["atlassian", "xray", "markitdown"] },
     body: `# MCP content fetch
 
 > Phase 1 seeded this standard. Phase 2 records this project's concrete fetch sources in the \`{{PLACEHOLDER}}\` section.
@@ -876,6 +1201,9 @@ markitdown https://jira/secure/attachment/9001/spec.docx   # markitdown is local
   {
     name: "multi-repo-boundaries",
     title: "Multi-repo workspace boundaries",
+    // (R-091) Conditional: only ships in a multi-repo workspace (a `workspace`
+    // block exists). Inert — and absent — on a single-repo scaffold.
+    when: { multiRepo: true },
     body: `# Multi-repo workspace boundaries
 
 > Phase 1 seeded this standard. Phase 2 records this workspace's concrete repo topology in the \`{{PLACEHOLDER}}\` section.
@@ -918,6 +1246,108 @@ write  ../payments-api/.claude/skills/...          # scaffolding into a dev repo
 > scope and what each owns, and how source is shared (relative paths, the \`.code-workspace\`).
 
 {{PROJECT_MULTI_REPO_WORKFLOW}}
+`,
+    extended: `## Extended — repo scope & exclusions
+
+> Maintainer reference (generalized from the excluded-repos source). The lean tier above is the deployed
+> contract (the write boundary). This records how to decide which repos are even *in scope to read*.
+
+### Three scope tiers
+- **In scope (read freely)** — the developer repos chosen at \`init\`, holding the application source under
+  test. Read them at \`../<repo>/file:line\` to plan and ground tests.
+- **Hard exclusions (never read or cite)** — third-party tooling not owned by the team, contract-test repos
+  with separate ownership/lifecycle, and the test repo *itself* when it would be mis-attributed as the
+  system under test. Do **not** read their source for factual claims, cite their files in analysis/RCA/
+  refinement output, draw their classes in diagrams, or recommend changes to them. If a ticket references
+  one, mark \`[Out of scope: <repo>]\` and ask the user how to proceed.
+- **Soft exclusions (avoid unless asked)** — archived repos (read-only historical context) and build-output
+  directories (\`*-target/\`, \`dist/\`, \`build/\` — never a source of truth).
+
+### Self-reference discipline
+When documenting a *tested service*, the owning component is the **service**, never the test repo — the
+test class that found a bug is referenced as "detected by \`<TestClass>\` in the test repo", which is
+documentation, not scope inclusion. Only when the work is *about the test framework itself* is the test
+repo the analysis target.
+
+### Why this composes with the write boundary
+The lean tier forbids *writing* to dev repos; this tier narrows what you even *read*. Together they keep
+analysis grounded in the right sources (no third-party noise, no build artifacts) and keep every generated
+artifact inside the one writable test repo. When in doubt about a repo's tier, ask the user — guessing
+scope is the same class of error as guessing a fact (\`grounding\`).
+
+### ✅ / ❌
+- ✅ ground an AC in \`../payments-api/src/checkout/Limiter.java#L40-L58\`; mark a ticket touching a
+  third-party repo \`[Out of scope: reportportal]\` and ask.
+- ❌ cite \`../some-vendor-fork/...\` in an analysis, or treat \`../app/target/...\` build output as the spec.
+`,
+  },
+  {
+    name: "security-testing",
+    title: "Security testing",
+    // (R-093) Conditional: ships only when a security/DAST tool (e.g. ZAP) is in
+    // the stack — a forward-looking `when` (no detector populates `stack.security`
+    // until the qa-security skill, R-055). Until then it deploys only via the R-092
+    // wizard override. The rich review/SAST `extended` tier is deferred to R-055.
+    when: { security: ["zap"] },
+    body: `# Security testing
+
+> Phase 1 seeded this standard. Phase 2 records this project's concrete security workflow in the \`{{PLACEHOLDER}}\` section.
+
+Security testing is the iron QA rule read from the **security** side: a behavior's resistance to misuse is
+verified the same way its correctness is — against a written requirement, with a result you actually
+observed. Every security case traces to a **security requirement / acceptance criterion** (composes with
+\`spec-driven-development\`); a scan with no requirement to pass or fail is noise, not a test. The
+\`qa-security\` skill runs the tooling (DAST-first, OWASP ZAP); this guideline governs *how* a security
+test is designed so its findings mean something.
+
+## Rules
+- **A threat model is the input.** Before scanning, state what you are protecting and against whom (the
+  assets, the entry points, the trust boundaries). The threat model is the spec security cases trace to —
+  "scan the app" is not a target; "an unauthenticated user must not read another tenant's orders" is.
+- **OWASP Top-10 / ASVS as the baseline.** Map every finding to a recognized identifier (OWASP Top-10
+  category, CWE, ASVS requirement) so it is triageable and traceable, not just a scanner line.
+- **Shift left.** Dependency scanning and static checks run early (in the loop / pre-merge); DAST runs
+  against a deployed environment. Catch what you can before deploy; verify the rest against the running app.
+- **Record a vulnerability baseline and triage against it.** Keep a baseline of known/accepted findings so
+  a new run surfaces *new* issues as a delta — a known, risk-accepted item must not re-fail the gate, and a
+  new Critical must not hide in the noise. Triage by severity (CVSS / OWASP severity), never by raw scanner
+  count: ten Lows are not one Critical.
+- **Headless & CI-safe; secrets out of scan config.** Run scans non-interactively so they are reproducible
+  in CI (the GUI is only for authoring a scan profile). Scan configuration flows credentials through
+  environment variables (see \`environment-management\`) — never a token committed in a \`.zap\` / scan file.
+
+## Examples (✅ good / ❌ bad — required)
+
+> Every guideline shows the pattern, it doesn't just describe it.
+
+✅ **Good** — a requirement-anchored finding, mapped to a standard, triaged against a baseline:
+\`\`\`
+SR-1.2  "an unauthenticated request to /orders/{id} must return 401, never order data"
+scan    ZAP baseline (headless) against staging, auth via \${ZAP_AUTH_TOKEN}
+finding A01:2021 Broken Access Control (CWE-862) — /orders/42 returns 200 unauthenticated
+verdict NEW vs baseline, Critical -> fails the gate, traces SR-1.2
+\`\`\`
+
+❌ **Avoid** — no requirement, raw counts, a clean baseline read as "secure", a committed secret:
+\`\`\`
+"ran ZAP, 0 alerts on the login page, so the app is secure"   # no threat model, partial scope
+# .zap config with ZAP_AUTH_TOKEN="ghp_live…" committed to the repo (leaked secret)
+\`\`\`
+
+## Applicable patterns
+
+> Encouraged: the security-testing practices this project applies (DAST baseline vs full scan, dependency
+> scanning in CI, a committed vulnerability baseline, OWASP/CWE mapping on findings, severity-gated
+> pipelines) so agents follow them.
+
+{{SECURITY_PATTERNS}}
+
+## Project-specific security workflow
+
+> Record this project's concrete setup once known: the threat-model source, the DAST tool + scan profiles,
+> where the vulnerability baseline lives, the severity gate, and which secret store backs the scan env vars.
+
+{{PROJECT_SECURITY_WORKFLOW}}
 `,
   },
 ];

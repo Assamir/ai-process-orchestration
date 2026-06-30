@@ -4,10 +4,17 @@ import { basename, dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
 import { renderDeveloperRepos, repoMapMarkdown } from "../detect/repo-map.js";
 import { frameworkLabel } from "../labels.js";
-import { FOUNDATION, GUIDELINES, rootConfigMarkdown } from "../model/context.js";
+import {
+  deployedGuidelineBody,
+  FOUNDATION,
+  type Guideline,
+  GUIDELINES,
+  rootConfigMarkdown,
+} from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
 import { render } from "../render.js";
 import type {
+  AutomationFramework,
   DetectedStack,
   FileBaseline,
   ScaffoldManifest,
@@ -16,6 +23,67 @@ import type {
   WriteFile,
   WriteResult,
 } from "../types.js";
+
+/**
+ * (R-091) Is a named MCP server enabled in the wizard choices? Used by the `when`
+ * evaluator so `mcp-content-fetch` deploys only when a fetch/ticketing server is on.
+ */
+function mcpEnabled(name: string, a: WizardAnswers): boolean {
+  switch (name) {
+    case "atlassian":
+      return a.atlassianMcp === true;
+    case "xray":
+      return a.xrayMcp === true;
+    case "markitdown":
+      return a.markitdownMcp === true;
+    case "playwright":
+      return a.playwrightMcp === true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * (R-091) Does a guideline's `when` match this install context? Absent `when` ⇒
+ * **universal** (always true). Mirrors `mcp.ts:resultServers`: an OR across the
+ * listed dimensions, each dimension an OR within its own list. `web` has no signal
+ * yet, so a `when: { web: true }` guideline never auto-deploys (only the R-092
+ * wizard override can add it).
+ */
+export function guidelineApplies(
+  g: Guideline,
+  stack: DetectedStack,
+  answers: WizardAnswers,
+  workspace?: WorkspaceInfo,
+): boolean {
+  const w = g.when;
+  if (!w) return true;
+  if (w.frameworks?.some((f) => stack.frameworks.includes(f as AutomationFramework))) return true;
+  if (w.language && stack.language && w.language.includes(stack.language)) return true;
+  if (w.performance?.some((p) => stack.performance.includes(p))) return true;
+  if (w.security?.some((s) => (stack.security ?? []).includes(s))) return true;
+  if (w.mcp?.some((m) => mcpEnabled(m, answers))) return true;
+  if (w.multiRepo === true && workspace !== undefined) return true;
+  return false;
+}
+
+/**
+ * (R-091) The guideline **names** deployed for this install: the recorded /
+ * wizard-overridden set when present (honored verbatim — the source of truth
+ * `update`/`doctor` read back), else a fresh `when` evaluation against the
+ * stack/choices/workspace. The same "recorded set wins over a fresh evaluation"
+ * pattern `update` uses for `DEVELOPER_REPOS` / `MULTI_REPO_RULE` (R-088), so a
+ * migration is byte-identical to the live scaffold and never silently strips a
+ * guideline the user kept.
+ */
+export function resolveGuidelineNames(
+  stack: DetectedStack,
+  answers: WizardAnswers,
+  workspace?: WorkspaceInfo,
+): string[] {
+  if (answers.guidelines) return answers.guidelines;
+  return GUIDELINES.filter((g) => guidelineApplies(g, stack, answers, workspace)).map((g) => g.name);
+}
 
 export interface ScaffoldInput {
   /**
@@ -100,7 +168,15 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     workspace?.testRepo,
   );
 
-  const files = scaffoldFiles(adapter, stack, answers);
+  // (R-091) Resolve the stack-aware guideline set once (honoring a wizard override
+  // if present), record it in the manifest's choices, and render only those files.
+  // Recording the resolved names is what lets `update`/`doctor` re-derive the exact
+  // deployed set without re-evaluating `when` (the R-088 pattern).
+  const effectiveAnswers: WizardAnswers = {
+    ...answers,
+    guidelines: resolveGuidelineNames(stack, answers, workspace),
+  };
+  const files = scaffoldFiles(adapter, stack, effectiveAnswers, workspace);
 
   const results: WriteResult[] = [];
   const fileBaselines: Record<string, FileBaseline> = {};
@@ -127,7 +203,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     ...(input.toolVersion ? { toolVersion: input.toolVersion } : {}),
     platform: adapter.id,
     stack,
-    choices: answers,
+    choices: effectiveAnswers,
     skills: SKILLS.map((s) => s.name),
     ...(recordedWorkspace ? { workspace: recordedWorkspace } : {}),
     files: fileBaselines,
@@ -190,10 +266,18 @@ export function scaffoldFiles(
   adapter: PlatformAdapter,
   stack: DetectedStack,
   answers: WizardAnswers,
+  workspace?: WorkspaceInfo,
 ): WriteFile[] {
+  // (R-091) Deploy only the stack-relevant guideline subset. Honors the recorded /
+  // overridden `answers.guidelines` when present (so `update` re-renders the exact
+  // recorded set), else evaluates each guideline's `when`.
+  const guidelineNames = new Set(resolveGuidelineNames(stack, answers, workspace));
   return [
     { rel: adapter.rootConfigRel, content: rootConfigMarkdown(SKILLS, adapter.invokeNoun) },
-    ...GUIDELINES.map((g) => ({ rel: adapter.guidelineRel(g.name), content: g.body })),
+    ...GUIDELINES.filter((g) => guidelineNames.has(g.name)).map((g) => ({
+      rel: adapter.guidelineRel(g.name),
+      content: deployedGuidelineBody(g),
+    })),
     ...FOUNDATION.map((f) => ({ rel: f.rel, content: f.body })),
     ...SKILLS.flatMap((s) => adapter.renderSkill(s)),
     ...adapter.orchestratorFiles(SKILLS),
@@ -219,10 +303,17 @@ export function scaffoldFiles(
  * the expected-file contract lives next to `scaffoldFiles` (its content sibling)
  * and the manifest path is the one exported `MANIFEST_REL`, so the two can't drift.
  */
-export function expectedFilePaths(adapter: PlatformAdapter): string[] {
+export function expectedFilePaths(adapter: PlatformAdapter, guidelineNames?: string[]): string[] {
+  // (R-091) The expected guideline set is manifest-driven: `doctor` passes the
+  // recorded `manifest.choices.guidelines`, so it expects exactly the deployed
+  // subset. Absent (a direct call, or a pre-R-091 manifest), fall back to all
+  // guidelines — matching a pre-R-091 scaffold, which deployed every guideline.
+  const guidelineSet = guidelineNames ? new Set(guidelineNames) : null;
   const files = new Set<string>();
   files.add(adapter.rootConfigRel);
-  for (const g of GUIDELINES) files.add(adapter.guidelineRel(g.name));
+  for (const g of GUIDELINES) {
+    if (guidelineSet === null || guidelineSet.has(g.name)) files.add(adapter.guidelineRel(g.name));
+  }
   for (const f of FOUNDATION) files.add(f.rel);
   for (const s of SKILLS) for (const w of adapter.renderSkill(s)) files.add(w.rel);
   for (const w of adapter.orchestratorFiles(SKILLS)) files.add(w.rel);

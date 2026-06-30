@@ -1,6 +1,8 @@
 import { cancel, confirm, isCancel, multiselect, note, select, text } from "@clack/prompts";
 import { chooseTestRepo } from "../detect/repo-map.js";
 import { defaultQaConventions, frameworkChoices, frameworkLabel } from "../labels.js";
+import { GUIDELINES } from "../model/context.js";
+import { resolveGuidelineNames } from "../scaffold/index.js";
 import type {
   AutomationFramework,
   AutonomyLevel,
@@ -86,8 +88,17 @@ export function defaultAnswers(stack: DetectedStack): WizardAnswers {
 /**
  * Drive the phase-1 wizard: confirm/refine what static analysis found. Returns
  * null if the user cancels (Ctrl+C), so the caller can exit cleanly.
+ *
+ * (R-092) After gathering the stack/MCP choices, the wizard pre-selects the
+ * **stack-relevant** guideline set (each guideline's `when`, R-091) and lets the
+ * user add or remove guidelines; the final set is recorded in
+ * `WizardAnswers.guidelines`. `--yes`/CI skips this and leaves `guidelines`
+ * undefined, so `scaffold` falls back to the pure `when` result (deterministic).
  */
-export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | null> {
+export async function runWizard(
+  stack: DetectedStack,
+  workspace?: WorkspaceInfo,
+): Promise<WizardAnswers | null> {
   note(
     [
       `Language:         ${stack.language ?? "not detected"}`,
@@ -161,7 +172,7 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
   });
   if (isCancel(markitdownMcp)) return abort();
 
-  return {
+  const base: WizardAnswers = {
     automationFramework,
     reportLanguage,
     autonomyLevel,
@@ -171,6 +182,30 @@ export async function runWizard(stack: DetectedStack): Promise<WizardAnswers | n
     xrayMcp,
     markitdownMcp,
   };
+
+  // (R-092) Guideline-set override. Pre-select the stack-relevant set from each
+  // guideline's `when` (R-091, evaluated against the choices just gathered + the
+  // workspace), then let the user add/remove. Persisted to `guidelines` so
+  // `scaffold`/`update`/`doctor` honor the final set verbatim.
+  const preselected = new Set(resolveGuidelineNames(stack, base, workspace));
+  const selected = (await multiselect({
+    message: "Guidelines to deploy (stack-relevant ones are pre-selected; deselect any you don't want)",
+    options: GUIDELINES.map((g) => ({
+      value: g.name,
+      label: g.title,
+      hint: g.when ? "conditional — pre-selected by your stack/choices" : "universal",
+    })),
+    initialValues: GUIDELINES.filter((g) => preselected.has(g.name)).map((g) => g.name),
+    required: false,
+  })) as string[] | symbol;
+  if (isCancel(selected)) return abort();
+
+  // Record in canonical GUIDELINES order, independent of selection order, so the
+  // manifest set is stable.
+  const chosen = new Set(selected);
+  const guidelines = GUIDELINES.filter((g) => chosen.has(g.name)).map((g) => g.name);
+
+  return { ...base, guidelines };
 }
 
 function abort(): null {

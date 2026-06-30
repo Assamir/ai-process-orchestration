@@ -39,7 +39,27 @@ export interface DoctorReport {
  */
 export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport {
   const findings: DoctorFinding[] = [];
-  const expected = expectedFilePaths(adapter);
+
+  // Read the manifest once up front: it drives the manifest-aware structure check
+  // (the R-091 recorded guideline set) and carries the workspace block (R-085/088).
+  const manifestAbs = join(root, MANIFEST_REL);
+  let manifest:
+    | { schemaVersion?: number; platform?: string; workspace?: WorkspaceInfo; choices?: { guidelines?: string[] } }
+    | undefined;
+  let manifestParseError = false;
+  if (existsSync(manifestAbs)) {
+    try {
+      manifest = JSON.parse(readFileSync(manifestAbs, "utf8")) as typeof manifest;
+    } catch {
+      manifestParseError = true;
+    }
+  }
+  const workspace = manifest?.workspace;
+  // (R-091) The recorded deployed guideline set; absent on a pre-R-091 manifest, in
+  // which case `expectedFilePaths` falls back to all guidelines — matching a
+  // pre-R-091 scaffold, which deployed every one.
+  const guidelineNames = manifest?.choices?.guidelines;
+  const expected = expectedFilePaths(adapter, guidelineNames);
 
   // 1. Structure — every file phase 1 should have written must exist.
   for (const rel of expected) {
@@ -54,41 +74,37 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
   }
 
   // 2. Manifest — valid JSON, known schema, matching platform.
-  const manifestAbs = join(root, MANIFEST_REL);
-  let workspace: WorkspaceInfo | undefined;
-  if (existsSync(manifestAbs)) {
-    try {
-      const m = JSON.parse(readFileSync(manifestAbs, "utf8")) as {
-        schemaVersion?: number;
-        platform?: string;
-        workspace?: WorkspaceInfo;
-      };
-      workspace = m.workspace;
-      if (m.schemaVersion !== 1) {
-        findings.push({
-          id: "MANIFEST:schema",
-          severity: "error",
-          message: `Unexpected manifest schemaVersion: ${String(m.schemaVersion)}`,
-          remediation: "Regenerate with the current installer.",
-        });
-      }
-      if (m.platform && m.platform !== adapter.id) {
-        findings.push({
-          id: "MANIFEST:platform",
-          severity: "error",
-          message: `Scaffold was generated for "${m.platform}", but you ran the ${adapter.id} doctor.`,
-          remediation: `Run the ${m.platform} package's doctor instead.`,
-        });
-      }
-    } catch {
+  if (manifestParseError) {
+    findings.push({
+      id: "MANIFEST:parse",
+      severity: "error",
+      message: `${MANIFEST_REL} is not valid JSON.`,
+      remediation: "Regenerate the scaffold.",
+    });
+  } else if (manifest) {
+    if (manifest.schemaVersion !== 1) {
       findings.push({
-        id: "MANIFEST:parse",
+        id: "MANIFEST:schema",
         severity: "error",
-        message: `${MANIFEST_REL} is not valid JSON.`,
-        remediation: "Regenerate the scaffold.",
+        message: `Unexpected manifest schemaVersion: ${String(manifest.schemaVersion)}`,
+        remediation: "Regenerate with the current installer.",
+      });
+    }
+    if (manifest.platform && manifest.platform !== adapter.id) {
+      findings.push({
+        id: "MANIFEST:platform",
+        severity: "error",
+        message: `Scaffold was generated for "${manifest.platform}", but you ran the ${adapter.id} doctor.`,
+        remediation: `Run the ${manifest.platform} package's doctor instead.`,
       });
     }
   }
+
+  // 2b. (R-091) Guideline-set consistency — a guideline file on disk that the
+  // manifest's deployed set doesn't list (e.g. one a stack-aware `when` no longer
+  // selects, left behind because `update` never deletes). A warn, not an error:
+  // an orphan guideline is stale, not broken.
+  validateGuidelineSet(root, adapter, guidelineNames, findings);
 
   // 3. Content scans over generated markdown.
   let phase2Remaining = 0;
@@ -452,6 +468,55 @@ function validateWorkspaceLeaks(
         remediation: `Remove the orchestration artifacts from ../${dev} — developer repos are read-only source. All artifacts belong in the test repo (see the multi-repo-boundaries guideline).`,
       });
     }
+  }
+}
+
+/**
+ * (R-091) Compare the guideline files on disk against the manifest's recorded
+ * deployed set (`manifest.choices.guidelines`). A file present on disk but absent
+ * from the recorded set warns (`GUIDELINE:unexpected:<name>`) — typically a
+ * guideline a stack-aware `when` no longer selects, which `update` reports as an
+ * orphan and never deletes. The guideline directory + filename shape are derived
+ * from `adapter.guidelineRel` (a `__NAME__` token), so this stays correct for both
+ * platforms. No recorded set (pre-R-091 manifest) ⇒ nothing to check.
+ */
+function validateGuidelineSet(
+  root: string,
+  adapter: PlatformAdapter,
+  guidelineNames: string[] | undefined,
+  findings: DoctorFinding[],
+): void {
+  if (!guidelineNames) return;
+  const recorded = new Set(guidelineNames);
+  const TOKEN = "__NAME__";
+  const sample = toPosix(adapter.guidelineRel(TOKEN));
+  const dirRel = posix.dirname(sample);
+  const baseSample = posix.basename(sample);
+  const ti = baseSample.indexOf(TOKEN);
+  if (ti < 0) return;
+  const pre = baseSample.slice(0, ti);
+  const suf = baseSample.slice(ti + TOKEN.length);
+
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = readdirSync(join(root, dirRel), { withFileTypes: true });
+  } catch {
+    return; // directory absent — the structure check already covers missing files
+  }
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    const n = e.name;
+    if (pre && !n.startsWith(pre)) continue;
+    if (!n.endsWith(suf)) continue;
+    const name = n.slice(pre.length, n.length - suf.length);
+    if (name.length === 0 || recorded.has(name)) continue;
+    findings.push({
+      id: `GUIDELINE:unexpected:${name}`,
+      severity: "warn",
+      message: `Guideline ${dirRel}/${n} is on disk but not in the manifest's deployed guideline set.`,
+      remediation:
+        "It's likely a guideline a stack-aware `when` no longer selects (R-091). `update` reports it as an orphan and never deletes it — remove it by hand if it no longer applies, or add it back to the deployed set.",
+    });
   }
 }
 

@@ -47,8 +47,11 @@ describe("scaffold (Claude)", () => {
       ".ai/guidelines/spec-driven-development.md",
       ".ai/guidelines/environment-management.md",
       ".ai/guidelines/test-data-management.md",
-      ".ai/guidelines/performance-testing.md",
+      // (R-091) performance-testing / mcp-content-fetch / multi-repo-boundaries are
+      // stack-aware and NOT deployed on this default single-repo, no-JMeter,
+      // no-fetch-MCP scaffold — see the dedicated R-091 test below.
       ".ai/guidelines/code-formatting.md",
+      ".ai/guidelines/documentation.md",
       "context/foundation/test-strategy.md",
       "context/foundation/tools.md",
       "context/foundation/repo-map.md",
@@ -416,7 +419,10 @@ describe("scaffold (Claude)", () => {
     expect(perf!.body).toContain("performance-testing");
     expect(perf!.body).toContain("jmeter-results");
 
-    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // (R-091) performance-testing is stack-aware: it deploys only when a perf tool
+    // (JMeter) is detected. Scaffold with a JMeter stack so the guideline ships.
+    const perfStack: DetectedStack = { ...stack, performance: ["jmeter"] };
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: perfStack, answers });
     // Rendered with the write tool allowlist on Claude.
     const skill = readFileSync(join(project.dir, ".claude/skills/qa-performance/SKILL.md"), "utf8");
     expect(skill).toContain("Write, Edit, Bash");
@@ -432,7 +438,7 @@ describe("scaffold (Claude)", () => {
     // Parity: the guideline + skill ship on Copilot (only the path differs).
     const copilotProject = tempProject();
     try {
-      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack: perfStack, answers });
       const copilot = readFileSync(
         join(copilotProject.dir, ".github/instructions/performance-testing.instructions.md"),
         "utf8",
@@ -585,10 +591,15 @@ describe("scaffold (Claude)", () => {
   });
 
   it("every guideline carries ✅ good / ❌ bad examples on both platforms (R-026)", () => {
-    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    // (R-091) Scaffold with a stack/choices that deploys the conditional guidelines
+    // too (JMeter → performance-testing; a fetch MCP → mcp-content-fetch), so the
+    // ✅/❌ contract is asserted across every guideline, not just the universal ones.
+    const fullStack: DetectedStack = { ...stack, performance: ["jmeter"] };
+    const fullAnswers: WizardAnswers = { ...answers, atlassianMcp: true };
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: fullStack, answers: fullAnswers });
     const copilotProject = tempProject();
     try {
-      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack: fullStack, answers: fullAnswers });
       for (const name of ["qa-conventions", "grounding", "assumptions", "test-naming", "diagram-conventions", "documentation-as-code", "documentation", "spec-driven-development", "environment-management", "test-data-management", "performance-testing", "code-formatting", "mcp-content-fetch"]) {
         const claude = readFileSync(join(project.dir, `.ai/guidelines/${name}.md`), "utf8");
         expect(claude, `claude ${name} good`).toContain("✅");
@@ -754,13 +765,23 @@ describe("scaffold (Claude)", () => {
   });
 
   it("wires the opt-in xray + markitdown fetch servers and the mcp-content-fetch guideline (R-065)", () => {
-    // The guideline ships on both platforms (its examples are checked elsewhere).
+    // (R-091) mcp-content-fetch is stack-aware: it deploys only when a fetch/ticket
+    // MCP is enabled. Off the default scaffold the guideline is absent; with a fetch
+    // MCP it ships on both platforms.
     scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
-    const guide = readFileSync(join(project.dir, ".ai/guidelines/mcp-content-fetch.md"), "utf8");
-    expect(guide.toLowerCase()).toContain("download");
-    expect(guide).toContain("markitdown");
-    expect(guide).toContain("xray");
-    expect(guide).toContain("{{MCP_FETCH_PATTERNS}}");
+    expect(existsSync(join(project.dir, ".ai/guidelines/mcp-content-fetch.md"))).toBe(false);
+
+    const optInGuide = tempProject();
+    try {
+      scaffold({ root: optInGuide.dir, adapter: claudeAdapter, stack, answers: { ...answers, markitdownMcp: true } });
+      const guide = readFileSync(join(optInGuide.dir, ".ai/guidelines/mcp-content-fetch.md"), "utf8");
+      expect(guide.toLowerCase()).toContain("download");
+      expect(guide).toContain("markitdown");
+      expect(guide).toContain("xray");
+      expect(guide).toContain("{{MCP_FETCH_PATTERNS}}");
+    } finally {
+      optInGuide.cleanup();
+    }
 
     // Opt-in: both servers absent by default, present when chosen, no literal secrets.
     const off = JSON.parse(readFileSync(join(project.dir, ".mcp.json"), "utf8"));
