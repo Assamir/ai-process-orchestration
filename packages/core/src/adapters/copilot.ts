@@ -70,6 +70,20 @@ ${rows}
     return [{ rel: ".github/agents/qa-orchestrator.agent.md", content }];
   },
 
+  workspaceSettings(testRepo: string): Record<string, unknown> {
+    // (R-094) In a multi-root `.code-workspace`, VS Code does not auto-discover a
+    // non-root folder's `.github/` customizations (microsoft/vscode#296972), so the
+    // prompts (`/qa-init`), instructions, and the `qa-orchestrator` agent never
+    // appear. Pin the three discovery locations explicitly at the test repo's
+    // `.github/**` — paths are resolved relative to the `.code-workspace` (the
+    // parent), so they carry the test-repo prefix.
+    return {
+      "chat.promptFilesLocations": { [`${testRepo}/.github/prompts`]: true },
+      "chat.instructionsFilesLocations": { [`${testRepo}/.github/instructions`]: true },
+      "chat.modeFilesLocations": { [`${testRepo}/.github/agents`]: true },
+    };
+  },
+
   mcpFile(ctx: McpContext): WriteFile {
     // VS Code expands environment variables as `${env:VAR}`, not `${VAR}`;
     // rewrite the shared model's tokens to the platform-correct syntax.

@@ -194,7 +194,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
   // dev repos as read-only folders. Only in multi-repo mode; records its path in
   // the workspace block so `doctor`/`update` know about it.
   const recordedWorkspace: WorkspaceInfo | undefined = workspace
-    ? { ...workspace, ...emitCodeWorkspace(root, workspace, results) }
+    ? { ...workspace, ...emitCodeWorkspace(root, workspace, adapter, results) }
     : undefined;
 
   const manifest: ScaffoldManifest = {
@@ -227,6 +227,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
 function emitCodeWorkspace(
   parent: string,
   workspace: WorkspaceInfo,
+  adapter: PlatformAdapter,
   results: WriteResult[],
 ): { workspaceFile: string } {
   const parentName = basename(parent) || "workspace";
@@ -244,6 +245,10 @@ function emitCodeWorkspace(
         // Pin the developer repos read-only in the editor — the tool and its agents
         // write only into the test repo (see the multi-repo-boundaries guideline).
         "files.readonlyInclude": readonlyInclude,
+        // (R-094) Platform-specific chat-discovery locations. Copilot must pin its
+        // `.github/**` under the test repo so prompts/agents surface in a multi-root
+        // workspace (microsoft/vscode#296972); Claude contributes nothing.
+        ...adapter.workspaceSettings(workspace.testRepo),
       },
     },
     null,

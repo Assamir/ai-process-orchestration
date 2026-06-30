@@ -41,6 +41,12 @@ ${skill.body}
     return [];
   },
 
+  workspaceSettings(): Record<string, unknown> {
+    // Claude Code reads `.claude/skills` from the repo directly and does not consult
+    // the VS Code `.code-workspace`, so it contributes no chat-discovery settings.
+    return {};
+  },
+
   mcpFile(ctx: McpContext): WriteFile {
     // Claude Code expands `${VAR}` in .mcp.json string values directly.
     return {

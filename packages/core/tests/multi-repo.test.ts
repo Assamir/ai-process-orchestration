@@ -130,6 +130,23 @@ describe("scaffold scan/write-root split (R-083, R-084, R-085, R-086)", () => {
     expect(ws.folders[0]!.path).toBe("test-repo");
     expect(ws.folders.map((f) => f.path)).toEqual(["test-repo", "app-a", "app-b"]);
     expect(ws.settings["files.readonlyInclude"]).toEqual({ "app-a/**": true, "app-b/**": true });
+    // Claude contributes no chat-discovery settings (it ignores .code-workspace).
+    expect(ws.settings["chat.promptFilesLocations"]).toBeUndefined();
+  });
+
+  it("pins Copilot chat-discovery locations at the test repo's .github (R-094, vscode#296972)", () => {
+    scaffoldMulti(copilotAdapter);
+    const wsPath = join(project.dir, `${basename(project.dir)}.code-workspace`);
+    const ws = JSON.parse(readFileSync(wsPath, "utf8")) as {
+      settings: Record<string, Record<string, boolean>>;
+    };
+    expect(ws.settings["chat.promptFilesLocations"]).toEqual({ "test-repo/.github/prompts": true });
+    expect(ws.settings["chat.instructionsFilesLocations"]).toEqual({
+      "test-repo/.github/instructions": true,
+    });
+    expect(ws.settings["chat.modeFilesLocations"]).toEqual({ "test-repo/.github/agents": true });
+    // The dev-repo read-only pinning is platform-agnostic and stays.
+    expect(ws.settings["files.readonlyInclude"]).toEqual({ "app-a/**": true, "app-b/**": true });
   });
 
   it("renders the DEVELOPER_REPOS source-reference section into repo-map.md + system-overview.md (R-084)", () => {
@@ -166,7 +183,8 @@ describe("scaffold scan/write-root split (R-083, R-084, R-085, R-086)", () => {
     expect(existsSync(join(writeRoot, ".github/copilot-instructions.md"))).toBe(true);
     const root = readFileSync(join(writeRoot, ".github/copilot-instructions.md"), "utf8");
     expect(root).toMatch(/Workspace boundary/);
-    // The .code-workspace is emitted by scaffold (not the adapter) → identical content.
+    // The .code-workspace is emitted by scaffold (folders + read-only pinning shared);
+    // only the chat-discovery settings differ per platform (R-094, asserted above).
     expect(existsSync(join(project.dir, `${basename(project.dir)}.code-workspace`))).toBe(true);
   });
 });

@@ -22,6 +22,15 @@ export interface PlatformAdapter {
   renderSkill(skill: LogicalSkill): WriteFile[];
   /** Cross-skill orchestrator files (Copilot agent; Claude returns []). */
   orchestratorFiles(skills: LogicalSkill[]): WriteFile[];
+  /**
+   * (R-094) Extra `settings` keys for the multi-repo `.code-workspace`, given the
+   * test repo's parent-relative path. Copilot must hardcode `chat.*FilesLocations`
+   * pointing at the test repo's `.github/**`, because VS Code does not auto-discover
+   * a non-root folder's `.github/` in a multi-root workspace (microsoft/vscode#296972),
+   * so `/qa-init` and the orchestrator never surface otherwise. Claude returns `{}`
+   * (it reads `.claude/skills` directly and ignores `.code-workspace`).
+   */
+  workspaceSettings(testRepo: string): Record<string, unknown>;
   /** The MCP config for this platform, wiring result-legibility servers from `ctx`. */
   mcpFile(ctx: McpContext): WriteFile;
 }

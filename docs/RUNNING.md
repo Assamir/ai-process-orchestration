@@ -207,7 +207,13 @@ without `--yes`), and treats the rest as **read-only developer repos**. The cont
 - **A generated `.code-workspace`.** `init` writes `<parent-name>.code-workspace` into
   the parent (the one sanctioned write outside the test repo). Open *that* file in VS
   Code: it lists the test repo first and pins each developer-repo folder read-only
-  (`files.readonlyInclude`), so the editor itself blocks edits to source.
+  (`files.readonlyInclude`), so the editor itself blocks edits to source. For Copilot
+  it also pins `chat.promptFilesLocations` / `chat.instructionsFilesLocations` /
+  `chat.modeFilesLocations` at the test repo's `.github/**` — VS Code does **not**
+  auto-discover a non-root folder's `.github/` in a multi-root workspace
+  ([microsoft/vscode#296972](https://github.com/microsoft/vscode/issues/296972)), so
+  without this the `/qa-init` prompt and the `qa-orchestrator` agent never appear.
+  After opening the workspace, run **Developer: Reload Window** once.
 - **Guardrails.** A load-bearing workspace-boundary rule is added to the root map and
   every write skill, and `doctor` fails the build (`MULTIREPO:leak:<repo>`) if any
   scaffold output leaks into a developer-repo tree.
