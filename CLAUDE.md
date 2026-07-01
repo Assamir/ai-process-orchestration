@@ -10,7 +10,6 @@ This is a multi-purpose workspace for AI-process tooling and notes. It is not a 
 - `vscode/auditskill/` — a deployable VS Code GitHub Copilot custom agent (**audit-agents**) that audits a target repo's Copilot configuration for token bloat. Self-contained, zero project dependencies. Separate from `packages/` (it audits config; it does not scaffold).
 - `ai-practices/` — a distilled **good-vs-bad AI / agent-engineering practice** reference (English, ✅/❌ per theme: context management, agent design, prompting, tools/MCP, testing, evaluation, deployment, etc.), distilled from the **AI Devs 4** and **10xDevs 3** course material. Start at `ai-practices/README.md`. Reference material only — do not treat as source. (Replaces the former Polish `knowledge-markdowns/` raw transcripts.)
 - `PRD.md`, `TECH.md`, `ROADMAP.md` (root, EN) — product + technical design + the tracked roadmap (item IDs `R-###`, files each change lands in) for the QA-orchestration packages. Read these first when working on `packages/`; update `ROADMAP.md` in the same commit that ships a roadmap item.
-- `cli/` — **legacy** `claude-agent-scaffold` (app-dev framing), superseded by `packages/claude-qa-orchestrator`. Not a workspace member; kept only until the maintainer removes it. Do not extend it.
 
 The root `package.json` declares `workspaces: ["packages/*"]` and run-all scripts (`npm run build|test|typecheck`). `vscode/auditskill/` keeps its own zero-dep surface and is not part of the workspaces.
 

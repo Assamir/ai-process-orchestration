@@ -27,12 +27,12 @@ ai-process-orchestration/
 └── knowledge-markdowns/         # reference only
 ```
 
-The existing `cli/` package is **moved and split**: its platform-agnostic modules become
-`packages/core`; its Claude-specific pieces (paths, skill template, CLI messages) become
-`packages/claude-qa-orchestrator`. The current package (`claude-agent-scaffold` v0.1.0) is
-**superseded** by `claude-qa-orchestrator` (QA domain). Empty `claude/` and `mcp/` are removed.
+The former `cli/` package was **moved and split**: its platform-agnostic modules became
+`packages/core`; its Claude-specific pieces (paths, skill template, CLI messages) became
+`packages/claude-qa-orchestrator`. `claude-agent-scaffold` v0.1.0 was **superseded** by
+`claude-qa-orchestrator` (QA domain), and `cli/` has since been removed from the repo.
 
-## 2. Two-phase architecture (preserved from the current CLI)
+## 2. Two-phase architecture (preserved from the former CLI)
 
 - **Phase 1 — installer (`npx <pkg> init`), 100% deterministic, NO LLM.** Detects the test stack,
   runs the `@clack/prompts` wizard (or `--yes` for CI), and writes the `context/` skeleton +
@@ -45,7 +45,7 @@ The existing `cli/` package is **moved and split**: its platform-agnostic module
 
 ## 3. Core modules & contracts (`packages/core`)
 
-Reuses the current `cli/src` structure, extended. Key modules and their responsibilities:
+Extends the module structure carried over from the former `cli/src`. Key modules and their responsibilities:
 
 - **`detect/`** — `detectStack(root): DetectedStack`. Per-language detectors (`node.ts`, `java.ts`,
   `python.ts`) extended with **test-stack detection** (see §8). Light parsing only: `JSON.parse` for
@@ -217,12 +217,12 @@ the vertical `AC<n>`→`Traces to:`→`Covers:` chain; `doctor` warns on a missi
 
 ## 7. Build & release
 
-- **tsup** per leaf package: bundles `core` (via workspace import) into a single ESM `dist/index.js`
-  with a `#!/usr/bin/env node` banner, and an `onSuccess` step that copies `src/templates` →
-  `dist/templates` (same pattern as the current `cli/tsup.config.ts`). Keep that copy step.
+- **tsup** per leaf package: bundles `core` (via workspace import, `noExternal: ["@qa-orch/core"]`)
+  into a single ESM `dist/index.js` with a `#!/usr/bin/env node` banner. No template-copy step — all
+  generated content is embedded as TS strings in `core`, so there are no runtime `.md` templates.
 - Each leaf has its own `package.json` `version`, `bin`, `files: ["dist", "README.md"]`, `engines.node >= 20`,
   and `prepublishOnly: typecheck && test && build`. **Independent versioning and release.**
-- `@clack/prompts` is the only runtime dep (carried from the current CLI); shared via core, bundled.
+- `@clack/prompts` is the only runtime dep (carried over from the former CLI); external to the bundle, a real dep of each leaf.
 - npx smoke test in CI: run each `dist/index.js init --root <tmp> --yes` and assert the output tree.
 
 ## 8. Detection details (test stacks)
@@ -254,7 +254,7 @@ Detection feeds wizard defaults (chosen automation framework, primary language).
 - Phase 1 never uses an LLM or `ANTHROPIC_API_KEY`.
 - Functional parity between packages is an invariant enforced by the parity snapshot test.
 - **Topology never activates silently.** Multi-repo requires ≥2 qualifying sibling repos; embedded
-  (R-095 → R-099, planned) requires a resolved `testSubpath` — and under `--yes`/CI that means an explicit
+  (R-095 → R-099, v0.66.0–v0.70.0) requires a resolved `testSubpath` — and under `--yes`/CI that means an explicit
   `--test-subpath`. Absent those signals, `--root` behaves as a plain single-repo scaffold, byte-identical.
 - This repo's user-facing skill strings stay PL (per `CLAUDE.md`); package code, identifiers, JSON
   keys, and these design docs are EN.
