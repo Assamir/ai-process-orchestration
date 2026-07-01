@@ -107,10 +107,19 @@ export {
   fixLinks,
   type DoctorFinding,
   type DoctorReport,
+  type DoctorOptions,
   type DoctorFixReport,
   type LinkFix,
   type LinkFixClass,
+  type TokenReport,
+  type TokenFootprintEntry,
 } from "./doctor/index.js";
+export {
+  estimateTokens,
+  tokenizerName,
+  TOKEN_BUDGETS,
+  type TokenBudgets,
+} from "./model/tokens.js";
 export { runCli, type CliMeta } from "./cli.js";
 export {
   renderSkillCatalog,

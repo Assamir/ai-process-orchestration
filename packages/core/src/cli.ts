@@ -4,7 +4,7 @@ import { intro, log, note, outro } from "@clack/prompts";
 import type { PlatformAdapter } from "./adapters/types.js";
 import { detectStack } from "./detect/index.js";
 import { enumerateRepos, hasDedicatedTestRepo } from "./detect/repo-map.js";
-import { fixLinks, runDoctor } from "./doctor/index.js";
+import { fixLinks, runDoctor, type TokenReport } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WorkspaceInfo, WriteResult } from "./types.js";
 import type { Changelog, ChangelogKind } from "./update/changelog.js";
@@ -191,6 +191,10 @@ function doDoctor(adapter: PlatformAdapter, meta: CliMeta, root: string): number
   log.step(`Validating ${root} (${meta.toolName})`);
 
   const report = runDoctor(root, adapter);
+
+  // (R-081) Token footprint — always shown, so leanness is a measured, visible
+  // invariant (not just a warn when something is over budget).
+  note(footprintLines(report.tokens).join("\n"), "Token footprint");
 
   if (report.findings.length === 0) {
     log.success("No issues found.");
@@ -441,6 +445,40 @@ Options:
 
 function rel(root: string, abs: string): string {
   return abs.startsWith(root) ? abs.slice(root.length).replace(/^[/\\]/, "") : abs;
+}
+
+/**
+ * (R-081) Render the token footprint as a compact, always-shown summary: the
+ * tokenizer used, the always-resident root map, the largest + total guideline and
+ * skill footprint, and the grand total against its budget. `!` marks a line over
+ * budget (mirrors the finding severity). Keeps the strategic number — the lean
+ * root map — first.
+ */
+function footprintLines(t: TokenReport): string[] {
+  const of = (kind: "rootmap" | "guideline" | "skill") => t.entries.filter((e) => e.kind === kind);
+  const sum = (kind: "rootmap" | "guideline" | "skill") => of(kind).reduce((n, e) => n + e.tokens, 0);
+  const max = (kind: "guideline" | "skill") => {
+    const list = of(kind);
+    return list.length > 0 ? list.reduce((a, b) => (b.tokens > a.tokens ? b : a)) : null;
+  };
+  const flag = (over: boolean) => (over ? "! " : "  ");
+  const root = of("rootmap")[0];
+  const gMax = max("guideline");
+  const sMax = max("skill");
+  const lines = [`Tokenizer: ${t.tokenizer}`];
+  if (root) lines.push(`${flag(root.overBudget)}root map: ${root.tokens} (budget ${root.budget})`);
+  if (gMax) {
+    lines.push(
+      `${flag(gMax.overBudget)}guidelines: ${sum("guideline")} total, largest ${gMax.name} ${gMax.tokens} (budget ${gMax.budget})`,
+    );
+  }
+  if (sMax) {
+    lines.push(
+      `${flag(sMax.overBudget)}skills: ${sum("skill")} total, largest ${sMax.name} ${sMax.tokens} (budget ${sMax.budget})`,
+    );
+  }
+  lines.push(`${flag(t.overBudget)}total: ${t.total} (budget ${t.totalBudget})`);
+  return lines;
 }
 
 /**

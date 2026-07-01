@@ -326,6 +326,17 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   disambiguating Playwright report/trace links (`playwright-report/index.html`,
   `test-results/**/trace.zip`) surfaced by `qa-playwright-cli` / the result MCP; anything not provably
   unique is left as a finding, mirroring auditskill's `apply-step` dry-run/write contract.
+  **Extended in R-081:** `doctor` now also measures the **token footprint** of the generated surface —
+  the `vscode/auditskill` token count, finally applied to the QA scaffold. A dependency-free estimator
+  (`core/src/model/tokens.ts`: `estimateTokens` / `tokenizerName` / `TOKEN_BUDGETS`; `tiktoken` cl100k
+  when globally importable, else `chars/4` — **no new `core` dependency**, so the deterministic fallback
+  runs here) sizes the lean root map, each deployed guideline, and each rendered skill file; the
+  `TokenReport` (per-file + total + tokenizer) rides on every `DoctorReport` and the CLI prints it on
+  each run. Over-budget files emit **warn-only** findings (`TOKENS:rootmap` — the always-resident,
+  compaction-surviving surface, tightest budget — `TOKENS:guideline:<name>`, `TOKENS:skill:<name>`,
+  `TOKENS:total`), so leanness is a **measured, CI-gated invariant** (composes with the R-051
+  `doctor`-as-PR-gate) that can never fail a clean scaffold or break parity; budgets are overridable via
+  `runDoctor(root, adapter, { tokenBudgets })`.
 - **Migration when `core` changes (`update`).** ✅ **Shipped (R-034).** A third deterministic, no-LLM CLI
   verb (`core/src/update/index.ts`, `runUpdate`; sibling of `init`/`doctor`) closes the maintenance gap
   where new skills, guidelines, MCP wiring, and root-config rules added to `core` never reach repos that

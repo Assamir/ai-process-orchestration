@@ -11,6 +11,13 @@ import {
   pathIsPillar,
 } from "../model/artifacts.js";
 import { GUIDELINES } from "../model/context.js";
+import { SKILLS } from "../model/skills.js";
+import {
+  estimateTokens,
+  TOKEN_BUDGETS,
+  type TokenBudgets,
+  tokenizerName,
+} from "../model/tokens.js";
 import { expectedFilePaths, MANIFEST_REL, PHASE1_VAR_NAMES } from "../scaffold/index.js";
 
 export interface DoctorFinding {
@@ -29,6 +36,37 @@ export interface DoctorReport {
   warnCount: number;
   /** No error-severity findings. */
   ok: boolean;
+  /** (R-081) The token footprint of the generated surface, always computed. */
+  tokens: TokenReport;
+}
+
+/** (R-081) Options for {@link runDoctor}. */
+export interface DoctorOptions {
+  /** Override any of the default token budgets (the rest keep {@link TOKEN_BUDGETS}). */
+  tokenBudgets?: Partial<TokenBudgets>;
+}
+
+/** (R-081) One measured file in the token footprint. */
+export interface TokenFootprintEntry {
+  kind: "rootmap" | "guideline" | "skill";
+  /** Logical name (guideline/skill name; "root config" for the root map). */
+  name: string;
+  /** Root-relative path measured. */
+  rel: string;
+  tokens: number;
+  /** The budget this file is checked against. */
+  budget: number;
+  overBudget: boolean;
+}
+
+/** (R-081) The full token footprint of a scaffold: per-file + total, with tokenizer. */
+export interface TokenReport {
+  /** `tiktoken-cl100k` or `chars-div-4` — which estimator ran. */
+  tokenizer: string;
+  entries: TokenFootprintEntry[];
+  total: number;
+  totalBudget: number;
+  overBudget: boolean;
 }
 
 /**
@@ -37,7 +75,7 @@ export interface DoctorReport {
  * handoff manifest, leftover phase-1 placeholders, broken relative links, and the
  * iron QA rule. Read-only: it reports, it never edits. Findings carry remediation.
  */
-export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport {
+export function runDoctor(root: string, adapter: PlatformAdapter, opts: DoctorOptions = {}): DoctorReport {
   const findings: DoctorFinding[] = [];
 
   // Read the manifest once up front: it drives the manifest-aware structure check
@@ -377,9 +415,100 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
   // dedicated multi-repo / single-repo scaffolds are unaffected.
   validateEmbedded(root, adapter, workspace, findings);
 
+  // 14. (R-081) Token-budget footprint — the QA analog of `vscode/auditskill`'s
+  // token count. Warn-only: size is a smell, not a defect, so an over-budget file
+  // can never fail a clean scaffold or break parity. `TOKENS:rootmap` is the
+  // strategic one — the always-resident lean root map must survive compaction
+  // (TECH §11); per-guideline / per-skill / total round out the footprint. The
+  // measured report is attached to `DoctorReport` unconditionally so the CLI can
+  // print the footprint even when nothing is over budget.
+  const budgets: TokenBudgets = { ...TOKEN_BUDGETS, ...(opts.tokenBudgets ?? {}) };
+  const tokens = computeTokenFootprint(root, adapter, guidelineNames, budgets);
+  for (const e of tokens.entries) {
+    if (!e.overBudget) continue;
+    findings.push({
+      id: e.kind === "rootmap" ? "TOKENS:rootmap" : `TOKENS:${e.kind}:${e.name}`,
+      severity: "warn",
+      message: `${e.rel} is ~${e.tokens} tokens (budget ${e.budget}, ${tokens.tokenizer}).`,
+      remediation:
+        e.kind === "rootmap"
+          ? "Trim the lean root map — it is always resident and must survive compaction. Move detail into a guideline or the context/ system of record and link to it (see TECH §11)."
+          : e.kind === "guideline"
+            ? "Trim this guideline toward its lean tier — keep the rule + ✅/❌ examples, move the long form into the generated full guide under docs/guidelines/ (link, don't restate)."
+            : "Trim this skill's procedure — a skill is a lean, single-purpose map, not a manual. Move reference detail into a guideline or foundation doc and link to it.",
+    });
+  }
+  if (tokens.overBudget) {
+    findings.push({
+      id: "TOKENS:total",
+      severity: "warn",
+      message: `The generated surface is ~${tokens.total} tokens (budget ${tokens.totalBudget}, ${tokens.tokenizer}).`,
+      remediation:
+        "The scaffold is a map, not a thousand-page manual. Trim the largest guidelines/skills toward their lean tiers and push reference detail into linked docs (see TECH §11).",
+    });
+  }
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
-  return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };
+  return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0, tokens };
+}
+
+/**
+ * (R-081) Measure the token footprint of the generated surface: the lean root map,
+ * each deployed guideline, and each rendered skill file. Reads the files actually
+ * on disk (so it reflects the *rendered* footprint, phase-1 placeholders resolved),
+ * skipping any that are absent (a missing file is already a STRUCT error). The
+ * deployed guideline set is manifest-driven (`guidelineNames`); absent that (a
+ * pre-R-091 manifest / direct call) every guideline is measured, matching
+ * `expectedFilePaths`. Uses the dependency-free {@link estimateTokens} (tiktoken
+ * cl100k when globally importable, else chars/4 — see `model/tokens.ts`).
+ */
+function computeTokenFootprint(
+  root: string,
+  adapter: PlatformAdapter,
+  guidelineNames: string[] | undefined,
+  budgets: TokenBudgets,
+): TokenReport {
+  const entries: TokenFootprintEntry[] = [];
+  const read = (rel: string): number | null => {
+    const abs = join(root, rel);
+    if (!existsSync(abs)) return null;
+    return estimateTokens(readFileSync(abs, "utf8"));
+  };
+
+  const rc = read(adapter.rootConfigRel);
+  if (rc !== null) {
+    entries.push({
+      kind: "rootmap",
+      name: "root config",
+      rel: adapter.rootConfigRel,
+      tokens: rc,
+      budget: budgets.rootMap,
+      overBudget: rc > budgets.rootMap,
+    });
+  }
+
+  const gset = guidelineNames ? new Set(guidelineNames) : null;
+  for (const g of GUIDELINES) {
+    if (gset && !gset.has(g.name)) continue;
+    const rel = adapter.guidelineRel(g.name);
+    const t = read(rel);
+    if (t !== null) {
+      entries.push({ kind: "guideline", name: g.name, rel, tokens: t, budget: budgets.guideline, overBudget: t > budgets.guideline });
+    }
+  }
+
+  for (const s of SKILLS) {
+    for (const w of adapter.renderSkill(s)) {
+      const t = read(w.rel);
+      if (t !== null) {
+        entries.push({ kind: "skill", name: s.name, rel: w.rel, tokens: t, budget: budgets.skill, overBudget: t > budgets.skill });
+      }
+    }
+  }
+
+  const total = entries.reduce((sum, e) => sum + e.tokens, 0);
+  return { tokenizer: tokenizerName(), entries, total, totalBudget: budgets.total, overBudget: total > budgets.total };
 }
 
 /**

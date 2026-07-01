@@ -15,7 +15,7 @@ vi.mock("@clack/prompts", () => ({
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runEmbeddedWizard, runWizard } from "../src/index.js";
+import { defaultAnswers, runEmbeddedWizard, runWizard } from "../src/index.js";
 import type { DetectedStack } from "../src/index.js";
 import { tempProject } from "./helpers.js";
 
@@ -50,6 +50,76 @@ function queue(opts: {
     opts.guidelines, // guideline multiselect (R-092)
   );
 }
+
+describe("defaultAnswers (--yes / CI seed)", () => {
+  it("derives non-interactive answers from the detected stack", () => {
+    const a = defaultAnswers(stack);
+    expect(a.automationFramework).toBe("playwright-ts"); // primary, in the choice set
+    expect(a.reportLanguage).toBe("en");
+    expect(a.autonomyLevel).toBe("medium");
+    expect(a.qaConventions.length).toBeGreaterThan(0);
+    // MCP servers are all opt-in — off by default.
+    expect(a.atlassianMcp).toBe(false);
+    expect(a.playwrightMcp).toBe(false);
+    expect(a.xrayMcp).toBe(false);
+    expect(a.markitdownMcp).toBe(false);
+    // No guideline override under --yes: scaffold falls back to the pure `when` result.
+    expect(a.guidelines).toBeUndefined();
+  });
+});
+
+describe("runWizard happy path + cancel", () => {
+  beforeEach(() => {
+    answers.length = 0;
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns every gathered choice in order", async () => {
+    answers.push(
+      "playwright-ts", // automationFramework (select)
+      "pl", // reportLanguage (select)
+      "high", // autonomyLevel (select)
+      "  Deterministic, isolated tests.  ", // qaConventions (text) — trimmed by the wizard
+      true, // atlassianMcp (confirm)
+      false, // playwrightMcp (confirm)
+      true, // xrayMcp (confirm)
+      false, // markitdownMcp (confirm)
+      ["qa-conventions", "test-naming"], // guideline multiselect
+    );
+    const res = await runWizard(stack);
+    expect(res).toEqual({
+      automationFramework: "playwright-ts",
+      reportLanguage: "pl",
+      autonomyLevel: "high",
+      qaConventions: "Deterministic, isolated tests.",
+      atlassianMcp: true,
+      playwrightMcp: false,
+      xrayMcp: true,
+      markitdownMcp: false,
+      guidelines: ["qa-conventions", "test-naming"],
+    });
+  });
+
+  it("returns null when the user cancels the first prompt", async () => {
+    answers.push(Symbol("cancel")); // cancel at the framework select
+    const res = await runWizard(stack);
+    expect(res).toBeNull();
+  });
+
+  it("returns null when the user cancels a later prompt (MCP confirm)", async () => {
+    answers.push(
+      "playwright-ts",
+      "en",
+      "medium",
+      "Deterministic.",
+      Symbol("cancel"), // cancel at the atlassian confirm
+    );
+    const res = await runWizard(stack);
+    expect(res).toBeNull();
+  });
+});
 
 describe("wizard guideline override (R-092)", () => {
   beforeEach(() => {

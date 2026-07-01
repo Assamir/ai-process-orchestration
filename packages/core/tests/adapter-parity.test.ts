@@ -4,7 +4,9 @@ import {
   claudeAdapter,
   copilotAdapter,
   FOUNDATION,
+  GUIDELINES,
   mcpServers,
+  rootConfigMarkdown,
   SKILLS,
 } from "../src/index.js";
 import type { LogicalSkill, McpContext, McpServer } from "../src/index.js";
@@ -177,6 +179,56 @@ describe("adapter parity — skill context references", () => {
         (w) => w === art.pathTemplate || w === art.pathTemplate.replace(/[^/]+$/, ""),
       );
       expect(wired, `${art.producedBy}.writes wires ${art.pathTemplate}`).toBe(true);
+    }
+  });
+});
+
+// --- D. root-config + guideline-path shape parity (R-080) ------------------
+
+describe("adapter parity — root config + doc paths", () => {
+  it("pins the root-config path shape on each platform", () => {
+    // A typo in either adapter's root-config path (where the load-bearing rules
+    // live) would ship green without this pin.
+    expect(claudeAdapter.rootConfigRel).toBe("CLAUDE.md");
+    expect(copilotAdapter.rootConfigRel).toBe(".github/copilot-instructions.md");
+  });
+
+  it("carries the same load-bearing rules and skill set in both root configs", () => {
+    // Both adapters render the *same* `rootConfigMarkdown`, differing only in the
+    // invoke noun (skill vs prompt). The compaction-surviving rules and the full
+    // skill roster must be present on both, or parity is broken.
+    const claude = rootConfigMarkdown(SKILLS, claudeAdapter.invokeNoun);
+    const copilot = rootConfigMarkdown(SKILLS, copilotAdapter.invokeNoun);
+    for (const [label, text] of [
+      ["claude", claude],
+      ["copilot", copilot],
+    ] as const) {
+      expect(text, `${label}: iron QA rule`).toMatch(/iron qa rule/i);
+      expect(text, `${label}: grounding rule`).toMatch(/grounding rule/i);
+      expect(text, `${label}: read before you write`).toMatch(/read before you write/i);
+      for (const s of SKILLS) expect(text.includes(s.name), `${label} references ${s.name}`).toBe(true);
+    }
+  });
+
+  it("maps every guideline name to the platform's documented path shape", () => {
+    // Same logical guideline set on both platforms; only the container + extension
+    // differ. A one-adapter shape drift (wrong dir/extension) fails here.
+    for (const g of GUIDELINES) {
+      expect(claudeAdapter.guidelineRel(g.name)).toBe(`.ai/guidelines/${g.name}.md`);
+      expect(copilotAdapter.guidelineRel(g.name)).toBe(
+        `.github/instructions/${g.name}.instructions.md`,
+      );
+    }
+  });
+
+  it("emits one distinct SKILL/prompt file per skill, no path collisions", () => {
+    for (const [label, adapter] of [
+      ["claude", claudeAdapter],
+      ["copilot", copilotAdapter],
+    ] as const) {
+      const rels = SKILLS.flatMap((s) => adapter.renderSkill(s).map((w) => w.rel));
+      expect(new Set(rels).size, `${label}: unique skill file paths`).toBe(rels.length);
+      expect(rels.length, `${label}: at least one file per skill`).toBeGreaterThanOrEqual(SKILLS.length);
     }
   });
 });

@@ -252,3 +252,58 @@ describe("runDoctor", () => {
     expect(report.findings.some((f) => f.id === "MANIFEST:platform")).toBe(true);
   });
 });
+
+describe("runDoctor token-budget footprint (R-081)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    project = tempProject();
+  });
+  afterEach(() => project.cleanup());
+
+  it("attaches a token footprint to every report (root map + guidelines + skills)", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const report = runDoctor(project.dir, claudeAdapter);
+    const t = report.tokens;
+    expect(t.tokenizer).toBe("chars-div-4"); // core ships no tiktoken → deterministic fallback
+    expect(t.entries.some((e) => e.kind === "rootmap")).toBe(true);
+    expect(t.entries.some((e) => e.kind === "guideline")).toBe(true);
+    expect(t.entries.some((e) => e.kind === "skill")).toBe(true);
+    // The total is the sum of the measured entries and is positive.
+    expect(t.total).toBe(t.entries.reduce((n, e) => n + e.tokens, 0));
+    expect(t.total).toBeGreaterThan(0);
+  });
+
+  it("keeps a fresh scaffold clean of any TOKENS warning on both platforms (calibration)", () => {
+    for (const adapter of [claudeAdapter, copilotAdapter]) {
+      const p = tempProject();
+      scaffold({ root: p.dir, adapter, stack, answers });
+      const report = runDoctor(p.dir, adapter);
+      expect(report.findings.some((f) => f.id.startsWith("TOKENS:")), `${adapter.id} TOKENS warns`).toBe(false);
+      expect(report.tokens.overBudget).toBe(false);
+      p.cleanup();
+    }
+  });
+
+  it("warns (never errors) when the root map exceeds its budget", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const report = runDoctor(project.dir, claudeAdapter, { tokenBudgets: { rootMap: 1 } });
+    const finding = report.findings.find((f) => f.id === "TOKENS:rootmap");
+    expect(finding, "TOKENS:rootmap present").toBeDefined();
+    expect(finding!.severity).toBe("warn");
+    expect(report.ok).toBe(true); // warn-only — cannot fail a scaffold
+    expect(report.errorCount).toBe(0);
+  });
+
+  it("warns per over-budget guideline and skill, and on the grand total", () => {
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const report = runDoctor(project.dir, claudeAdapter, {
+      tokenBudgets: { guideline: 1, skill: 1, total: 1 },
+    });
+    expect(report.findings.some((f) => f.id.startsWith("TOKENS:guideline:"))).toBe(true);
+    expect(report.findings.some((f) => f.id.startsWith("TOKENS:skill:"))).toBe(true);
+    expect(report.findings.some((f) => f.id === "TOKENS:total")).toBe(true);
+    // All still warnings — the check never turns a clean scaffold red.
+    expect(report.findings.filter((f) => f.id.startsWith("TOKENS:")).every((f) => f.severity === "warn")).toBe(true);
+    expect(report.ok).toBe(true);
+  });
+});

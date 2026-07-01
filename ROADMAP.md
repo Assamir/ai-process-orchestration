@@ -105,6 +105,8 @@
 | 0.68.0 | **R-097** Embedded editor guardrail. A new `adapter.configGlobs()` returns each platform's writable orchestration-config globs (Claude: `context`/`.claude`/`.ai`/`.mcp.json`/`CLAUDE.md`/`.vscode`; Copilot: `context`/`.github`/`.vscode`). **Single-host** → `scaffold:emitEmbeddedSettings` writes `.vscode/settings.json` (`files.readonlyInclude: {"**":true}` + a `readonlyExclude` carve-out for `{testSubpath}/**` + config), **shallow-merged** into any existing file (adds only missing readonly keys, never overwrites a user value; leaves a non-JSON/JSONC file untouched for `doctor` to report — never clobbers). **Multi-host** → `emitCodeWorkspace` pins the host read-only (`{testRepo}/**`) and carves the subtree + config back writable via `readonlyExclude`. Both editor files stay **untracked** in the manifest baseline (like the existing `.code-workspace`), so `update` never rewrites them. *Depends on R-095.*| `3a700a6` | `adapters/{types,claude,copilot}.ts` (`configGlobs`), `scaffold/index.ts` (`emitEmbeddedSettings`/`emitCodeWorkspace` carve-out/workspace-emit), `tests/embedded.test.ts` |
 | 0.69.0 | **R-098** Embedded `doctor` + `update` topology awareness. `doctor` adds **`validateEmbedded`** (runs only when `testSubpath` is recorded): `EMBEDDED:subpath` (error — the subtree is relative, non-root, and exists), `EMBEDDED:leak:subtree` (error — no orchestration install nested *inside* the subtree), `EMBEDDED:rule` (error — the lean root config still carries the boundary rule naming the subtree), `EMBEDDED:guardrail` (warn — the `.vscode/settings.json`/`.code-workspace` editor pin is present); multi-host sibling-repo leaks stay covered by the existing `MULTIREPO:leak`. `update` re-renders the embedded rule + guideline from the manifest's `testSubpath` (the `buildVars` thread from R-095) and, because the editor files are untracked, **never rewrites `settings.json`** (drift → left in place). A fresh embedded scaffold is `doctor`-clean; the invariant is regression-verified. *Depends on R-095→R-097.*| `3a700a6` | `doctor/index.ts` (`validateEmbedded`), `update/index.ts` (re-render, verified), `tests/embedded.test.ts` |
 | 0.70.0 | **R-099** Embedded docs — flipped the design record + ADR (0001, this repo's first) + `docs/embedded-tests.md` usage guide from *planned* to *shipped*, and the TECH §11 / PRD §8 pointers to `v0.66.0–v0.70.0` with the concrete API surface (`renderMultiRepoRule`/`enumerateTestSubtrees`/`resolveEmbeddedWorkspace`/`configGlobs`/`EMBEDDED:*`). Completes the epic R-095→R-099. *Depends on R-095→R-098.*| `3a700a6` | `docs/embedded-tests.md`, `docs/design/embedded-test-topology.md`, `docs/design/adr/0001-embedded-test-topology.md`, `TECH.md` §11, `PRD.md` §8, `ROADMAP.md`, `packages/*/package.json` (version bumps) |
+| 0.71.0 | **R-080** Integration & smoke test hardening — closed the untested glue layer between the well-covered core modules and the two leaf bins. New `tests/cli.test.ts` drives `runCli` end-to-end (help / unknown-command exit codes; `init --yes` → a doctor-clean scaffold; `doctor` exit 1 on an unscaffolded dir + on a platform mismatch; `update` reports up-to-date; `doctor --fix` dry-run → `--write` link repair; Copilot `init`+`doctor` parity). New `tests/leaf-smoke.test.ts` pins each thin leaf's wiring (calls `runCli` with its own adapter, forwards `pkg.version` per R-038, `bin` → `dist/index.js`, ships `dist`) and — when `dist/index.js` is built — spawns `node dist/index.js --help`, asserting the tsup shebang + usage. `tests/wizard.test.ts` gains the `runWizard` happy-path (every choice returned in order) + early/late cancel + `defaultAnswers` cases, and the cross-adapter parity widens (`tests/adapter-parity.test.ts`) to pin both root-config path shapes + the load-bearing-rule/full-skill-set content of each root config, and every guideline's platform path shape. **Additive — zero change to generated output**; can only find regressions, never introduce them. *No deps.* | `(pending)` | `packages/core/tests/{cli,leaf-smoke}.test.ts` (new), `tests/{wizard,adapter-parity}.test.ts`, both leaf `package.json` (version) |
+| 0.72.0 | **R-081** `doctor` token-budget check — the QA analog of `vscode/auditskill`'s token count, which `doctor` never had. New dependency-free estimator `core/src/model/tokens.ts` (`estimateTokens` / `tokenizerName` / `TOKEN_BUDGETS`; `tiktoken` cl100k when globally importable, else `chars/4` — **no new npm dependency in `core`**, so this repo runs the deterministic fallback). `runDoctor` now measures the *rendered* footprint of the lean root map + each deployed guideline + each rendered skill file and attaches a `TokenReport` (per-file + total + tokenizer) to **every** `DoctorReport`, emitting **warn-only** findings when a file is over budget: `TOKENS:rootmap` (the strategic, always-resident surface — tightest budget), `TOKENS:guideline:<name>`, `TOKENS:skill:<name>`, and `TOKENS:total`. Warn-only means it **can't fail a clean scaffold or break parity**; budgets are calibrated so a fresh scaffold on any topology sits under budget on both platforms, and are overridable via `runDoctor(root, adapter, { tokenBudgets })`. The CLI prints the footprint (tokenizer + root / guideline / skill / total vs budget) on every `doctor` run, making the "lean root map survives compaction" principle (TECH §11) a **measured, CI-gated invariant** (composes with the R-051 `doctor`-as-PR-gate) and any future trim evidence-led rather than a guess. Completes the internal-quality & cost-legibility epic R-079→R-081. *No deps.* | `(pending)` | `packages/core/src/model/tokens.ts` (new), `doctor/index.ts`, `cli.ts`, `index.ts`, `tests/doctor.test.ts`, `TECH.md` §11, `PRD.md` §8, both leaf `package.json` (version) |
 
 PRD capabilities §5 and the harness-engineering roadmap in PRD §8 / TECH §11 track these at the product level.
 
@@ -138,11 +140,11 @@ a version; the next work is pulled from the **Backlog** below._
   guideline, scheduled together), **R-049** (`test-strategy` guideline), **R-050** (`qa-release-readiness`
   skill), **R-053** (`qa-mobile` skill), **R-055** + **R-058** (`qa-security` skill + `security-testing`
   guideline, scheduled together).
-- **Internal quality & cost-legibility** — **R-079** (single-source the scaffold file-list / manifest
-  contract) **shipped v0.53.0**; remaining: **R-080** (integration & smoke test hardening), **R-081**
-  (`doctor` token-budget check). No dependency chain; both are low/low-med risk with **zero change to
-  generated output**. R-081 is the strategic one — it makes the "lean root map" principle a *measured*,
-  CI-gated invariant (composes with the R-051 `doctor`-as-PR-gate) rather than a hand-checked aspiration.
+- **Internal quality & cost-legibility (R-079 → R-081) — ✅ epic complete.** **R-079** (single-source the
+  scaffold file-list / manifest contract) shipped v0.53.0, **R-080** (integration & smoke test hardening)
+  v0.71.0, **R-081** (`doctor` token-budget check) v0.72.0 — all in the **Shipped** table. R-081 made the
+  "lean root map" principle a *measured*, CI-gated invariant (composes with the R-051 `doctor`-as-PR-gate)
+  rather than a hand-checked aspiration.
 - **Documentation-pillars follow-ups (deferred)** — **R-075** (per-service `context/reference/` split)
   **shipped as part of R-087** (multi-repo epic, v0.58.0); remaining: **R-076** (`qa-postman-analysis`),
   **R-077** (`git-sync-changelog`), **R-078** (service-analysis-updates). Not yet scheduled.
@@ -311,7 +313,8 @@ rich-artifact-templates epic).
   status-gated). *Likely lands in:* `doctor/index.ts`, `model/artifacts.ts`,
   `model/skills.ts` (status transitions), `tests/doctor.test.ts`, PRD §8, TECH §11.
 
-**Epic: internal quality & cost-legibility (R-079 → R-081).** Outcome of a quality / responsibility /
+**Epic: internal quality & cost-legibility (R-079 → R-081) — ✅ shipped (v0.53.0, v0.71.0, v0.72.0).**
+Outcome of a quality / responsibility /
 token-cost review of the shipped product (`core` 0.32.0, leaves 0.52.0). The review's headline: the
 ~37k tokens of generated content are **not resident at once** — by design (TECH §11) the always-resident
 surface is the lean root map (~67 lines) plus the *one* active skill, and guidelines are pulled
@@ -326,27 +329,19 @@ premature without R-081's numbers).
 - **R-079 (v0.53.0 — ✅ shipped, in Shipped table).** Single-source the scaffold file-list / manifest
   contract; `scaffold` now exports the one `MANIFEST_REL` + a path-only `expectedFilePaths(adapter)` that
   `doctor` consumes. Pure refactor, zero generated-output change. Full detail in the **Shipped** row.
-- **R-080** — **Integration & smoke test hardening (backlog, no deps).** Closes the untested glue layer:
-  every core module is well-tested in isolation, but `runCli` routing (`--yes`/`--fix`/`--write`/`-i`/
-  `--root` + exit codes), the wizard (happy-path + cancel), and the leaf bins are not, and the parity test
-  (`scaffold.test.ts:1015`) asserts only the shared skill set + one shared file — an adapter frontmatter/
-  field-name typo can ship green. Add `tests/cli.test.ts` + `tests/wizard.test.ts`, a leaf smoke
-  (`node dist/index.js --help` → shebang + version), and **widen the parity test** to assert both adapters'
-  root-config / MCP-file / guideline-path *shapes*. Additive — can only *find* regressions, not introduce
-  them (~3–4h, low risk). *Likely lands in:* `tests/cli.test.ts` (new), `tests/wizard.test.ts` (new), a leaf
-  smoke test, `tests/scaffold.test.ts` (widened parity).
-- **R-081** — **`doctor` token-budget check (backlog, no deps).** The strategic item: `doctor` validates
-  structure, links, and load-bearing rules but **never counts tokens** — unlike its sibling
-  `vscode/auditskill`, which does exactly this for Copilot configs. Add a deterministic, **warn-only**
-  footprint report (per-file: root map / each guideline / each skill, plus totals) with configurable
-  thresholds, the tokenizer named, reusing the auditskill estimator pattern (`tiktoken` cl100k when globally
-  importable, else `chars/4` — **no new npm dependency** in `core`). Findings `TOKENS:rootmap` /
-  `TOKENS:guideline:<name>` / `TOKENS:total` (warn — size is a smell, not a defect; can't fail a clean
-  scaffold or break parity). Makes the "map, not a thousand-page manual / lean root survives compaction"
-  principle a **measured, CI-gated invariant** (composes with the R-051 `doctor`-as-PR-gate) and makes any
-  *future* trim evidence-led rather than a guess (~3–5h, low-med risk — calibration only). *Likely lands in:*
-  `doctor/index.ts`, a thresholds surface in `model/`/`doctor/`, `cli.ts` (output), `tests/doctor.test.ts`,
-  TECH §11.
+- **R-080 (v0.71.0 — ✅ shipped, in Shipped table).** Integration & smoke test hardening — closed the
+  untested glue layer: `tests/cli.test.ts` (`runCli` routing + exit codes), extended `tests/wizard.test.ts`
+  (happy-path + cancel + `defaultAnswers`), `tests/leaf-smoke.test.ts` (leaf wiring + a built-`dist`
+  `--help` spawn), and widened cross-adapter parity (`tests/adapter-parity.test.ts`: root-config +
+  guideline-path shapes). Additive, zero generated-output change. Full detail in the **Shipped** row.
+- **R-081 (v0.72.0 — ✅ shipped, in Shipped table).** `doctor` token-budget check — the strategic item.
+  `doctor` validated structure, links, and load-bearing rules but **never counted tokens** (unlike its
+  sibling `vscode/auditskill`). Added a deterministic, **warn-only** footprint (per-file: root map / each
+  guideline / each skill + total) via the dependency-free `core/src/model/tokens.ts` estimator (`tiktoken`
+  cl100k when globally importable, else `chars/4` — no new `core` dependency), findings `TOKENS:rootmap` /
+  `TOKENS:guideline:<name>` / `TOKENS:skill:<name>` / `TOKENS:total`, the footprint printed on every
+  `doctor` run. Makes the "lean root survives compaction" principle a **measured, CI-gated invariant**
+  (composes with the R-051 `doctor`-as-PR-gate). Full detail in the **Shipped** row.
 
 **Functional-coverage candidates (R-048 → R-050, R-053, R-055, R-057, R-058).** Net-new QA capabilities
 that fill gaps in the shipped 21-skill suite — independent of each other (no dependency chain), except two
