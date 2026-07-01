@@ -1216,6 +1216,15 @@ This orchestration can run over a **parent folder holding several repositories**
 - **Resolve source across the workspace.** A developer repo sits at \`../<repo>/\` relative to the test repo. The dev-repo list lives in \`context/foundation/repo-map.md\` ("External source repositories") and the manifest's \`workspace\` block — read it to know which repos are in scope.
 - **The editor enforces it too.** The generated \`.code-workspace\` pins the developer-repo folders read-only (\`files.readonlyInclude\`), and \`doctor\` fails the build if any scaffold output leaks into a developer-repo tree. Persuasion (this rule), a native guardrail (the editor), and an out-of-loop check (\`doctor\`) reinforce each other — none is a substitute for keeping the boundary in mind.
 
+## Embedded test topology (the test framework lives *inside* a developer repo)
+
+A third layout: the test framework has **no repo of its own** — it lives as a **subtree** of a developer repo (an \`e2e/\` folder, or a build module such as a Maven submodule / Gradle subproject / workspace package). The writable area is then a *subtree* of a repo that is otherwise application source. The manifest records it as a \`testSubpath\` inside the host repo (\`testRepo\`, or \`"."\` for a single host repo with no siblings).
+
+- **The writable area is the test subtree plus the host-root config.** Everything the tool or its agents write lands inside \`{testSubpath}/\` (new tests, page objects, fixtures, test data) or the orchestration config at the host root (\`context/\`, the platform config, the manifest). Nothing else.
+- **The rest of the host repo is read-only application source.** Read it at \`file:line\` to plan and ground tests — never create, edit, or delete a file outside \`{testSubpath}/\`. A stray test artifact in the host's \`src/\` is a leak, the same class of mistake as writing into a developer repo.
+- **Sibling developer repos stay read-only** (multi-host), exactly as above — read at \`../<repo>/file:line\`, never written.
+- **The editor enforces it too.** Single-host writes \`files.readonlyInclude\` (host source) + \`files.readonlyExclude\` (\`{testSubpath}/\` + config) into \`.vscode/settings.json\`; multi-host adds a \`readonlyExclude\` carve-out to the \`.code-workspace\`. \`doctor\` fails the build on any write outside the writable set.
+
 ## Examples (✅ good / ❌ bad — required)
 
 > Every guideline shows the pattern, it doesn't just describe it.
@@ -1231,6 +1240,19 @@ write  context/changes/checkout-rate-limit/cases.md        (doc, in the test rep
 \`\`\`
 write  ../payments-api/src/test/FixtureHack.java   # editing read-only source
 write  ../payments-api/.claude/skills/...          # scaffolding into a dev repo
+\`\`\`
+
+✅ **Good (embedded, \`testSubpath: e2e\`)** — read host source, write only into the test subtree + config:
+\`\`\`
+read   src/checkout/limiter.ts#L40-L58        (ground the AC — host application source)
+write  e2e/checkout/rate-limit.spec.ts        (test, inside the writable subtree)
+write  context/changes/checkout-rate-limit/cases.md   (doc, host-root config)
+\`\`\`
+
+❌ **Avoid (embedded)** — writing into host application source outside the subtree:
+\`\`\`
+write  src/checkout/limiter.ts        # editing read-only host source
+write  package.json                   # touching a host-root file that isn't orchestration config
 \`\`\`
 
 ## Applicable patterns

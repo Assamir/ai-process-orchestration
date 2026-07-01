@@ -369,6 +369,14 @@ export function runDoctor(root: string, adapter: PlatformAdapter): DoctorReport 
   }
   validateWorkspaceLeaks(root, adapter, workspace, findings);
 
+  // 13. Embedded test topology (R-095/R-098) — when the manifest records a
+  // `testSubpath`, validate the writable-subtree contract: the subtree exists and
+  // is a real subtree of the host, the load-bearing boundary rule names it in the
+  // root config, and the editor guardrail (single-host `.vscode/settings.json` /
+  // multi-host `.code-workspace`) is present. Inert unless `testSubpath` is set, so
+  // dedicated multi-repo / single-repo scaffolds are unaffected.
+  validateEmbedded(root, adapter, workspace, findings);
+
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
   return { platform: adapter.id, findings, errorCount, warnCount, ok: errorCount === 0 };
@@ -466,6 +474,95 @@ function validateWorkspaceLeaks(
         severity: "error",
         message: `Scaffold output leaked into the read-only developer repo "${dev}": ${leaked.join(", ")}.`,
         remediation: `Remove the orchestration artifacts from ../${dev} — developer repos are read-only source. All artifacts belong in the test repo (see the multi-repo-boundaries guideline).`,
+      });
+    }
+  }
+}
+
+/**
+ * (R-095/R-098) When the manifest records a `testSubpath`, validate the **embedded
+ * test topology**: the writable area is that subtree plus the host-root config, and
+ * everything else is read-only. Runs at the host root (`root` = the write root).
+ * Checks, in order:
+ *
+ * - `EMBEDDED:subpath` (error) — the subtree is a relative path to an existing
+ *   directory inside the host (not `.`, not absolute, does not escape).
+ * - `EMBEDDED:leak:subtree` (error) — no orchestration install nested *inside* the
+ *   subtree (config belongs at the host root; a nested install means `init` ran in
+ *   the wrong place).
+ * - `EMBEDDED:rule` (error) — the lean root config still carries the load-bearing
+ *   workspace-boundary rule naming the subtree (it must survive compaction).
+ * - `EMBEDDED:guardrail` (warn) — the editor guardrail file is present
+ *   (single-host `.vscode/settings.json`; multi-host `.code-workspace`). A defense
+ *   layer, so a warn, not an error.
+ *
+ * Multi-host sibling-repo leaks are covered by {@link validateWorkspaceLeaks} (it
+ * fires whenever `devRepos` is non-empty). Inert unless `testSubpath` is set.
+ */
+function validateEmbedded(
+  root: string,
+  adapter: PlatformAdapter,
+  workspace: WorkspaceInfo | undefined,
+  findings: DoctorFinding[],
+): void {
+  const testSubpath = workspace?.testSubpath;
+  if (!testSubpath) return;
+
+  const invalidShape =
+    testSubpath === "." || testSubpath.startsWith("..") || /^([A-Za-z]:|[/\\])/.test(testSubpath);
+  const subAbs = join(root, testSubpath);
+  if (invalidShape || !existsSync(subAbs)) {
+    findings.push({
+      id: "EMBEDDED:subpath",
+      severity: "error",
+      message: `The embedded test subtree "${testSubpath}" is invalid or missing — it must be a relative path to an existing directory inside the host repo.`,
+      remediation: "Point manifest.workspace.testSubpath at an existing subtree of the host repo, or re-run init with --test-subpath <path>.",
+    });
+    return; // the remaining checks assume a resolvable subtree
+  }
+
+  const nestedMarkers = [MANIFEST_REL, adapter.rootConfigRel, ".claude/skills", ".github/prompts"];
+  const nested = nestedMarkers.filter((m) => existsSync(join(subAbs, m)));
+  if (nested.length > 0) {
+    findings.push({
+      id: "EMBEDDED:leak:subtree",
+      severity: "error",
+      message: `Orchestration output found inside the test subtree ${testSubpath}/: ${nested.join(", ")}. Config belongs at the host root, not inside the subtree.`,
+      remediation: `Remove the nested orchestration install from ${testSubpath}/ — the subtree holds tests; the context/ + config live at the host root.`,
+    });
+  }
+
+  const rootAbs = join(root, adapter.rootConfigRel);
+  if (existsSync(rootAbs)) {
+    const text = readFileSync(rootAbs, "utf8");
+    if (!text.includes("Workspace boundary") || !text.includes(`\`${testSubpath}/\``)) {
+      findings.push({
+        id: "EMBEDDED:rule",
+        severity: "error",
+        message: `The lean root config (${adapter.rootConfigRel}) no longer carries the embedded write-boundary rule naming the test subtree \`${testSubpath}/\`.`,
+        remediation: `Restore the workspace-boundary rule: the only writable area is \`${testSubpath}/\` plus the host-root orchestration config; the rest of the host is read-only source. It must survive compaction.`,
+      });
+    }
+  }
+
+  const singleHost = workspace.testRepo === ".";
+  if (singleHost) {
+    if (!existsSync(join(root, ".vscode/settings.json"))) {
+      findings.push({
+        id: "EMBEDDED:guardrail",
+        severity: "warn",
+        message: "Single-host embedded scaffold is missing its editor guardrail (.vscode/settings.json with files.readonly* keys).",
+        remediation: `Add a .vscode/settings.json pinning the host source read-only and carving out ${testSubpath}/ + the orchestration config (re-running init regenerates it when absent).`,
+      });
+    }
+  } else {
+    const wsFile = workspace.workspaceFile;
+    if (!wsFile || !existsSync(join(root, wsFile))) {
+      findings.push({
+        id: "EMBEDDED:guardrail",
+        severity: "warn",
+        message: `Multi-host embedded scaffold is missing its .code-workspace editor guardrail${wsFile ? ` (${wsFile})` : ""}.`,
+        remediation: "Re-run init to regenerate the parent .code-workspace with the host's readonlyExclude carve-out.",
       });
     }
   }

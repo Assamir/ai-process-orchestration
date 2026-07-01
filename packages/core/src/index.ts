@@ -8,10 +8,20 @@ export {
   repoMapMarkdown,
   enumerateRepos,
   chooseTestRepo,
+  enumerateTestSubtrees,
+  chooseTestSubtree,
+  hasDedicatedTestRepo,
   renderDeveloperRepos,
   type RepoInventory,
 } from "./detect/repo-map.js";
-export { defaultAnswers, runWizard, defaultWorkspace, runWorkspaceWizard } from "./wizard/index.js";
+export {
+  defaultAnswers,
+  runWizard,
+  defaultWorkspace,
+  runWorkspaceWizard,
+  runEmbeddedWizard,
+  resolveEmbeddedWorkspace,
+} from "./wizard/index.js";
 export {
   frameworkLabel,
   frameworkChoices,

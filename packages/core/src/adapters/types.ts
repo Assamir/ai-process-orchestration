@@ -31,6 +31,16 @@ export interface PlatformAdapter {
    * (it reads `.claude/skills` directly and ignores `.code-workspace`).
    */
   workspaceSettings(testRepo: string): Record<string, unknown>;
+  /**
+   * (R-097) Repo-root-relative globs of **this platform's orchestration config** —
+   * the writable area besides the test subtree in the embedded topology. Used to
+   * build the editor guardrail's `files.readonlyExclude` carve-out (single-host
+   * `.vscode/settings.json`; multi-host `.code-workspace`), so the host's config
+   * dirs stay writable while the rest of its source is read-only. Coarse directory
+   * globs — a defense layer, not the authoritative boundary (that is the root rule
+   * + `doctor`).
+   */
+  configGlobs(): string[];
   /** The MCP config for this platform, wiring result-legibility servers from `ctx`. */
   mcpFile(ctx: McpContext): WriteFile;
 }

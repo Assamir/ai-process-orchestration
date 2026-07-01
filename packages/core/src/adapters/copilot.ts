@@ -84,6 +84,13 @@ ${rows}
     };
   },
 
+  configGlobs(): string[] {
+    // Copilot's orchestration surface all lives under .github (copilot-instructions,
+    // instructions, prompts, agents) and .vscode (mcp.json + the guardrail file),
+    // plus the context/ system of record.
+    return ["context/**", ".github/**", ".vscode/**"];
+  },
+
   mcpFile(ctx: McpContext): WriteFile {
     // VS Code expands environment variables as `${env:VAR}`, not `${VAR}`;
     // rewrite the shared model's tokens to the platform-correct syntax.

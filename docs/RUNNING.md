@@ -229,6 +229,11 @@ A **single repo** `--root` (no sibling repos found under it) behaves exactly as 
 rest of this guide describes — no workspace block, no `.code-workspace`, no boundary
 rule. Multi-repo behavior activates only when the parent holds ≥2 qualifying repos.
 
+> **No separate test repo?** If the test framework lives *inside* an application repo
+> (an `e2e/` folder or a build module) rather than in its own repo, that's the
+> **embedded** topology — see [`embedded-tests.md`](embedded-tests.md)
+> (`--test-subpath`/`--test-host`).
+
 ---
 
 ## After init — Phase 2 (LLM)

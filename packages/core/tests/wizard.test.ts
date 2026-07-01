@@ -13,8 +13,11 @@ vi.mock("@clack/prompts", () => ({
   multiselect: vi.fn(async () => answers.shift()),
 }));
 
-import { runWizard } from "../src/index.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runEmbeddedWizard, runWizard } from "../src/index.js";
 import type { DetectedStack } from "../src/index.js";
+import { tempProject } from "./helpers.js";
 
 const stack: DetectedStack = {
   language: "node",
@@ -77,5 +80,51 @@ describe("wizard guideline override (R-092)", () => {
     answers[answers.length - 1] = Symbol("cancel"); // cancel the guideline step
     const res = await runWizard(stack);
     expect(res).toBeNull();
+  });
+});
+
+describe("runEmbeddedWizard (R-096)", () => {
+  let project: ReturnType<typeof tempProject>;
+  beforeEach(() => {
+    answers.length = 0;
+    project = tempProject();
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+    project.cleanup();
+  });
+
+  it("proposes the detected single-host subtree and returns it on confirm", async () => {
+    mkdirSync(join(project.dir, "e2e"));
+    writeFileSync(join(project.dir, "e2e", "playwright.config.ts"), "export default {};\n");
+    answers.push(true); // confirm: use embedded mode
+    const ws = await runEmbeddedWizard({ root: project.dir, candidates: [] });
+    expect(ws).toEqual({ testRepo: ".", devRepos: [], testSubpath: "e2e" });
+  });
+
+  it("returns null when the user declines (falls back to single/multi-repo)", async () => {
+    mkdirSync(join(project.dir, "e2e"));
+    writeFileSync(join(project.dir, "e2e", "playwright.config.ts"), "export default {};\n");
+    answers.push(false); // decline
+    const ws = await runEmbeddedWizard({ root: project.dir, candidates: [] });
+    expect(ws).toBeNull();
+  });
+
+  it("returns null when no test subtree is found (no prompt shown)", async () => {
+    writeFileSync(join(project.dir, "package.json"), '{"name":"app"}\n');
+    const ws = await runEmbeddedWizard({ root: project.dir, candidates: [] });
+    expect(ws).toBeNull();
+  });
+
+  it("with multiple subtrees, confirms then lets the user pick one by index", async () => {
+    mkdirSync(join(project.dir, "e2e"));
+    writeFileSync(join(project.dir, "e2e", "playwright.config.ts"), "export default {};\n");
+    mkdirSync(join(project.dir, "integration-tests"));
+    writeFileSync(join(project.dir, "integration-tests", "pom.xml"), "<project/>\n");
+    // enumerateTestSubtrees → ["e2e", "integration-tests"] (sorted); best pick is e2e (index 0).
+    answers.push(true); // confirm
+    answers.push("1"); // select integration-tests by index
+    const ws = await runEmbeddedWizard({ root: project.dir, candidates: [] });
+    expect(ws).toEqual({ testRepo: ".", devRepos: [], testSubpath: "integration-tests" });
   });
 });

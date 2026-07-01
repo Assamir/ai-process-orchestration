@@ -253,6 +253,9 @@ Detection feeds wizard defaults (chosen automation framework, primary language).
 - **Never overwrite**: scaffolding is skip-if-exists; regeneration requires deleting `context/` / config.
 - Phase 1 never uses an LLM or `ANTHROPIC_API_KEY`.
 - Functional parity between packages is an invariant enforced by the parity snapshot test.
+- **Topology never activates silently.** Multi-repo requires ≥2 qualifying sibling repos; embedded
+  (R-095 → R-099, planned) requires a resolved `testSubpath` — and under `--yes`/CI that means an explicit
+  `--test-subpath`. Absent those signals, `--root` behaves as a plain single-repo scaffold, byte-identical.
 - This repo's user-facing skill strings stay PL (per `CLAUDE.md`); package code, identifiers, JSON
   keys, and these design docs are EN.
 
@@ -480,6 +483,29 @@ which tools it calls, how it validates, when it stops). The patterns below come 
   produces byte-identical output — no `workspace` block, no `.code-workspace`, no boundary rule — so every var
   renders to "" and the parity test stays green unchanged. `doctor`/`update` run pointed at the test repo and
   read topology from the co-located manifest. The design record is `docs/design/multi-repo-orchestration.md`.
+
+- **Embedded test topology — writable subtree inside a dev repo (R-095 → R-099, v0.66.0–v0.70.0).** A
+  **third topology** for when the test framework has **no repo of its own** and lives as a **subtree of a
+  developer repo** (an `e2e/` folder or a build module), in both **single-host** (one app repo) and
+  **multi-host** (one dev repo among siblings hosts the subtree) variants. It **extends** the multi-repo
+  machinery instead of duplicating it: `WorkspaceInfo` gains an optional **`testSubpath`** (`testRepo` =
+  host, or `"."` in single-host), and the **writable set** becomes orchestration config at the host root
+  **∪** `{testSubpath}/**` — the rest of the host (application source) and any other dev repos are
+  read-only. The same three-layer guardrail applies (an embedded branch of `MULTI_REPO_RULE` in
+  `scaffold:renderMultiRepoRule` + the extended `multi-repo-boundaries` guideline body + `doctor`'s
+  `EMBEDDED:subpath`/`EMBEDDED:leak:subtree`/`EMBEDDED:rule`/`EMBEDDED:guardrail` checks, layered on the
+  existing `MULTIREPO:leak` for sibling repos), with the editor pin delivered via `.vscode/settings.json`
+  (`readonlyInclude` + `readonlyExclude` carve-out, shallow-merged, never clobbered) for single-host and the
+  `.code-workspace` `readonlyExclude` carve-out (via `adapter.configGlobs()`) for multi-host. Detection is a
+  full hybrid (`detect/repo-map.ts:enumerateTestSubtrees`/`chooseTestSubtree`/`hasDedicatedTestRepo` + the
+  `wizard:runEmbeddedWizard` proposal + `--test-subpath`/`--test-host` flags → `resolveEmbeddedWorkspace`),
+  multi-host precedence keeps a **dedicated test repo winning** (`hasDedicatedTestRepo`) with embedded as the
+  fallback, and — the **backward-compatibility invariant** — **`--yes`/CI without `--test-subpath` never
+  activates embedded**, so existing single/multi scaffolds and the parity test stay byte-identical (every
+  new render var collapses to `""` when `testSubpath` is unset; `settings.json`/`.code-workspace` are
+  untracked, so `update` re-renders the rule/guideline but never rewrites the editor files). Design record:
+  `docs/design/embedded-test-topology.md`; ADR: `docs/design/adr/0001-embedded-test-topology.md`; usage
+  guide: `docs/embedded-tests.md`.
 
 ## 12. Scaffolded-guidelines standard & flow reference (R-015)
 

@@ -131,10 +131,30 @@ export type PlatformId = "claude" | "copilot";
  * invariant).
  */
 export interface WorkspaceInfo {
-  /** The test repo's directory name relative to the parent (the write root). */
+  /**
+   * The test repo's directory name relative to the parent (the write root).
+   *
+   * (R-095) **Semantically overloaded** by the embedded topology: in a dedicated
+   * multi-repo workspace this is a test repo *distinct from* every developer repo;
+   * in the embedded topology (`testSubpath` present) it is instead the **host**
+   * developer repo whose subtree is writable — or `"."` in single-host (one app
+   * repo, no siblings). The overload is a conscious trade to reuse this machinery
+   * rather than add a parallel type; `doctor` validates the combination.
+   */
   testRepo: string;
   /** The developer repos' directory names relative to the parent (read-only source). */
   devRepos: string[];
+  /**
+   * (R-095) **Embedded test topology** — the POSIX-relative path, inside the host
+   * repo (`testRepo`), of the writable **test subtree** (an `e2e/` folder or a
+   * build module). Present ⇒ the writable set is the orchestration config at the
+   * host root **∪** `{testSubpath}/**`, and everything else (host application
+   * source + any other developer repos) is read-only. Absent ⇒ the dedicated
+   * multi-repo / single-repo behavior, unchanged (the backward-compatibility
+   * invariant). Validated (non-empty, relative, not `"."`, exists, inside the host)
+   * by `doctor` and at install.
+   */
+  testSubpath?: string;
   /**
    * (R-086) The generated `.code-workspace` file's path **relative to the test
    * repo** (e.g. `../my-workspace.code-workspace`, since it lives in the parent,

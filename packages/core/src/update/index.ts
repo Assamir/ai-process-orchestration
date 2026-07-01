@@ -275,6 +275,7 @@ export function runUpdate(
     repoMapMarkdown(root),
     manifest.workspace?.devRepos ?? [],
     manifest.workspace?.testRepo,
+    manifest.workspace?.testSubpath,
   );
   // (R-042) The template-side delta from the scaffolded version to the running
   // tool, computed from the same vars so unchanged templates render identically

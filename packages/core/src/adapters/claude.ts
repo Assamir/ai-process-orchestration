@@ -47,6 +47,13 @@ ${skill.body}
     return {};
   },
 
+  configGlobs(): string[] {
+    // Claude's orchestration surface: CLAUDE.md (root map), .ai/guidelines,
+    // .claude/skills, .mcp.json, the context/ system of record, and .vscode (the
+    // editor guardrail file itself).
+    return ["context/**", ".claude/**", ".ai/**", ".mcp.json", "CLAUDE.md", ".vscode/**"];
+  },
+
   mcpFile(ctx: McpContext): WriteFile {
     // Claude Code expands `${VAR}` in .mcp.json string values directly.
     return {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { PlatformAdapter } from "../adapters/types.js";
 import { renderDeveloperRepos, repoMapMarkdown } from "../detect/repo-map.js";
@@ -166,6 +166,7 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     repoMapMarkdown(writeRoot),
     workspace?.devRepos ?? [],
     workspace?.testRepo,
+    workspace?.testSubpath,
   );
 
   // (R-091) Resolve the stack-aware guideline set once (honoring a wizard override
@@ -191,11 +192,25 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
 
   // (R-086) Emit the VS Code `.code-workspace` into the *parent* — the one
   // sanctioned write outside the write root — listing the test repo first and the
-  // dev repos as read-only folders. Only in multi-repo mode; records its path in
-  // the workspace block so `doctor`/`update` know about it.
-  const recordedWorkspace: WorkspaceInfo | undefined = workspace
-    ? { ...workspace, ...emitCodeWorkspace(root, workspace, adapter, results) }
-    : undefined;
+  // dev repos as read-only folders. Records its path in the workspace block so
+  // `doctor`/`update` know about it.
+  //
+  // (R-095/R-097) Single-host embedded (`testRepo === "."`) has no parent multi-root
+  // workspace: the host repo *is* the target, and its editor guardrail is a
+  // `.vscode/settings.json` at the host root (shallow-merged, never clobbered), not
+  // a `.code-workspace`. Dedicated multi-repo and multi-host embedded emit the
+  // parent `.code-workspace` (embedded adds a `readonlyExclude` carve-out for the
+  // host's test subtree + config). Single-host records the workspace block (with
+  // `testSubpath`) but no `workspaceFile`.
+  let recordedWorkspace: WorkspaceInfo | undefined;
+  if (workspace) {
+    if (workspace.testRepo === ".") {
+      if (workspace.testSubpath) emitEmbeddedSettings(writeRoot, workspace.testSubpath, adapter, results);
+      recordedWorkspace = workspace;
+    } else {
+      recordedWorkspace = { ...workspace, ...emitCodeWorkspace(root, workspace, adapter, results) };
+    }
+  }
 
   const manifest: ScaffoldManifest = {
     schemaVersion: 1,
@@ -232,19 +247,38 @@ function emitCodeWorkspace(
 ): { workspaceFile: string } {
   const parentName = basename(parent) || "workspace";
   const fileName = `${parentName}.code-workspace`;
+  // (R-097) Embedded multi-host: the host repo (`testRepo`) is itself developer
+  // source — read-only except its test subtree + config, carved out below.
+  const embedded = workspace.testSubpath !== undefined;
   const folders = [
-    { path: workspace.testRepo, name: `${workspace.testRepo} (QA workspace — writable)` },
+    {
+      path: workspace.testRepo,
+      name: embedded
+        ? `${workspace.testRepo} (host — test subtree writable)`
+        : `${workspace.testRepo} (QA workspace — writable)`,
+    },
     ...workspace.devRepos.map((d) => ({ path: d })),
   ];
   const readonlyInclude: Record<string, boolean> = {};
   for (const d of workspace.devRepos) readonlyInclude[`${d}/**`] = true;
+  // In embedded mode pin the whole host read-only, then carve back the writable set.
+  const readonlyExclude: Record<string, boolean> = {};
+  if (embedded) {
+    readonlyInclude[`${workspace.testRepo}/**`] = true;
+    readonlyExclude[`${workspace.testRepo}/${workspace.testSubpath}/**`] = true;
+    for (const g of adapter.configGlobs()) readonlyExclude[`${workspace.testRepo}/${g}`] = true;
+  }
   const content = `${JSON.stringify(
     {
       folders,
       settings: {
-        // Pin the developer repos read-only in the editor — the tool and its agents
-        // write only into the test repo (see the multi-repo-boundaries guideline).
+        // Pin the developer repos (and, in embedded mode, the host source) read-only
+        // in the editor — the tool and its agents write only into the writable set
+        // (see the multi-repo-boundaries guideline).
         "files.readonlyInclude": readonlyInclude,
+        // (R-097) Embedded carve-out: the host's test subtree + orchestration config
+        // stay writable inside the otherwise read-only host repo.
+        ...(embedded ? { "files.readonlyExclude": readonlyExclude } : {}),
         // (R-094) Platform-specific chat-discovery locations. Copilot must pin its
         // `.github/**` under the test repo so prompts/agents surface in a multi-root
         // workspace (microsoft/vscode#296972); Claude contributes nothing.
@@ -256,6 +290,71 @@ function emitCodeWorkspace(
   )}\n`;
   results.push(writeFileIfAbsent(join(parent, fileName), content));
   return { workspaceFile: `../${fileName}` };
+}
+
+/**
+ * (R-097) Single-host embedded editor guardrail: a `.vscode/settings.json` at the
+ * host root that pins the whole repo read-only (`files.readonlyInclude`) and carves
+ * back the writable set (`files.readonlyExclude`: the test subtree + the platform's
+ * orchestration config globs). **Shallow, non-clobbering merge**, mirroring the
+ * R-034/R-039 "never overwrite user content" principle:
+ *
+ * - no file → write ours;
+ * - a file that parses as JSON → add only the readonly keys we're missing,
+ *   preserving every existing value (never overwrite a key the user already set);
+ * - a file that does not parse (e.g. JSONC with comments) → leave it untouched and
+ *   let `doctor` report the missing guardrail.
+ *
+ * The result is **not** recorded in the manifest baseline (like the `.code-workspace`),
+ * so `update` treats it as drift → report, never a rewrite (R-098/D5).
+ */
+function emitEmbeddedSettings(
+  hostRoot: string,
+  testSubpath: string,
+  adapter: PlatformAdapter,
+  results: WriteResult[],
+): void {
+  const rel = ".vscode/settings.json";
+  const abs = join(hostRoot, rel);
+  const readonlyInclude = { "**": true };
+  const readonlyExclude: Record<string, boolean> = { [`${testSubpath}/**`]: true };
+  for (const g of adapter.configGlobs()) readonlyExclude[g] = true;
+  const ours: Record<string, unknown> = {
+    "files.readonlyInclude": readonlyInclude,
+    "files.readonlyExclude": readonlyExclude,
+  };
+
+  if (!existsSync(abs)) {
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, `${JSON.stringify(ours, null, 2)}\n`, "utf8");
+    results.push({ path: abs, status: "created" });
+    return;
+  }
+
+  let existing: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(abs, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) existing = parsed as Record<string, unknown>;
+  } catch {
+    existing = null; // JSONC / malformed — leave untouched, doctor reports it.
+  }
+  if (existing === null) {
+    results.push({ path: abs, status: "skipped" });
+    return;
+  }
+  let changed = false;
+  for (const key of Object.keys(ours)) {
+    if (!(key in existing)) {
+      existing[key] = ours[key];
+      changed = true;
+    }
+  }
+  if (changed) {
+    writeFileSync(abs, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+    results.push({ path: abs, status: "created" });
+  } else {
+    results.push({ path: abs, status: "skipped" });
+  }
 }
 
 /** Canonical scaffold path of the phase-2 handoff manifest, repo-root-relative. */
@@ -365,6 +464,13 @@ export function buildVars(
    * rule. Omitted (the default) ⇒ `MULTI_REPO_RULE` renders to "".
    */
   testRepo?: string,
+  /**
+   * (R-095) The embedded test subtree, relative to the host repo. Present ⇒ the
+   * write-boundary rule renders its **embedded** branch (the writable area is
+   * `{testSubpath}/` plus the host-root config), independent of `testRepo`.
+   * Omitted (the default) ⇒ the dedicated multi-repo / single-repo rule.
+   */
+  testSubpath?: string,
 ): Record<string, string> {
   return {
     GENERATED_AT: generatedAt,
@@ -377,16 +483,45 @@ export function buildVars(
     QA_CONVENTIONS: answers.qaConventions,
     REPO_MAP_INVENTORY: repoMapInventory,
     DEVELOPER_REPOS: renderDeveloperRepos(developerRepos),
-    MULTI_REPO_RULE: renderMultiRepoRule(testRepo, developerRepos),
+    MULTI_REPO_RULE: renderMultiRepoRule(testRepo, developerRepos, testSubpath),
   };
 }
 
 /**
- * (R-085) The load-bearing multi-repo write-boundary rule, rendered as a blockquote
- * that ends with a blank line so it slots in front of the next block. Empty when
- * not in multi-repo mode, so single-repo output is byte-identical to before.
+ * (R-085 / R-095) The load-bearing workspace write-boundary rule, rendered as a
+ * blockquote that ends with a blank line so it slots in front of the next block.
+ * Three cases, in priority order:
+ *
+ * - **Embedded (R-095)** — `testSubpath` present: the writable area is the test
+ *   subtree `{testSubpath}/` plus the orchestration config at the host root; the
+ *   rest of the host repo is read-only application source, and any sibling
+ *   developer repos are read-only too. Fires for both single-host (`devRepos`
+ *   empty) and multi-host.
+ * - **Dedicated multi-repo (R-085)** — a `testRepo` + ≥1 `developerRepos`, no
+ *   `testSubpath`: the whole test repo is writable, dev repos read-only.
+ * - **Single-repo** — neither: renders to "", so output is byte-identical to
+ *   before this rule existed.
  */
-function renderMultiRepoRule(testRepo: string | undefined, developerRepos: string[]): string {
+function renderMultiRepoRule(
+  testRepo: string | undefined,
+  developerRepos: string[],
+  testSubpath?: string,
+): string {
+  if (testSubpath) {
+    const siblings =
+      developerRepos.length > 0
+        ? ` Sibling developer repos (${developerRepos
+            .map((d) => `\`../${d}/\``)
+            .join(", ")}) are read-only source too — read them at \`../<repo>/file:line\`.`
+        : "";
+    return (
+      `> **Workspace boundary (non-negotiable — survives compaction):** the only writable ` +
+      `area is the test subtree \`${testSubpath}/\` plus the orchestration config at the repo ` +
+      `root (\`context/\`, the platform config, the manifest). The rest of this repo is ` +
+      `**application source** — read it at \`file:line\`, never create, edit, or delete files ` +
+      `outside \`${testSubpath}/\`.${siblings} See the \`multi-repo-boundaries\` guideline.\n\n`
+    );
+  }
   if (!testRepo || developerRepos.length === 0) return "";
   return (
     `> **Workspace boundary (non-negotiable — survives compaction):** the only writable ` +

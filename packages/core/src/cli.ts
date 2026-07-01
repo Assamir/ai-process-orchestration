@@ -3,14 +3,21 @@ import { parseArgs } from "node:util";
 import { intro, log, note, outro } from "@clack/prompts";
 import type { PlatformAdapter } from "./adapters/types.js";
 import { detectStack } from "./detect/index.js";
-import { enumerateRepos } from "./detect/repo-map.js";
+import { enumerateRepos, hasDedicatedTestRepo } from "./detect/repo-map.js";
 import { fixLinks, runDoctor } from "./doctor/index.js";
 import { scaffold } from "./scaffold/index.js";
 import type { WorkspaceInfo, WriteResult } from "./types.js";
 import type { Changelog, ChangelogKind } from "./update/changelog.js";
 import { runUpdate, type UpdateItem, type UpdateReport } from "./update/index.js";
 import { type ChangeItem, resolveConflicts, walkChanges } from "./update/resolve.js";
-import { defaultAnswers, defaultWorkspace, runWizard, runWorkspaceWizard } from "./wizard/index.js";
+import {
+  defaultAnswers,
+  defaultWorkspace,
+  resolveEmbeddedWorkspace,
+  runEmbeddedWizard,
+  runWizard,
+  runWorkspaceWizard,
+} from "./wizard/index.js";
 
 export interface CliMeta {
   /** The published bin / package name, used in help + messages. */
@@ -41,6 +48,11 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
       fix: { type: "boolean", default: false },
       write: { type: "boolean", default: false },
       interactive: { type: "boolean", short: "i", default: false },
+      // (R-096) Embedded test topology: the writable test subtree inside a host repo,
+      // and (multi-host) which developer repo hosts it. Providing --test-subpath is
+      // the only way to activate embedded mode under --yes/CI (compat invariant).
+      "test-subpath": { type: "string" },
+      "test-host": { type: "string" },
     },
   });
 
@@ -51,7 +63,11 @@ export async function runCli(adapter: PlatformAdapter, meta: CliMeta): Promise<n
   }
 
   const root = resolve(values.root);
-  if (command === "init") return doInit(adapter, meta, root, values.yes);
+  if (command === "init")
+    return doInit(adapter, meta, root, values.yes, {
+      testSubpath: values["test-subpath"],
+      testHost: values["test-host"],
+    });
   if (command === "doctor") {
     if (values.fix) return doDoctorFix(adapter, meta, root, values.write);
     return doDoctor(adapter, meta, root);
@@ -67,6 +83,7 @@ async function doInit(
   meta: CliMeta,
   root: string,
   yes: boolean,
+  embedded: { testSubpath?: string; testHost?: string },
 ): Promise<number> {
   intro(meta.binName);
   log.step(`Scanning ${root}`);
@@ -78,12 +95,63 @@ async function doInit(
   const candidates = enumerateRepos(root);
   let writeRoot = root;
   let workspace: WorkspaceInfo | undefined;
-  if (candidates.length >= 2) {
-    const picked = yes ? defaultWorkspace(candidates) : await runWorkspaceWizard(candidates);
-    if (picked === null) return 0; // user cancelled
-    workspace = picked;
-    writeRoot = join(root, picked.testRepo);
-    log.step(`Test repo: ${picked.testRepo} · developer repos (read-only): ${picked.devRepos.join(", ") || "none"}`);
+
+  if (embedded.testSubpath) {
+    // (R-096) Explicit embedded override — the only way into embedded mode under
+    // --yes/CI, and honored in interactive runs too. Builds + validates the
+    // workspace from the flags; a bad subpath/host is a hard error.
+    const resolved = resolveEmbeddedWorkspace({
+      root,
+      testSubpath: embedded.testSubpath,
+      testHost: embedded.testHost,
+      candidates,
+    });
+    if ("error" in resolved) {
+      log.error(resolved.error);
+      outro("Nothing was written.");
+      return 1;
+    }
+    workspace = resolved.workspace;
+  } else if (candidates.length >= 2) {
+    // (R-095/D5) Parent folder. A **dedicated** test repo wins (R-083); embedded is
+    // the fallback, offered interactively only when no repo's name marks it as the
+    // test repo. --yes/CI never activates embedded (compat invariant): it always
+    // takes the deterministic dedicated pick, exactly as before.
+    if (yes || hasDedicatedTestRepo(candidates)) {
+      const picked = yes ? defaultWorkspace(candidates) : await runWorkspaceWizard(candidates);
+      if (picked === null) return 0; // user cancelled
+      workspace = picked;
+    } else {
+      const emb = await runEmbeddedWizard({ root, candidates });
+      if (emb) {
+        workspace = emb;
+      } else {
+        const picked = await runWorkspaceWizard(candidates);
+        if (picked === null) return 0; // user cancelled
+        workspace = picked;
+      }
+    }
+  } else if (!yes) {
+    // (R-095) Single repo at root, interactive: offer single-host embedded when a
+    // test subtree is detected. Declining keeps ordinary single-repo behavior.
+    const emb = await runEmbeddedWizard({ root, candidates: [] });
+    if (emb) workspace = emb;
+  }
+
+  if (workspace) {
+    writeRoot = workspace.testRepo === "." ? root : join(root, workspace.testRepo);
+    if (workspace.testSubpath) {
+      const hostLabel = workspace.testRepo === "." ? "this repo" : workspace.testRepo;
+      log.step(
+        `Embedded: writable subtree ${workspace.testSubpath}/ in ${hostLabel} · read-only: ${
+          workspace.devRepos.join(", ") || "host source"
+        }`,
+      );
+    } else {
+      log.step(
+        `Test repo: ${workspace.testRepo} · developer repos (read-only): ${workspace.devRepos.join(", ") || "none"}`,
+      );
+    }
   }
 
   // Detect the stack on the *test repo* (the write root) — it drives the
@@ -362,6 +430,8 @@ Commands:
 Options:
   --root <dir>    Target project directory (default: current directory)
   -y, --yes       (init) Skip the wizard and accept detected defaults (non-interactive / CI)
+  --test-subpath <path>  (init) Embedded topology: the writable test subtree inside the host repo (required to activate embedded mode under --yes)
+  --test-host <repo>     (init) Embedded multi-host: the developer repo that hosts the test subtree
   --fix           (doctor) Repair broken relative links deterministically; dry-run preview by default
   --write         (doctor --fix / update) Apply the proposed changes (otherwise dry-run only)
   -i, --interactive  (update) Step through each change file by file (apply / skip / diff); requires a TTY
