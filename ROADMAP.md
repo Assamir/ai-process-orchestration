@@ -152,6 +152,82 @@ a version; the next work is pulled from the **Backlog** below._
 > Newly scoped `R-###` items, not yet assigned to a version. Each names its likely landing files and the
 > artifact it traces to; scope may still change before scheduling.
 
+**Epic: AI cost & value cockpit (R-100 → R-105).** A new **cost-observability pillar** — extends the
+cost-legibility epic (R-079 → R-081) from "how heavy is the configuration?" (`doctor` token-budget, R-081)
+to "what did the team actually spend, and what did it produce?" — and composes with `qa-metrics` (quality).
+A **client paying for AI licenses** (Claude Code + Copilot) needs to **justify project cost**; today the
+product measures neither cost, tokens, nor user identity, and has no capture mechanism (this epic
+establishes it). Captures token/cost **per user** (several people share one repo) grouped **by skill/agent**
+with a short task description, tied to delivered value via the existing trace markers
+(`AC<n>`/`Traces to:`/`Covers:`), and renders a self-contained, client-facing dashboard. **Load-bearing
+feasibility fact (verified 2026-07):** Claude Code exposes per-invocation token/cost (OTEL / local usage);
+Copilot exposes **no** local per-invocation data, **but** since **2026-06-01 Copilot bills by token
+consumption** and GitHub exposes **real per-user, per-model cost via REST** (`…/settings/billing/
+ai_credit/usage`, Copilot metrics `users-1-day` reports — per user/model/day, ~daily lag, org-admin token).
+So **both** platforms have a real billed-cost source; the difference is **granularity + latency** (Claude
+fine-grained/real-time per-skill; Copilot per-model/per-day, admin-gated), not availability. The shared
+**estimator** stays the fine-grained, real-time per-skill layer (on Copilot it also splits the API's daily
+per-model cost across skills by estimated token share). Decision **honesty**: every record is
+tagged `source: real|estimate` and the dashboard never merges the two methodologies unlabelled (composes
+with the `grounding` rule R-029). **Delivery: MVP = R-100 + R-101 + R-103 + R-104** (automatic, two-platform,
+estimate-based cockpit); **phase 2 = R-102 + R-105** (real reconciliation **on Claude only**, then the
+`qa-cost` skill + quality + docs → suite **26 skills**). **Copilot is estimator-only by design** — the
+GitHub billing-API real-cost path is out of scope (no org-admin token will ever be available; see the
+out-of-scope note below). Design record in
+[`docs/design/ai-cost-value-cockpit.md`](docs/design/ai-cost-value-cockpit.md).
+
+- **R-100** — **User identity + telemetry data model (MVP, foundation).** Capture the developer identity
+  (`git config user.email`/`user.name`) and establish a new `context/telemetry/` area:
+  `context/telemetry/<email-slug>.jsonl` (append-only, one record per session — `ts`/`user`/`platform`/
+  `skill`/`description`/`model`/`tokens`/`costUsd`/`source: real|estimate`/`workId?`) + an aggregate
+  `index.json` the dashboard reads. `doctor` gains a structure check for the area and an anonymization
+  option (`email` shortened/hashed). Committed by default (privacy: aggregate-by-default, never a per-person
+  ranking). *Likely lands in:* `core/src/types.ts` (identity + telemetry flags on `WizardAnswers`/
+  `ScaffoldManifest`), `model/context.ts` (`context/telemetry/` area + root map), `model/artifacts.ts`
+  (record schema), `scaffold/index.ts`, `doctor/index.ts`, `tests/*`. *Traces to:* PRD §8.
+- **R-101** — **Capture script + token estimator (MVP, depends on R-100).** A zero-dep ESM capture script
+  that identifies the user, locates the Claude session transcript + the Copilot VS Code chat logs
+  (best-effort, undocumented location → graceful degradation), runs a token estimator (reusing the
+  `vscode/auditskill/.github/audit/scripts/_shared.mjs:getTiktoken/estimateTokens` pattern — tiktoken
+  cl100k, `chars/4` fallback, **no new npm dependency**), applies a model **pricing table** → `costUsd`,
+  extracts the skill/agent + a short task description (first user prompt), and **appends** a per-user JSONL
+  record (`source: estimate`). *Likely lands in:* new capture script under `core` (or a shared `scripts/`),
+  a pricing table in `model/`, `tests/*`. *Traces to:* PRD §8.
+- **R-102** — **Real-usage reconciliation on Claude (phase 2, depends on R-101).** Read Claude Code's local
+  usage data and **replace the estimate** with the actual token counts / cost where available (per-skill,
+  real-time), flipping the record's `source` to `real`; the dashboard shows real vs estimate distinctly.
+  **Copilot stays estimate-only, permanently** (per-skill, real-time) — the GitHub billing-API real-cost
+  path, though technically feasible (Copilot token billing since 2026-06-01), is **out of scope**: this
+  project will **never** have the required org-admin billing token (`manage_billing:copilot`). *Likely lands
+  in:* the capture script, `model/` (pricing/usage reconcile), `tests/*`. *Traces to:* PRD §8.
+- **R-103** — **VS Code auto-trigger (MVP, depends on R-101).** `scaffold` emits a versioned
+  `.vscode/tasks.json` with a background task (`runOn: folderOpen` + watch/interval) that runs the capture
+  script automatically — covering both platforms because work happens in VS Code — with an optional git-hook
+  backstop for Claude Code CLI sessions outside VS Code; `doctor` checks the trigger is present. Parity-safe:
+  the emit lives in `scaffold` (a shared `.vscode/tasks.json`), not in an adapter (the R-086/R-094 pattern).
+  *Likely lands in:* `scaffold/index.ts`, `doctor/index.ts`, `tests/*`. *Traces to:* PRD §8, TECH §11.
+- **R-104** — **Dashboard generator (MVP, depends on R-100).** A deterministic generator
+  `core/src/docs/cost-dashboard.ts` (the `skill-flows.ts`/`guideline-flows.ts` pattern) emits a
+  **self-contained** `index.html` (inline **SVG + CSS** animations, no external assets, no Astro/three.js
+  dependency) that reads the sibling `index.json`. Core views: **cost per skill/agent + description** and
+  **cost ↔ value (ROI)** (cost per artifact / per covered AC via the trace markers); every figure tagged
+  real vs estimate. Wired into `npm run docs` (`scripts/gen-docs.mjs`) and **snapshot-tested** so the
+  shipped UI can't drift. *Likely lands in:* `core/src/docs/cost-dashboard.ts` (new), `src/index.ts`,
+  `scripts/gen-docs.mjs`, `tests/*`. *Traces to:* PRD §8.
+- **R-105** — **`qa-cost` skill (read-only) + quality/docs (phase 2, depends on R-104).** A read-only skill
+  that composes the telemetry log with quality (`qa-metrics`) and the trace markers into the aggregate
+  `index.json`, points to the dashboard, and is wired into the relevant `## Next`; `doctor` checks; the
+  optional secondary quality/trend/platform-split view is added here; PRD/TECH/`docs/RUNNING.md` + an
+  example test. Suite → **26 skills**. *Likely lands in:* `core/src/model/skills.ts`, `docs/skill-catalog.md`
+  (regenerated), `doctor/index.ts`, `tests/*`, PRD §5/§8, TECH §5/§11. *Traces to:* PRD §5.
+
+> **Out of scope (recorded, not planned): Copilot real-cost via GitHub billing API.** Copilot's move to
+> token-based usage billing (2026-06-01) makes real per-user/per-model cost reachable via
+> `…/settings/billing/ai_credit/usage` + `copilot/metrics/reports/users-1-day` — **but this project will
+> never have the required org-admin billing token** (`manage_billing:copilot`), so it is deliberately **not**
+> a roadmap item. Copilot is **estimator-only by design**; only Claude gets real-cost reconciliation (R-102).
+> Documented so a future reader doesn't re-propose it. Detail in the design record.
+
 > **Epic: embedded test topology (R-095 → R-099) — ✅ shipped (v0.66.0–v0.70.0).** A **third repository
 > topology**: the test framework has **no repo of its own** — it lives as a **subtree of a developer repo**
 > (an `e2e/` folder or a build module: Maven submodule / Gradle subproject / workspace package), in both
