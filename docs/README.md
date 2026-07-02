@@ -21,7 +21,7 @@ Running `<claude|copilot>-qa-orchestrator init` scaffolds, into your repo (see t
   conventions, test naming, grounding, assumptions, spec-driven development, diagram
   conventions, documentation-as-code, environment management, test-data management,
   performance testing, and **code formatting**.
-- The **26-skill suite** — one single-purpose skill per QA activity, each rendered
+- The **27-skill suite** — one single-purpose skill per QA activity, each rendered
   with the right tool allowlist (read-only vs write) and suggested model tier.
 - A read-only **result MCP** server over your test artifacts (Playwright report +
   traces, pytest/JUnit/Surefire-Serenity, Allure history, JMeter dashboard), so
