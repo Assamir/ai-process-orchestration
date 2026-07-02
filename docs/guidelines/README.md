@@ -17,6 +17,7 @@ Each guideline ships a compressed **lean** tier into a target repo (loaded into 
 | Environment & secrets management | [`environment-management.md`](./environment-management.md) | lean only |
 | Test-data management | [`test-data-management.md`](./test-data-management.md) | lean + extended |
 | Performance testing | [`performance-testing.md`](./performance-testing.md) | lean only |
+| Page object conventions | [`page-object-conventions.md`](./page-object-conventions.md) | lean + extended |
 | Code & doc formatting | [`code-formatting.md`](./code-formatting.md) | lean only |
 | MCP content fetch | [`mcp-content-fetch.md`](./mcp-content-fetch.md) | lean only |
 | Multi-repo workspace boundaries | [`multi-repo-boundaries.md`](./multi-repo-boundaries.md) | lean + extended |

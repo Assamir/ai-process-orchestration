@@ -2,7 +2,7 @@
 
 > **Auto-generated** from `packages/core/src/model/skills.ts` by `packages/core/src/docs/skill-flows.ts` (R-052). **Do not edit by hand** — the snapshot test `packages/core/tests/skill-flows.test.ts` fails on drift; regenerate with `npm run docs`. Every diagram is wrapped in `@formatter:off` / `@formatter:on` guards (R-054) so an autoformatter can't reflow it.
 
-The suite ships **26 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
+The suite ships **27 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
 
 ## How the suite fits together
 
@@ -27,6 +27,7 @@ flowchart LR
   end
   subgraph automation["Automation & CI"]
     qa_automation_bootstrapper["qa-automation-bootstrapper"]
+    qa_page_objects["qa-page-objects"]
     qa_test_automate["qa-test-automate"]
     qa_playwright_cli["qa-playwright-cli"]
     qa_ci_pipeline["qa-ci-pipeline"]
@@ -71,8 +72,13 @@ flowchart LR
   qa_test_case_design --> qa_test_data_gen
   qa_test_case_design --> qa_test_automate
   qa_test_case_design --> qa_coverage_gap
+  qa_automation_bootstrapper --> qa_page_objects
   qa_automation_bootstrapper --> qa_test_automate
   qa_automation_bootstrapper --> qa_ci_pipeline
+  qa_page_objects --> qa_test_automate
+  qa_page_objects --> qa_playwright_cli
+  qa_page_objects --> qa_doc_critic
+  qa_test_automate --> qa_page_objects
   qa_test_automate --> qa_rca
   qa_test_automate --> qa_playwright_cli
   qa_test_automate --> qa_performance
@@ -107,6 +113,7 @@ flowchart LR
   qa_reverse_engineer --> qa_test_plan
   qa_reverse_engineer --> qa_doc_critic
   qa_reverse_engineer --> qa_gardening
+  qa_framework_analyze --> qa_page_objects
   qa_framework_analyze --> qa_test_automate
   qa_framework_analyze --> qa_doc_critic
   qa_framework_analyze --> qa_gardening
@@ -176,7 +183,7 @@ flowchart TD
 ```
 <!-- @formatter:on -->
 
-## Skills (26)
+## Skills (27)
 
 ### Backbone — process & context
 
@@ -535,7 +542,7 @@ Set up the test-automation framework and wire result artifacts to be agent-reada
 - **Model:** sonnet (balanced) · **Mode:** write
 - **Reads:** `context/.scaffold/manifest.json`, `context/foundation/tools.md`, `context/foundation/test-framework.md`
 - **Writes:** `context/foundation/tools.md`, `context/foundation/test-framework.md`
-- **Next:** `qa-test-automate` → `qa-ci-pipeline`
+- **Next:** `qa-page-objects` → `qa-test-automate` → `qa-ci-pipeline`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -563,8 +570,54 @@ flowchart TD
   s4 --> w0
   w1[("writes: context/foundation/test-framework.md")]
   s4 --> w1
+  s4 -->|next| qa_page_objects["qa-page-objects"]
   s4 -->|next| qa_test_automate["qa-test-automate"]
   s4 -->|next| qa_ci_pipeline["qa-ci-pipeline"]
+```
+<!-- @formatter:on -->
+
+#### `qa-page-objects`
+
+Generate a layered Playwright page-object composition (TypeScript or Java) from the live UI and the frontend source, following the documented framework pattern.
+
+- **Model:** opus (heavy reasoning) · **Mode:** write
+- **Reads:** `context/foundation/framework-architecture.md`, `context/foundation/page-objects.md`, `context/foundation/repo-map.md`, `context/foundation/tools.md`
+- **Writes:** `context/foundation/page-objects.md`, `page/component object files (test tree)`
+- **Next:** `qa-test-automate` → `qa-playwright-cli` → `qa-doc-critic`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ After the framework is bootstrapped (and ideally its architectu…"]
+  qa_page_objects["qa-page-objects<br/>opus · write"]
+  trig --> qa_page_objects
+  r0[("reads: context/foundation/framework-architectu…")]
+  r0 --> qa_page_objects
+  r1[("reads: context/foundation/page-objects.md")]
+  r1 --> qa_page_objects
+  r2[("reads: context/foundation/repo-map.md")]
+  r2 --> qa_page_objects
+  r3[("reads: context/foundation/tools.md")]
+  r3 --> qa_page_objects
+  s0["1. Continue the documented pattern."]
+  qa_page_objects --> s0
+  s1["2. Pick the perception mode."]
+  s0 --> s1
+  s2["3. Choose locators by the ladder"]
+  s1 --> s2
+  s3["4. Generate the layered composition"]
+  s2 --> s3
+  s4["5. Record the map."]
+  s3 --> s4
+  s5["6. Per the grounding rule every locator and file path…"]
+  s4 --> s5
+  w0[("writes: context/foundation/page-objects.md")]
+  s5 --> w0
+  w1[("writes: page/component object files (test tree)")]
+  s5 --> w1
+  s5 -->|next| qa_test_automate["qa-test-automate"]
+  s5 -->|next| qa_playwright_cli["qa-playwright-cli"]
+  s5 -->|next| qa_doc_critic["qa-doc-critic"]
 ```
 <!-- @formatter:on -->
 
@@ -575,7 +628,7 @@ Author and maintain automated tests in the chosen framework from designed cases.
 - **Model:** opus (heavy reasoning) · **Mode:** write
 - **Reads:** `context/changes/<work-id>/cases.md`, `context/foundation/tools.md`, `context/foundation/framework-architecture.md`
 - **Writes:** `context/changes/<work-id>/automation.md`
-- **Next:** `qa-rca` → `qa-playwright-cli` → `qa-performance` → `qa-ci-pipeline`
+- **Next:** `qa-page-objects` → `qa-rca` → `qa-playwright-cli` → `qa-performance` → `qa-ci-pipeline`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -599,6 +652,7 @@ flowchart TD
   s2 --> s3
   w0[("writes: context/changes/<work-id>/automation.md")]
   s3 --> w0
+  s3 -->|next| qa_page_objects["qa-page-objects"]
   s3 -->|next| qa_rca["qa-rca"]
   s3 -->|next| qa_playwright_cli["qa-playwright-cli"]
   s3 -->|next| qa_performance["qa-performance"]
@@ -1031,7 +1085,7 @@ Reverse-engineer the test-framework code into a generated structural map (framew
 - **Model:** opus (heavy reasoning) · **Mode:** write
 - **Reads:** `context/.scaffold/manifest.json`, `context/foundation/repo-map.md`, `context/foundation/test-framework.md`
 - **Writes:** `context/foundation/framework-architecture.md`
-- **Next:** `qa-test-automate` → `qa-doc-critic` → `qa-gardening`
+- **Next:** `qa-page-objects` → `qa-test-automate` → `qa-doc-critic` → `qa-gardening`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -1055,6 +1109,7 @@ flowchart TD
   s2 --> s3
   w0[("writes: context/foundation/framework-architectu…")]
   s3 --> w0
+  s3 -->|next| qa_page_objects["qa-page-objects"]
   s3 -->|next| qa_test_automate["qa-test-automate"]
   s3 -->|next| qa_doc_critic["qa-doc-critic"]
   s3 -->|next| qa_gardening["qa-gardening"]

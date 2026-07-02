@@ -73,8 +73,12 @@ describe("stack-aware guideline deploy (R-091)", () => {
     for (const g of universal) {
       expect(existsSync(join(project.dir, guidelineRel(g.name))), `${g.name} present`).toBe(true);
     }
+    // A conditional guideline deploys iff its `when` matches this context. On the
+    // default playwright-ts single-repo scaffold that means page-object-conventions
+    // (frameworks: playwright-ts) deploys and every other conditional stays absent.
     for (const g of GUIDELINES.filter((g) => g.when)) {
-      expect(existsSync(join(project.dir, guidelineRel(g.name))), `conditional ${g.name} absent by default`).toBe(false);
+      const shouldDeploy = guidelineApplies(g, baseStack, baseAnswers);
+      expect(existsSync(join(project.dir, guidelineRel(g.name))), `conditional ${g.name} deploy=${shouldDeploy}`).toBe(shouldDeploy);
     }
   });
 
@@ -172,6 +176,43 @@ describe("stack-aware guideline deploy (R-091)", () => {
       expect(report.errorCount, JSON.stringify(report.findings)).toBe(0);
     } finally {
       secProject.cleanup();
+    }
+  });
+
+  it("page-object-conventions (R-106) deploys for Playwright stacks only, with examples", () => {
+    // Deployed on the default playwright-ts stack, with the mandatory examples + placeholder.
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack: baseStack, answers: baseAnswers });
+    const guide = readFileSync(join(project.dir, guidelineRel("page-object-conventions")), "utf8");
+    expect(guide).toContain("✅");
+    expect(guide).toContain("❌");
+    expect(guide).toContain("{{PAGE_OBJECT_PATTERNS}}");
+
+    // Deployed for playwright-java too.
+    const javaProject = tempProject();
+    try {
+      scaffold({
+        root: javaProject.dir,
+        adapter: claudeAdapter,
+        stack: { ...baseStack, language: "java", buildTool: "maven", frameworks: ["playwright-java"], primaryFramework: "playwright-java", manifests: ["pom.xml"] },
+        answers: { ...baseAnswers, automationFramework: "playwright-java" },
+      });
+      expect(existsSync(join(javaProject.dir, guidelineRel("page-object-conventions"))), "deploys for playwright-java").toBe(true);
+    } finally {
+      javaProject.cleanup();
+    }
+
+    // Absent for a non-Playwright stack (RestAssured/JVM).
+    const jvmProject = tempProject();
+    try {
+      scaffold({
+        root: jvmProject.dir,
+        adapter: claudeAdapter,
+        stack: { ...baseStack, language: "java", buildTool: "maven", frameworks: ["restassured"], primaryFramework: "restassured", manifests: ["pom.xml"] },
+        answers: { ...baseAnswers, automationFramework: "restassured" },
+      });
+      expect(existsSync(join(jvmProject.dir, guidelineRel("page-object-conventions"))), "absent for restassured").toBe(false);
+    } finally {
+      jvmProject.cleanup();
     }
   });
 

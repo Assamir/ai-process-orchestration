@@ -1,6 +1,6 @@
 {
   "name": "claude-qa-orchestrator",
-  "version": "0.78.0",
+  "version": "0.79.0",
   "description": "Scaffold an AI-driven QA-process orchestration (test planning, ticket review, case design, automation, RCA, test data) into your repo for Claude Code. Phase 1 is a deterministic npx installer; phase 2 is an in-tool skill.",
   "type": "module",
   "license": "MIT",

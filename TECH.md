@@ -144,6 +144,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-test-case-design` | design | write | `opus` | derive negative/boundary cases | — |
 | `qa-automation-bootstrapper` | automation | write | `sonnet` | framework setup + wiring | result servers |
 | `qa-test-automate` | automation | write | `opus` | author robust test code | result servers |
+| `qa-page-objects` | automation | write | `opus` | generate a layered Playwright page-object layer (TS/Java) from live UI + frontend source; continues P3, writes `page-objects.md` | `playwright-browser` MCP (opt-in; static fallback), reads frontend source |
 | `qa-playwright-cli` | automation | write | `sonnet` | drive Playwright CLI (codegen/trace/snapshots) | Playwright CLI, browser MCP (opt-in) |
 | `qa-ci-pipeline` | automation | write | `sonnet` | generate/audit CI that runs the framework + publishes result dirs + runs `doctor` as a PR gate (R-051) | reads `tools.md` + `manifest.json`, targets result-MCP dirs |
 | `qa-performance` | automation | write | `sonnet` | generate/audit a JMeter plan enforcing NFRs (p95/p99/throughput/error-rate), run headless | `jmeter-results` MCP (when JMeter detected) |

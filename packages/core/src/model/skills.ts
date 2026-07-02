@@ -344,8 +344,44 @@ First time a repo needs automation, or when adding a new test level.
 A smoke test passes, result-artifact paths are recorded in \`tools.md\`, and \`test-framework.md\` documents the stack, the How-to-run matrix, and the conventions.
 
 ## Next
+- \`qa-page-objects\` — generate the page-object layer (Playwright) before authoring UI tests.
 - \`qa-test-automate\` — author tests now that the harness runs.
 - \`qa-ci-pipeline\` — wire the harness into CI so the same results are produced on every push.`,
+  },
+  {
+    name: "qa-page-objects",
+    description: "Generate a layered Playwright page-object composition (TypeScript or Java) from the live UI and the frontend source, following the documented framework pattern.",
+    readOnly: false,
+    bucket: "automation",
+    suggestedModel: "opus",
+    reads: [
+      "context/foundation/framework-architecture.md",
+      "context/foundation/page-objects.md",
+      "context/foundation/repo-map.md",
+      "context/foundation/tools.md",
+    ],
+    writes: ["context/foundation/page-objects.md", "page/component object files (test tree)"],
+    body: `## When to use
+After the framework is bootstrapped (and ideally its architecture mapped by \`qa-framework-analyze\`), and **before** authoring tests — when the page-object layer for a screen/flow does not yet exist or needs extending. Playwright-specific (**{{AUTOMATION_FRAMEWORK}}**): builds a layered page-object composition from the **live UI** *and* the **frontend source**. For non-Playwright stacks, use that framework's own abstractions via \`qa-automation-bootstrapper\`.
+
+## Procedure
+1. **Continue the documented pattern.** Read \`context/foundation/framework-architecture.md\` (pillar **P3**, from \`qa-framework-analyze\`) and the existing \`context/foundation/page-objects.md\`: if a base class / page-object convention already exists, **extend it in the same style** rather than inventing a new one. Apply the \`page-object-conventions\` guideline (deployed for Playwright stacks) — don't restate its rules, follow them.
+2. **Pick the perception mode.** If the \`playwright-browser\` MCP server is configured (opt-in \`@playwright/mcp\`), work **live**: navigate the target screen and take an **accessibility-tree snapshot** (roles, names, refs) — prefer it over pixels or raw DOM dumps. If it is unavailable, degrade to **static** mode and derive the same structure from source alone. Either way, **read the frontend source** (React/Vue/Angular components) to learn the component structure and stable selectors — in a **multi-repo workspace** it sits in read-only developer repos at \`../<repo>/\` (see \`repo-map.md\` → "External source repositories" and the \`multi-repo-boundaries\` guideline); read it there, ground at \`../<repo>/file:line\`, write only into the test repo.
+3. **Choose locators by the ladder** (from \`page-object-conventions\`): role+name → \`getByLabel\`/\`getByText\` → \`data-testid\` → stable CSS → xpath (last resort). When an element has no stable handle, **do not edit the frontend** — record it under "Recommended data-testid" in \`page-objects.md\` (frontend \`file:line\` + proposed attribute name) for the frontend team.
+4. **Generate the layered composition** in **{{AUTOMATION_FRAMEWORK}}**, matching the detected language:
+   - **TypeScript (playwright-ts):** a \`BasePage\`, one class per page, and separate **component objects** for reusable fragments (nav bar, data table, modal, form) that pages compose via \`readonly\` fields; locators as \`Locator\` fields, actions as \`async\` methods returning a page/component, **no assertions inside page objects**.
+   - **Java (playwright-java):** the same layering with \`com.microsoft.playwright.Page\`/\`Locator\`, one class per page under the framework's package, component classes composed by fields, methods returning the page/component; align with the Maven/Gradle layout documented in P3.
+   Write the code **only inside the test write boundary** — never into application/frontend repos.
+5. **Record the map.** Fill \`context/foundation/page-objects.md\`: the inventory (screen → class → file), the composition (which components each page uses), the locator map (element → chosen locator → frontend \`file:line\`), and the "Recommended data-testid" list. Per the \`documentation\` standard keep it lean and conformant (single H1, bump \`version\`/\`last-updated\`, set \`status\`), and **append a back-reference** in \`framework-architecture.md\`'s "Page objects / request builders / clients" section pointing to it — without rewriting that P3 section (it stays owned by \`qa-framework-analyze\`).
+6. Per the \`grounding\` rule every locator and file path cites the real source you read; per the \`assumptions\` guideline, anything you couldn't confirm in the UI or code goes in a \`## Assumptions\` table referenced inline as \`(A1)\`. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Done when
+The page/component-object files exist in the test tree following the documented pattern and the \`page-object-conventions\` guideline, \`context/foundation/page-objects.md\` records the inventory / composition / locator map with no unresolved \`{{PLACEHOLDER}}\` markers, and \`framework-architecture.md\` links to it. No frontend files were modified. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
+
+## Next
+- \`qa-test-automate\` — author tests that compose against the generated page objects.
+- \`qa-playwright-cli\` — record a draft interaction or inspect a trace to refine locators.
+- \`qa-doc-critic\` — semantic-review the generated \`page-objects.md\` against the documentation standard + grounding.`,
   },
   {
     name: "qa-test-automate",
@@ -377,6 +413,7 @@ ${tpl("automation")}
 The new tests pass locally and the run is recorded in \`automation.md\` with a \`Covers:\` field per test.
 
 ## Next
+- \`qa-page-objects\` — when the page-object layer is missing or thin, generate it first so tests compose against it instead of inlining selectors.
 - \`qa-rca\` — on failure, find the real cause before retrying.
 - \`qa-playwright-cli\` — use the Playwright CLI to record a draft, inspect a trace, or refresh snapshots.
 - \`qa-performance\` — when a case carries a non-functional target (response time, throughput, load), verify it with a JMeter plan.
@@ -728,6 +765,7 @@ To document the test-automation framework's structure before authoring tests in 
 \`framework-architecture.md\` documents the base classes, fixtures, abstractions, config, and extension points — each grounded at \`file:line\`, with a guarded architecture diagram and no unresolved \`{{PLACEHOLDER}}\` markers. Output prose in **{{REPORT_LANGUAGE_NAME}}**.
 
 ## Next
+- \`qa-page-objects\` — generate or extend the Playwright page-object layer in the documented pattern (P3).
 - \`qa-test-automate\` — author tests against the documented framework architecture (P3).
 - \`qa-doc-critic\` — semantic-review the generated map against the documentation standard + grounding.
 - \`qa-gardening\` — can read \`framework-architecture.md\` to flag drift between the map and the framework code.`,

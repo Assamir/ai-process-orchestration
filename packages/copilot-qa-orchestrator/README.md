@@ -13,10 +13,10 @@ Two phases:
 1. **Phase 1 — installer (`npx`, deterministic, no LLM).** Detects your test stack (Playwright
    TS/Java, RestAssured/JUnit/TestNG, pytest, JMeter), runs a short wizard, and writes:
    - `.github/copilot-instructions.md` — a lean root "map" (table of contents, not a manual).
-   - `.github/prompts/<name>.prompt.md` — the **26-skill** suite (every skill is `qa-<name>`): the
+   - `.github/prompts/<name>.prompt.md` — the **27-skill** suite (every skill is `qa-<name>`): the
      `qa-init` + `qa-new → … → qa-archive` backbone; design (`qa-ticket-review`, `qa-test-plan`,
      `qa-test-case-design`); automation (`qa-automation-bootstrapper`, `qa-test-automate`,
-     `qa-playwright-cli`, `qa-ci-pipeline`, `qa-performance`); and analysis (`qa-rca`,
+     `qa-page-objects`, `qa-playwright-cli`, `qa-ci-pipeline`, `qa-performance`); and analysis (`qa-rca`,
      `qa-test-data-gen`, `qa-gardening`, `qa-coverage-gap`, `qa-metrics`, `qa-bug-report`,
      `qa-reverse-engineer`). See the [skill catalog](../../docs/skill-catalog.md) for each skill's flow.
    - `.github/agents/qa-orchestrator.agent.md` — a router that drives the prompts.

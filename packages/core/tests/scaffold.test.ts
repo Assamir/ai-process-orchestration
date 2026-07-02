@@ -113,6 +113,33 @@ describe("scaffold (Claude)", () => {
     for (const s of SKILLS) expect(s.body, s.name).toContain("## Next");
   });
 
+  it("ships qa-page-objects as a write skill on both platforms + seeds page-objects.md (R-106)", () => {
+    const skill = SKILLS.find((s) => s.name === "qa-page-objects");
+    expect(skill, "qa-page-objects registered").toBeDefined();
+    expect(skill!.readOnly).toBe(false);
+    expect(skill!.bucket).toBe("automation");
+    expect(skill!.suggestedModel).toBe("opus");
+    expect(skill!.writes).toContain("context/foundation/page-objects.md");
+
+    // Claude: write allowlist + opus tier, and the PO-layer foundation doc is seeded.
+    scaffold({ root: project.dir, adapter: claudeAdapter, stack, answers });
+    const claude = readFileSync(join(project.dir, ".claude/skills/qa-page-objects/SKILL.md"), "utf8");
+    expect(claude).toContain("allowed-tools: Read, Grep, Glob, Write, Edit, Bash");
+    expect(claude).toContain("model: opus");
+    expect(existsSync(join(project.dir, "context/foundation/page-objects.md")), "page-objects.md seeded").toBe(true);
+
+    // Copilot parity: the prompt renders with the write toolset and seeds the same doc.
+    const copilotProject = tempProject();
+    try {
+      scaffold({ root: copilotProject.dir, adapter: copilotAdapter, stack, answers });
+      const copilot = readFileSync(join(copilotProject.dir, ".github/prompts/qa-page-objects.prompt.md"), "utf8");
+      expect(copilot).toContain("editFiles");
+      expect(existsSync(join(copilotProject.dir, "context/foundation/page-objects.md")), "page-objects.md seeded (copilot)").toBe(true);
+    } finally {
+      copilotProject.cleanup();
+    }
+  });
+
   it("qa-test-data-gen emits reusable, schema-valid factories referenced from cases (R-010)", () => {
     const dataGen = SKILLS.find((s) => s.name === "qa-test-data-gen");
     expect(dataGen, "qa-test-data-gen registered").toBeDefined();
