@@ -60,6 +60,30 @@ export {
   type GuidelineWhen,
 } from "./model/context.js";
 export { resultServers, browserServers, ticketingServers, fetchServers, mcpServers, type McpServer, type McpContext } from "./model/mcp.js";
+export {
+  TELEMETRY_DIR,
+  TELEMETRY_INDEX_REL,
+  TELEMETRY_INDEX_SEED,
+  TELEMETRY_README,
+  PRICING,
+  priceFor,
+  costUsd,
+  emailSlug,
+  anonymizeEmail,
+  recordUser,
+  userLogRel,
+  aggregateRecords,
+  seedIndex,
+  VSCODE_TASKS_REL,
+  CAPTURE_TASK_LABEL,
+  captureTask,
+  vscodeTasksSeed,
+  type ModelPrice,
+  type TelemetryIndex,
+  type TelemetryGroup,
+  type TelemetrySummary,
+} from "./model/telemetry.js";
+export { CAPTURE_SCRIPT } from "./model/capture-script.js";
 export type { PlatformAdapter } from "./adapters/types.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { copilotAdapter } from "./adapters/copilot.js";
@@ -69,6 +93,7 @@ export {
   PHASE1_VAR_NAMES,
   guidelineApplies,
   resolveGuidelineNames,
+  telemetryFiles,
 } from "./scaffold/index.js";
 export {
   runUpdate,
@@ -135,3 +160,4 @@ export {
   renderAllGuidelineDocs,
   guidelineDocRel,
 } from "./docs/guideline-flows.js";
+export { renderCostDashboard } from "./docs/cost-dashboard.js";

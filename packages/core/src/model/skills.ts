@@ -611,7 +611,35 @@ A read-only metrics digest exists with pass/fail/flake counts, criterion-coverag
 ## Next
 - \`qa-coverage-gap\` — drill into the uncovered criteria behind the coverage number.
 - \`qa-rca\` — root-cause the top flaky/failing tests.
+- \`qa-cost\` — pair the quality view with the AI cost & value (ROI) cockpit.
 - \`qa-gardening\` — fold the metrics into the next drift sweep.`,
+  },
+  {
+    name: "qa-cost",
+    description: "Read-only AI cost & value cockpit — cost per skill/agent and cost vs value (ROI) per work-item from the telemetry log, each figure tagged real vs estimate, pointing at the dashboard.",
+    readOnly: true,
+    bucket: "analysis",
+    suggestedModel: "sonnet",
+    reads: ["context/telemetry/", "context/changes/", "context/archive/"],
+    writes: [],
+    body: `## When to use
+On a cadence (sprint end, before a client review, monthly) to answer "what did the AI-assisted QA work **cost**, and what did it **deliver**?" — cost per skill/agent and cost vs value (ROI) per work-item. Read-only: it reads the telemetry log + quality signals and emits a digest pointing at the self-contained dashboard; it never edits.
+
+This is the **cost & value cockpit** over the suite — the economic twin of \`qa-metrics\` (quality). \`qa-metrics\` answers "how healthy is the testing?"; \`qa-cost\` answers "what did it cost, and was it worth it?". Both are read-only digests grounded in real artifacts.
+
+## Procedure
+1. Read the aggregate \`context/telemetry/index.json\` (rebuilt automatically by the VS Code capture task; if it looks stale, ask to run \`node context/telemetry/capture.mjs\` first) and, for detail, the per-user \`context/telemetry/<slug>.jsonl\` logs. Per the \`grounding\` rule, what is not in the log does not exist — never estimate a cost that isn't recorded.
+2. **Respect the real-vs-estimate split (grounding).** Every figure carries \`source\`: \`real\` (billed/observed — Claude local usage) or \`estimate\` (tokenizer estimate — the sole Copilot source, by design). Report the two **distinctly**; never merge them into one blended number, and label every total with its provenance.
+3. Compute **cost per skill/agent** (with the task descriptions) and **cost vs value (ROI)**: correlate cost to delivered work via the trace markers — \`workId\` maps to the \`context/changes/<id>/\` artifacts, and through them the acceptance criteria covered (\`AC<n>\` traces to cases via \`Traces to:\` and to tests via \`Covers:\`). Fold in quality from \`qa-metrics\` (pass rate / coverage %) so cost reads next to value, not alone.
+4. Optionally add the secondary views the data supports — a quality/trend over time and the platform split (Claude real vs Copilot estimate) — but keep the core two (cost per skill, cost vs value) front and centre.
+5. Emit a digest in **{{REPORT_LANGUAGE_NAME}}**: a short cost/value table, the biggest cost centres by skill, the cost per work-item (and per covered AC where correlatable), and the real/estimate provenance of each figure. Point the reader at the dashboard (\`context/telemetry/dashboard.html\`) for the visual cockpit. Frame it as **license utilization / value-for-money**, never a ranking of people.
+
+## Done when
+A read-only cost & value digest exists — cost per skill/agent, cost vs value per work-item, each figure tagged real vs estimate — with a pointer to the dashboard. No files were modified.
+
+## Next
+- \`qa-metrics\` — pair the cost view with the quality view (pass/fail/flakiness + coverage).
+- \`qa-gardening\` — fold recurring cost/value observations into the next drift sweep.`,
   },
   {
     name: "qa-bug-report",

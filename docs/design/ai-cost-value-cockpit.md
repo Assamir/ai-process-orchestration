@@ -1,7 +1,16 @@
 # Design — AI cost & value cockpit (per-user token/cost telemetry + client-facing dashboard)
 
-> **Status:** ⬜ planned · **Epic:** R-100 → R-105 (AI cost & value cockpit) ·
-> **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) (Backlog) · **Product sections (on ship):** PRD §8, TECH §11.
+> **Status:** ✅ shipped (v0.73.0–v0.78.0) · **Epic:** R-100 → R-105 (AI cost & value cockpit) ·
+> **Tracked in:** [`ROADMAP.md`](../../ROADMAP.md) (Shipped) · **Product sections:** PRD §5/§8, TECH §5/§11.
+>
+> **Implemented.** The MVP (R-100 identity + data model, R-101 capture + estimator, R-103 VS Code
+> auto-trigger, R-104 dashboard) and phase 2 (R-102 real-usage reconciliation on Claude, R-105 the
+> `qa-cost` skill) all shipped, taking the suite to **26 skills**. The data model lives in
+> `packages/core/src/model/telemetry.ts`, the zero-dep capture script in `model/capture-script.ts`
+> (scaffolded as `context/telemetry/capture.mjs`), the dashboard generator in `docs/cost-dashboard.ts`
+> (committed as `docs/cost-dashboard.html`, scaffolded as `context/telemetry/dashboard.html`), and the
+> auto-trigger + telemetry-area seeding in `scaffold/index.ts`. `doctor` validates the area
+> (`TELEMETRY:index`/`:schema`/`:trigger`).
 >
 > This is the **design record** captured in an interactive planning session, the same way the
 > [multi-repo epic](multi-repo-orchestration.md), the

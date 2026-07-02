@@ -157,6 +157,7 @@ file creation, archive moves), **`sonnet`** for the balanced middle.
 | `qa-framework-analyze` | analysis | write | `opus` | reverse-engineer the test framework → `framework-architecture.md` (P3) | reads framework code (read-only on code) |
 | `qa-knowledge` | analysis | write | `opus` | synthesize durable P2 knowledge from Jira/Confluence → `context/knowledge/` | `atlassian` / `xray` / `markitdown` (opt-in, R-065) |
 | `qa-doc-critic` | analysis | read | `opus` | per-document semantic gate vs the documentation standard + grounding + assumptions | reads `context/` docs |
+| `qa-cost` | analysis | read | `sonnet` | AI cost & value (ROI) cockpit — cost per skill + cost ↔ value per work-item, tagged real vs estimate | reads `context/telemetry/` (R-100→R-105) |
 
 "Result servers" = the stack-appropriate read-only MCP server wired in phase 1: `playwright-results`,
 `pytest-results`, or `jvm-results` (see `core/src/model/mcp.ts`). When detection finds **Allure**

@@ -12,6 +12,18 @@ import {
   rootConfigMarkdown,
 } from "../model/context.js";
 import { SKILLS } from "../model/skills.js";
+import { renderCostDashboard } from "../docs/cost-dashboard.js";
+import { CAPTURE_SCRIPT } from "../model/capture-script.js";
+import {
+  CAPTURE_TASK_LABEL,
+  captureTask,
+  TELEMETRY_DIR,
+  TELEMETRY_INDEX_REL,
+  TELEMETRY_INDEX_SEED,
+  TELEMETRY_README,
+  VSCODE_TASKS_REL,
+  vscodeTasksSeed,
+} from "../model/telemetry.js";
 import { render } from "../render.js";
 import type {
   AutomationFramework,
@@ -227,7 +239,56 @@ export function scaffold(input: ScaffoldInput): WriteResult[] {
     writeFileIfAbsent(join(writeRoot, MANIFEST_REL), `${JSON.stringify(manifest, null, 2)}\n`),
   );
 
+  // (R-103) Install the automatic capture trigger. Shallow-merged into any existing
+  // `.vscode/tasks.json` (the `emitEmbeddedSettings` precedent), not baseline-tracked,
+  // so a user's own tasks are preserved and `update` treats it as drift.
+  emitVscodeTasks(writeRoot, results);
+
   return results;
+}
+
+/**
+ * (R-103) Install the telemetry capture task into `.vscode/tasks.json`, without
+ * clobbering the user's own tasks — mirroring {@link emitEmbeddedSettings}:
+ *
+ * - no file → write the seeded `tasks.json` with our task;
+ * - a file that parses as JSON → append our task iff no task with our label is
+ *   already present (idempotent), preserving every existing task/field;
+ * - a file that does not parse (JSONC with comments/trailing commas) → leave it
+ *   untouched and let `doctor` report the missing trigger (warn).
+ *
+ * Not recorded in the manifest baseline (like the `.code-workspace` / embedded
+ * settings), so `update` reports it as drift and never rewrites it.
+ */
+function emitVscodeTasks(writeRoot: string, results: WriteResult[]): void {
+  const abs = join(writeRoot, VSCODE_TASKS_REL);
+  if (!existsSync(abs)) {
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, `${JSON.stringify(vscodeTasksSeed(), null, 2)}\n`, "utf8");
+    results.push({ path: abs, status: "created" });
+    return;
+  }
+  let doc: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(abs, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) doc = parsed as Record<string, unknown>;
+  } catch {
+    doc = null; // JSONC / malformed — leave untouched, doctor reports it.
+  }
+  if (doc === null) {
+    results.push({ path: abs, status: "skipped" });
+    return;
+  }
+  const tasks = Array.isArray(doc.tasks) ? (doc.tasks as Array<Record<string, unknown>>) : [];
+  if (tasks.some((t) => t && t.label === CAPTURE_TASK_LABEL)) {
+    results.push({ path: abs, status: "skipped" });
+    return;
+  }
+  tasks.push(captureTask());
+  doc.tasks = tasks;
+  if (typeof doc.version !== "string") doc.version = "2.0.0";
+  writeFileSync(abs, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  results.push({ path: abs, status: "created" });
 }
 
 /**
@@ -361,6 +422,24 @@ function emitEmbeddedSettings(
 export const MANIFEST_REL = "context/.scaffold/manifest.json";
 
 /**
+ * (R-100 → R-104) The **telemetry area** — the AI cost & value cockpit's committed
+ * files, platform-agnostic (identical on both platforms, so parity-safe like the
+ * `context/` skeleton). Grows across the epic: the README + seeded aggregate
+ * (R-100), the zero-dep capture script (R-101), and the self-contained dashboard
+ * (R-104). The per-user JSONL logs are written at runtime by the capture script,
+ * not seeded here. Skip-if-exists like every scaffold file, so a re-run never
+ * clobbers accumulated telemetry.
+ */
+export function telemetryFiles(): WriteFile[] {
+  return [
+    { rel: `${TELEMETRY_DIR}/README.md`, content: TELEMETRY_README },
+    { rel: TELEMETRY_INDEX_REL, content: TELEMETRY_INDEX_SEED },
+    { rel: `${TELEMETRY_DIR}/capture.mjs`, content: CAPTURE_SCRIPT },
+    { rel: `${TELEMETRY_DIR}/dashboard.html`, content: renderCostDashboard() },
+  ];
+}
+
+/**
  * The full set of template files phase 1 writes for one platform, *unrendered*
  * (placeholders intact). Single source of truth shared by `scaffold` (writes
  * them) and `update` (diffs them against an initialized repo). Excludes the
@@ -383,6 +462,7 @@ export function scaffoldFiles(
       content: deployedGuidelineBody(g),
     })),
     ...FOUNDATION.map((f) => ({ rel: f.rel, content: f.body })),
+    ...telemetryFiles(),
     ...SKILLS.flatMap((s) => adapter.renderSkill(s)),
     ...adapter.orchestratorFiles(SKILLS),
     adapter.mcpFile({
@@ -419,6 +499,7 @@ export function expectedFilePaths(adapter: PlatformAdapter, guidelineNames?: str
     if (guidelineSet === null || guidelineSet.has(g.name)) files.add(adapter.guidelineRel(g.name));
   }
   for (const f of FOUNDATION) files.add(f.rel);
+  for (const f of telemetryFiles()) files.add(f.rel);
   for (const s of SKILLS) for (const w of adapter.renderSkill(s)) files.add(w.rel);
   for (const w of adapter.orchestratorFiles(SKILLS)) files.add(w.rel);
   files.add(adapter.mcpFile({ framework: "unknown", buildTool: "unknown" }).rel);

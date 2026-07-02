@@ -18,6 +18,7 @@ import {
   type TokenBudgets,
   tokenizerName,
 } from "../model/tokens.js";
+import { CAPTURE_TASK_LABEL, TELEMETRY_INDEX_REL, VSCODE_TASKS_REL } from "../model/telemetry.js";
 import { expectedFilePaths, MANIFEST_REL, PHASE1_VAR_NAMES } from "../scaffold/index.js";
 
 export interface DoctorFinding {
@@ -415,6 +416,14 @@ export function runDoctor(root: string, adapter: PlatformAdapter, opts: DoctorOp
   // dedicated multi-repo / single-repo scaffolds are unaffected.
   validateEmbedded(root, adapter, workspace, findings);
 
+  // 14b. (R-100) Telemetry area — the AI cost & value cockpit's committed aggregate
+  // must be valid JSON with the known schema, so the dashboard can read it. The
+  // README + index.json presence is already covered by the structure check (they
+  // are in `expectedFilePaths`); this validates the aggregate's *content*. Inert
+  // detail: a malformed aggregate is an error (the dashboard would break), a
+  // missing one is already a STRUCT error.
+  validateTelemetry(root, findings);
+
   // 14. (R-081) Token-budget footprint — the QA analog of `vscode/auditskill`'s
   // token count. Warn-only: size is a smell, not a defect, so an over-budget file
   // can never fail a clean scaffold or break parity. `TOKENS:rootmap` is the
@@ -742,6 +751,61 @@ function validateGuidelineSet(
       message: `Guideline ${dirRel}/${n} is on disk but not in the manifest's deployed guideline set.`,
       remediation:
         "It's likely a guideline a stack-aware `when` no longer selects (R-091). `update` reports it as an orphan and never deletes it — remove it by hand if it no longer applies, or add it back to the deployed set.",
+    });
+  }
+}
+
+/**
+ * (R-100) Validate the telemetry aggregate `context/telemetry/index.json`: it must
+ * parse as JSON and carry the known `schemaVersion`. A malformed aggregate is an
+ * error — the dashboard reads it directly, so a broken file breaks the cockpit.
+ * Absent is not checked here (the structure check already reports a missing seeded
+ * file). Per-user JSONL logs are runtime-appended and intentionally not validated.
+ */
+function validateTelemetry(root: string, findings: DoctorFinding[]): void {
+  const abs = join(root, TELEMETRY_INDEX_REL);
+  if (!existsSync(abs)) return; // missing → already a STRUCT error
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(abs, "utf8"));
+  } catch {
+    findings.push({
+      id: "TELEMETRY:index",
+      severity: "error",
+      message: `${TELEMETRY_INDEX_REL} is not valid JSON — the cost dashboard cannot read it.`,
+      remediation: "Regenerate it by running the telemetry capture script, or restore the seeded empty aggregate.",
+    });
+    return;
+  }
+  const schema = (parsed as { schemaVersion?: unknown })?.schemaVersion;
+  if (schema !== 1) {
+    findings.push({
+      id: "TELEMETRY:schema",
+      severity: "error",
+      message: `${TELEMETRY_INDEX_REL} has an unexpected schemaVersion: ${String(schema)}.`,
+      remediation: "Regenerate the aggregate with the current capture script / qa-cost skill.",
+    });
+  }
+
+  // (R-103) The automatic capture trigger — a warn, not an error: it is an
+  // automation/defense layer (like the embedded editor guardrail), and a repo can
+  // capture manually (`node context/telemetry/capture.mjs`) without it.
+  const tasksAbs = join(root, VSCODE_TASKS_REL);
+  let hasTrigger = false;
+  if (existsSync(tasksAbs)) {
+    try {
+      const doc = JSON.parse(readFileSync(tasksAbs, "utf8")) as { tasks?: Array<{ label?: string }> };
+      hasTrigger = Array.isArray(doc.tasks) && doc.tasks.some((t) => t && t.label === CAPTURE_TASK_LABEL);
+    } catch {
+      hasTrigger = false; // JSONC / malformed — treated as missing
+    }
+  }
+  if (!hasTrigger) {
+    findings.push({
+      id: "TELEMETRY:trigger",
+      severity: "warn",
+      message: `The automatic telemetry capture task ("${CAPTURE_TASK_LABEL}") is missing from ${VSCODE_TASKS_REL}.`,
+      remediation: `Add a folderOpen background task running \`node ${TELEMETRY_INDEX_REL.replace("index.json", "capture.mjs")}\` (re-running init installs it), or run the capture script manually.`,
     });
   }
 }

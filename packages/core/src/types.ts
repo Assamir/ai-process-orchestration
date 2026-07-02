@@ -114,6 +114,58 @@ export interface WizardAnswers {
    * `DEVELOPER_REPOS`), so an older scaffold still resolves a correct set.
    */
   guidelines?: string[];
+  /**
+   * (R-100) Anonymize the developer identity in the committed telemetry log — the
+   * capture script records a short one-way hash of `git config user.email` instead
+   * of the raw address, and the per-user JSONL file is named by that hash. Off by
+   * default (a shared team repo commits real emails so the client can see license
+   * utilization by seat); opt in for a GDPR-sensitive repo. Optional so pre-R-100
+   * callers/manifests stay valid; treated as `false` when absent.
+   */
+  anonymizeTelemetry?: boolean;
+}
+
+/**
+ * (R-100) Token counts for one AI session, split so the cost model can price
+ * cached vs fresh input separately (both platforms bill cache reads cheaper).
+ * Every field is a non-negative integer; a platform that doesn't expose a split
+ * reports 0 for the missing dimensions.
+ */
+export interface TelemetryTokens {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+}
+
+/**
+ * (R-100) One telemetry record — a single AI session's cost/value, appended to
+ * `context/telemetry/<email-slug>.jsonl` (one JSON object per line, append-only)
+ * by the capture script (R-101). The aggregate `index.json` the dashboard reads
+ * (R-104) is rolled up from these. The load-bearing `source` flag keeps the two
+ * methodologies honest (composes with the grounding rule): a real billed figure
+ * (Claude local usage, R-102) is never silently merged with an estimate (the
+ * tiktoken/`chars-4` per-skill estimate that is the sole Copilot source).
+ */
+export interface TelemetryRecord {
+  /** ISO-8601 session timestamp. */
+  ts: string;
+  /** Developer identity — `git config user.email`, or a short hash when anonymized. */
+  user: string;
+  platform: PlatformId;
+  /** The skill / agent that ran (best-effort on Copilot, from the chat log). */
+  skill: string;
+  /** Short task summary, from the first user prompt of the session. */
+  description: string;
+  /** Model id (`claude-…` / `gpt-…`). */
+  model: string;
+  tokens: TelemetryTokens;
+  /** Cost in USD from the pricing table (or reconciled real cost on Claude). */
+  costUsd: number;
+  /** `real` = billed/observed (Claude only); `estimate` = tokenizer estimate. */
+  source: "real" | "estimate";
+  /** `context/changes/<id>` when the session correlates to a work-item, for ROI. */
+  workId?: string;
 }
 
 /** A single platform we can scaffold for. */

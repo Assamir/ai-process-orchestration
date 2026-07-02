@@ -83,6 +83,7 @@ ${skillList}
 - \`context/archive/<work-id>/\` — completed work (read-only history).
 - \`context/reference/\` — reverse-engineered system docs, the **P1** application pillar (produced by \`qa-reverse-engineer\`).
 - \`context/knowledge/\` — durable domain knowledge, the **P2** requirements pillar synthesized from Jira/Confluence (produced by \`qa-knowledge\`).
+- \`context/telemetry/\` — committed AI cost & value cockpit: per-user token/cost logs + the aggregate \`index.json\` and self-contained \`dashboard.html\` (captured automatically; see \`qa-cost\`).
 - Guidelines — QA conventions & naming (see the guidelines files).
 `;
 }

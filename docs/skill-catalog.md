@@ -2,7 +2,7 @@
 
 > **Auto-generated** from `packages/core/src/model/skills.ts` by `packages/core/src/docs/skill-flows.ts` (R-052). **Do not edit by hand** — the snapshot test `packages/core/tests/skill-flows.test.ts` fails on drift; regenerate with `npm run docs`. Every diagram is wrapped in `@formatter:off` / `@formatter:on` guards (R-054) so an autoformatter can't reflow it.
 
-The suite ships **25 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
+The suite ships **26 skills** in four buckets (read-only skills get no write tools). Each skill names its recommended successors in a `## Next` section; those hand-offs form the orchestration graph below.
 
 ## How the suite fits together
 
@@ -38,6 +38,7 @@ flowchart LR
     qa_gardening["qa-gardening"]
     qa_coverage_gap["qa-coverage-gap"]
     qa_metrics["qa-metrics"]
+    qa_cost["qa-cost"]
     qa_bug_report["qa-bug-report"]
     qa_reverse_engineer["qa-reverse-engineer"]
     qa_framework_analyze["qa-framework-analyze"]
@@ -97,7 +98,10 @@ flowchart LR
   qa_coverage_gap --> qa_review
   qa_metrics --> qa_coverage_gap
   qa_metrics --> qa_rca
+  qa_metrics --> qa_cost
   qa_metrics --> qa_gardening
+  qa_cost --> qa_metrics
+  qa_cost --> qa_gardening
   qa_bug_report --> qa_archive
   qa_reverse_engineer --> qa_ticket_review
   qa_reverse_engineer --> qa_test_plan
@@ -172,7 +176,7 @@ flowchart TD
 ```
 <!-- @formatter:on -->
 
-## Skills (25)
+## Skills (26)
 
 ### Backbone — process & context
 
@@ -870,7 +874,7 @@ Aggregate pass/fail/flakiness and acceptance-criterion coverage from the result 
 - **Model:** sonnet (balanced) · **Mode:** read-only
 - **Reads:** `context/changes/`, `context/archive/`, `context/foundation/tech-debt-tracker.md`, `context/foundation/lessons.md`
 - **Writes:** —
-- **Next:** `qa-coverage-gap` → `qa-rca` → `qa-gardening`
+- **Next:** `qa-coverage-gap` → `qa-rca` → `qa-cost` → `qa-gardening`
 
 <!-- @formatter:off -->
 ```mermaid
@@ -896,7 +900,44 @@ flowchart TD
   s2 --> s3
   s3 -->|next| qa_coverage_gap["qa-coverage-gap"]
   s3 -->|next| qa_rca["qa-rca"]
+  s3 -->|next| qa_cost["qa-cost"]
   s3 -->|next| qa_gardening["qa-gardening"]
+```
+<!-- @formatter:on -->
+
+#### `qa-cost` *(read-only)*
+
+Read-only AI cost & value cockpit — cost per skill/agent and cost vs value (ROI) per work-item from the telemetry log, each figure tagged real vs estimate, pointing at the dashboard.
+
+- **Model:** sonnet (balanced) · **Mode:** read-only
+- **Reads:** `context/telemetry/`, `context/changes/`, `context/archive/`
+- **Writes:** —
+- **Next:** `qa-metrics` → `qa-gardening`
+
+<!-- @formatter:off -->
+```mermaid
+flowchart TD
+  trig["▶ On a cadence (sprint end, before a client review, monthly) to a…"]
+  qa_cost["qa-cost<br/>sonnet · read-only"]
+  trig --> qa_cost
+  r0[("reads: context/telemetry/")]
+  r0 --> qa_cost
+  r1[("reads: context/changes/")]
+  r1 --> qa_cost
+  r2[("reads: context/archive/")]
+  r2 --> qa_cost
+  s0["1. Read the aggregate context/telemetry/index"]
+  qa_cost --> s0
+  s1["2. Respect the real-vs-estimate split (grounding)."]
+  s0 --> s1
+  s2["3. Compute cost per skill/agent (with the task descrip…"]
+  s1 --> s2
+  s3["4. Optionally add the secondary views the data supports"]
+  s2 --> s3
+  s4["5. Emit a digest in {{REPORT_LANGUAGE_NAME}}"]
+  s3 --> s4
+  s4 -->|next| qa_metrics["qa-metrics"]
+  s4 -->|next| qa_gardening["qa-gardening"]
 ```
 <!-- @formatter:on -->
 
